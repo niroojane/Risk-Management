@@ -177,18 +177,18 @@ def kupiec_test(rolling_var,Q=5):
 
 def create_constraint(sign,limit,position):
     
-    dico_map = {'=': 'eq', '≤': 'ineq', '≥': 'ineq'}
+    dico_map = {'=': 'eq', '≥': 'ineq', '≤': 'ineq'}
 
-    if sign=='≥' :
+    if sign=='≤' :
         constraints=[{'type': dico_map[sign], 'fun': lambda weights: limit-weights[position]}]
-    elif sign=='≤' :
+    elif sign=='≥' :
     
         constraints=[{'type': dico_map[sign], 'fun': lambda weights: weights[position]-limit}]
     else:
         constraints=[{'type': dico_map[sign], 'fun': lambda weights: weights[position]-limit}]
-        
+
     return constraints
-    
+
 def diversification_constraint(sign,limit):
     
     dico_map = {'=': 'eq', '≥': 'ineq', '≤': 'ineq'}
