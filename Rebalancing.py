@@ -58,7 +58,7 @@ def rebalanced_portfolio(data,weights,investment_amount=100,frequency='quarterly
     for j in range(len(dates)-1):
     
     
-        if dates[j+1]>closest_dates[i]:
+        if dates[j+1]>rebalancing_dates[i]:
             
             shares={}
             
@@ -95,3 +95,18 @@ def buy_and_hold(data,weights,investment_amount=100):
     
     return data*shares
 
+def compute_buy_and_hold_pnl(data,weights,investment_amount=100):
+    portfolio_value=buy_and_hold(data,weights,investment_amount=investment_amount)
+    pnl=pd.DataFrame((portfolio_value-portfolio_value.iloc[0]).iloc[-1])
+    pnl.columns=['PnL']
+
+    return pnl
+
+
+def compute_rebalance_pnl(data,weights,investment_amount=100,frequency='quarterly'):
+    portfolio_value=buy_and_hold(data,weights,investment_amount=investment_amount,frequency=frequency)
+    pnl=pd.DataFrame((portfolio_value-portfolio_value.iloc[0]).iloc[-1])
+    pnl.columns=['PnL']
+
+    return pnl
+    
