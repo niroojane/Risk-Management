@@ -160,7 +160,7 @@ def rebalanced_book_cost(data,weights,investment_amount=100,frequency='Quarterly
             trading_prices[0]=prices_array[0]
             amount_traded[0]=trading_prices[0]*quantities_array[0]
 
-    cost=pd.DataFrame(amount_traded,index=prices.index,columns=prices.columns)
+    cost=pd.DataFrame(amount_traded,index=data.index,columns=data.columns)
 
     return cost
     
