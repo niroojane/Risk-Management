@@ -40,7 +40,6 @@ def get_rebalancing_dates(data,frequency='Quarterly'):
     dates_end=sorted(list(set(dates_end)))
     
     rebalancing_dates=sorted(list(dates_end))
-    rebalancing_dates.pop(-1)
     
     return rebalancing_dates
 
