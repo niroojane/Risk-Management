@@ -223,6 +223,5 @@ def rebalanced_dynamic_quantities(data,matrix,investment_amount=100,transaction_
     quantities=pd.DataFrame(portfolio).T
     
     return quantities
-    
 
     
