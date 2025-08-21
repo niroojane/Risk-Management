@@ -43,10 +43,27 @@ class PnL:
                 ticker=trade_info[index][0]
             else:
                 ticker=trade_info[index][0][-3:]+'USDT'
-    
-            price=self.binance.binance_api.klines(ticker,interval='1m',startTime=int(trade_info[index][1].round(freq='min').timestamp()-60)*1000,limit=1)
-    
-            trade_price[index]=(trade_info[index][1],trade_info[index][0],price[0][4])
+
+            time_of_trade=trade_info[index][1]
+            time_of_trade_stamp=int(trade_info[index][1].round(freq='min').timestamp()-60)*1000
+            
+            price_data_api=self.binance.binance_api.klines(ticker,interval='1m',startTime=time_of_trade_stamp,limit=2)
+            price_data=pd.DataFrame(price_data_api)
+            numeric_columns =  ['Open Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close Time', 'Quote Asset Volume', 
+                                            'Number of Trades', 'TB Base Volume', 'TB Quote Volume', 'Ignore']
+            price_data.columns=numeric_columns
+            price_data['Close Time']=pd.to_datetime(price_data['Close Time'], unit='ms')
+            
+            close_prev = price_data.iloc[0]["Close"]
+            close_next = price_data.iloc[1]["Close"]
+            t_prev = price_data.iloc[0]["Close Time"]
+            t_next = price_data.iloc[1]["Close Time"]
+            
+            weight_prev = (t_next - time_of_trade) / pd.Timedelta(minutes=1)
+            weight_next = (time_of_trade - t_prev) / pd.Timedelta(minutes=1)
+            
+            pair_price = float(close_prev)* weight_prev + float(close_next) * weight_next
+            trade_price[index]=(trade_info[index][1],trade_info[index][0],pair_price)
     
         price=pd.DataFrame(trade_price.values(),columns=['Time','Market','Pair Price'])
         price=pd.concat([trade_history.reset_index(),price['Pair Price']],axis=1)
@@ -55,60 +72,93 @@ class PnL:
         price['Pair Quantity']=price['Total in USDT']/price['Price in USDT']
         
         return price
+
+    def get_crypto_traded(self, price):
     
-    def get_crypto_traded(self,price):
+        traded_crypto = set(price['Market'])  # include all trades, BUY and SELL
     
-        buy=price[price['Type']=='BUY'][['Market','Amount','Price in USDT']]
-        traded_crypto=set(buy['Market'])
-        
-        crypto_list=set()
+        crypto_list = set()
         for key in traded_crypto:
-    
-            if key[-4:]=='USDT':
-                crypto=key[:-4]
+            if key.endswith('USDT'):
+                base = key[:-4]
+                crypto_list.add(base)
+                crypto_list.add('USDT')  # include USDT explicitly
             else:
-                crypto=key[:-3]
+                base = key[:-3]
+                quote = key[-3:]
+                crypto_list.add(base)
+                crypto_list.add(quote)
     
-            crypto_list.add(crypto)
-            
         return crypto_list
+        
+
+    def get_book_cost(self, price):
+        """
+        Compute average book cost per asset in USDT terms,
+        correctly handling trades like ETHBTC (cross pairs).
+        """
     
-    def get_book_cost(self,price):
-        
-        crypto_list=self.get_crypto_traded(price)
-        
-        dynamic_average_total={}
-        dynamic_average_amount={}
-        
-        dataframe_amount={}
-        dataframe_total={}
+        crypto_list = self.get_crypto_traded(price)
     
+        dynamic_average_total = {}
+        dynamic_average_amount = {}
+    
+        dataframe_amount = {}
+        dataframe_total = {}
     
         for crypto in crypto_list:
     
-            dataset=price[price['Market'].str[:len(crypto)]==crypto]
-            index=dataset[dataset['Type']=='BUY'].index
+            # Select rows where this crypto is base OR quote
+            dataset = price[(price['Market'].str[:len(crypto)] == crypto) | 
+                            (price['Market'].str[-len(crypto):] == crypto)].copy()
     
-            results_amount=list(zip(price.iloc[index]['Date(UTC)'],price.iloc[index]['Amount']))
-            results_total=list(zip(price.iloc[index]['Date(UTC)'],price.iloc[index]['Total in USDT']))
-            dynamic_average_total[crypto]=results_total
-            dynamic_average_amount[crypto]=results_amount
-                
-            temp=pd.DataFrame(dynamic_average_total[crypto],columns=['Date','Total']).groupby(by='Date').sum()
-            temp_amount=pd.DataFrame(dynamic_average_amount[crypto],columns=['Date','Quantities']).groupby(by='Date').sum()
-            dataframe_total[crypto+'USDT']=dict(zip(temp.index,temp['Total']))
-            dataframe_amount[crypto+'USDT']=dict(zip(temp_amount.index,temp_amount['Quantities']))
-            
-        #quantities=pd.DataFrame(dataframe_amount).sort_index().cumsum().fillna(method='ffill').fillna(0)
-        #total=pd.DataFrame(dataframe_total).sort_index().cumsum().fillna(method='ffill').fillna(0)
-        quantities=pd.DataFrame(dataframe_amount).sort_index().cumsum().ffill().fillna(0)
-        total=pd.DataFrame(dataframe_total).sort_index().cumsum().ffill().fillna(0)
-        
-        book_cost=(total.shift(-1)+total)/(quantities.shift(-1)+quantities)
-        book_cost=book_cost.fillna(0)
-        book_cost.iloc[-1]=total.iloc[-1]/quantities.iloc[-1]
-        
+            # --- BASE asset logic (e.g., ETH in ETHBTC) ---
+            base_dataset = dataset[dataset['Market'].str[:len(crypto)] == crypto]
+    
+            if not base_dataset.empty:
+                index = base_dataset[base_dataset['Type'] == 'BUY'].index
+                results_amount = list(zip(price.iloc[index]['Date(UTC)'], price.iloc[index]['Amount']))
+                results_total = list(zip(price.iloc[index]['Date(UTC)'], price.iloc[index]['Total in USDT']))
+                dynamic_average_total[crypto] = results_total
+                dynamic_average_amount[crypto] = results_amount
+    
+            # --- QUOTE asset logic (e.g., BTC in ETHBTC) ---
+            quote_dataset = dataset[dataset['Market'].str[-len(crypto):] == crypto]
+    
+            if not quote_dataset.empty:
+                for idx, row in quote_dataset.iterrows():
+                    trade_date = row['Date(UTC)']
+                    total_usdt = float(row['Total in USDT'])
+                    pair_price = float(row['Pair Price'])
+                    amount_in_quote = total_usdt / pair_price  # amount of quote asset spent/received
+    
+                    if row['Type'] == 'BUY':
+                        # buying base → spending quote
+                        dynamic_average_total.setdefault(crypto, []).append((trade_date, -total_usdt))
+                        dynamic_average_amount.setdefault(crypto, []).append((trade_date, -amount_in_quote))
+                    elif row['Type'] == 'SELL':
+                        # selling base → receiving quote
+                        dynamic_average_total.setdefault(crypto, []).append((trade_date, total_usdt))
+                        dynamic_average_amount.setdefault(crypto, []).append((trade_date, amount_in_quote))
+    
+            # Convert to DataFrames
+            if crypto in dynamic_average_total:
+                temp = pd.DataFrame(dynamic_average_total[crypto], columns=['Date', 'Total']).groupby(by='Date').sum()
+                temp_amount = pd.DataFrame(dynamic_average_amount[crypto], columns=['Date', 'Quantities']).groupby(by='Date').sum()
+                dataframe_total[crypto + 'USDT'] = dict(zip(temp.index, temp['Total']))
+                dataframe_amount[crypto + 'USDT'] = dict(zip(temp_amount.index, temp_amount['Quantities']))
+    
+        # Cumulative sums
+        quantities = pd.DataFrame(dataframe_amount).sort_index().cumsum().ffill().fillna(0)
+        total = pd.DataFrame(dataframe_total).sort_index().cumsum().ffill().fillna(0)
+    
+        # Average book cost
+        book_cost = (total.shift(-1) + total) / (quantities.shift(-1) + quantities)
+        book_cost = book_cost.fillna(0)
+        book_cost.iloc[-1] = total.iloc[-1] / quantities.iloc[-1]
+    
         return book_cost
+
     
     def get_pnl(self,book_cost,price):
     
@@ -144,7 +194,7 @@ class PnL:
         realized_pnl=pd.DataFrame(pnl_per_crypto.values(),index=pnl_per_crypto.keys(),columns=['Realized PnL'])
         
         return realized_pnl,profit_and_loss
-    
+
     def get_historical_positions(self,price):
     
         crypto_list=self.get_crypto_traded(price)
