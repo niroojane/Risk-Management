@@ -52,7 +52,7 @@ class PnL:
         price=pd.concat([trade_history.reset_index(),price['Pair Price']],axis=1)
         price['Price in USDT']=np.where(price['Market'].str[-4:]=='USDT',price['Price'],price['Price'].astype(float)*price['Pair Price'].astype(float))
         price['Total in USDT']=(price['Price in USDT'].astype(float))*(price['Amount'].astype(float))
-        price['Pair Quantity']=price['Price in USDT']/price['Total in USDT']
+        price['Pair Quantity']=price['Total in USDT']/price['Price in USDT']
         
         return price
     
