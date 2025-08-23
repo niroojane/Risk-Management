@@ -38,12 +38,17 @@ class PnL:
     
         trade_price={}
         for index in trade_info:
-    
+
+            
             if trade_info[index][0][-4:]=='USDT':
                 ticker=trade_info[index][0]
             else:
-                ticker=trade_info[index][0][-3:]+'USDT'
-
+                if trade_info[index][0][-3:]!='TRY':
+                    ticker=trade_info[index][0][-3:]+'USDT'
+                else:
+                    ticker='USDT'+trade_info[index][0][-3:]
+            
+            print(ticker,index)
             time_of_trade=trade_info[index][1]
             time_of_trade_stamp=int(trade_info[index][1].round(freq='min').timestamp()-60)*1000
             
@@ -63,6 +68,11 @@ class PnL:
             weight_next = (time_of_trade - t_prev) / pd.Timedelta(minutes=1)
             
             pair_price = float(close_prev)* weight_prev + float(close_next) * weight_next
+
+
+            if trade_info[index][0][-3:]=='TRY':
+                pair_price=1/pair_price
+                
             trade_price[index]=(trade_info[index][1],trade_info[index][0],pair_price)
     
         price=pd.DataFrame(trade_price.values(),columns=['Time','Market','Pair Price'])
