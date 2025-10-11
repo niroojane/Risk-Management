@@ -297,8 +297,7 @@ def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Ye
 
 
 def display_crypto_app(Binance):
-    
-    # Binance=BinanceAPI(binance_api_key,binance_api_secret)
+
     # --- strategy dictionary ---
     dico_strategies = {
         'Minimum Variance': 'minimum_variance',
@@ -365,7 +364,8 @@ def display_crypto_app(Binance):
 
     scope_update(n_crypto.value)
     n_crypto.observe(lambda ch: scope_update(ch['new']) if ch['name'] == 'value' else None, names='value')
-
+    
+    price_output=widgets.Output()
     # --- price fetching ---
     def get_prices(_=None):
         global prices, dataframe, returns_to_use, dates_end
@@ -417,10 +417,19 @@ def display_crypto_app(Binance):
                 dropdown_asset.options = list(dataframe.columns) + ['All']
 
                 print(f"✅ Loaded prices for {len(dataframe.columns)} assets from {dataframe.index[0].date()} to {dataframe.index[-1].date()}")
-                display(display_scrollable_df(dataframe))
+                
+                asset_risk=get_asset_risk(dataframe)
+                asset_returns=get_asset_returns(dataframe)
+                display(display_scrollable_df(asset_returns))
+                display(display_scrollable_df(asset_risk))
+
             except Exception as e:
                 print("Error fetching prices:", e)
-
+                
+            with price_output:
+                price_output.clear_output()
+                display(display_scrollable_df(dataframe))
+                
     data_button.on_click(get_prices)
     start_date.observe(lambda ch: get_prices() if ch['name'] == 'value' and ch['new'] else None, names='value')
     
@@ -489,13 +498,7 @@ def display_crypto_app(Binance):
     # --- performance update ---
     def updated_cumulative_perf(_):
         global performance_pct, performance_fund,cumulative_results
-        if performance_pct is None or performance_pct.empty:
-            with output_returns:
-                output_returns.clear_output()
-                print("⚠️ No performance data available yet. Please run an optimization first.")
-            return
 
-        performance_pct.index = pd.to_datetime(performance_pct.index)
         try:
             start_ts = pd.to_datetime(start_date_perf.value)
             end_ts = pd.to_datetime(end_date_perf.value)
@@ -504,6 +507,24 @@ def display_crypto_app(Binance):
                 output_returns.clear_output()
                 print("⚠️ Invalid start/end dates.")
             return
+            
+        with main_output:
+            
+            main_output.clear_output()
+            range_prices=dataframe.loc[start_ts:end_ts]
+            asset_risk=get_asset_risk(range_prices)
+            asset_returns=get_asset_returns(range_prices)
+            display(display_scrollable_df(asset_returns))
+            display(display_scrollable_df(asset_risk))
+
+        if performance_pct is None or performance_pct.empty:
+            with output_returns:
+                output_returns.clear_output()
+                print("⚠️ No performance data available yet. Please run an optimization first.")
+            return
+
+        performance_pct.index = pd.to_datetime(performance_pct.index)
+
 
         if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
             with output_returns:
@@ -512,8 +533,7 @@ def display_crypto_app(Binance):
             return
 
         cumulative_performance = performance_pct.loc[start_ts:end_ts]
-        range_prices=dataframe.loc[start_ts:end_ts]
-        
+
         if cumulative_performance.empty:
             available_start = performance_pct.index.min().date()
             available_end = performance_pct.index.max().date()
@@ -531,7 +551,8 @@ def display_crypto_app(Binance):
         drawdown = (cumulative_results - cumulative_results.cummax()) / cumulative_results.cummax()
         
         update_dropdown_options()
-        
+
+
         with output_returns:
             
             output_returns.clear_output()
@@ -770,7 +791,8 @@ def display_crypto_app(Binance):
     position_button.on_click(get_holdings)
     
     # --- layout ---
-    constraint_ui = widgets.VBox([
+    constraint_ui = widgets.VBox([widgets.HBox([start_date_perf, end_date_perf]),
+                                               main_output,
         widgets.VBox([strat, rebalancing_frequency]),
         widgets.HBox([
             widgets.VBox([dropdown_asset, dropdown_sign, dropdown_limit]),
@@ -786,7 +808,8 @@ def display_crypto_app(Binance):
     universe_ui = widgets.VBox([
         widgets.HBox([n_crypto, start_date, data_button]),
         scope_output,
-        main_output
+        widgets.HBox([start_date_perf, end_date_perf]),
+        main_output,price_output
     ])
 
     calendar_perf=widgets.VBox([widgets.HBox([frequency_graph,fund,benchmark,graph_button]),calendar_output])
