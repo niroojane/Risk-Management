@@ -581,13 +581,15 @@ def display_crypto_app(Binance):
     calendar_output=widgets.Output()
     def show_graph(_):
         with calendar_output:
+
+            calendar_output.clear_output()
+
             if fund.value==benchmark.value:
                 print("⚠️ Benchmark and Fund must be different.")
                 return
             if cumulative_results.empty:
                 print("⚠️ No performance data available yet. Please run an optimization first.")
                 return
-            calendar_output.clear_output()
             get_calendar_graph(cumulative_results, 
                                freq=frequency_graph.value, 
                                benchmark=benchmark.value, 
