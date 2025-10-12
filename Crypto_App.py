@@ -296,7 +296,7 @@ def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Ye
             fig.show()
 
 
-def display_crypto_app(Binance):
+def display_crypto_app(Binance,Pnl_calculation):
 
     # --- strategy dictionary ---
     dico_strategies = {
@@ -310,18 +310,27 @@ def display_crypto_app(Binance):
     # --- globals ---
     global tickers_dataframe, tickers, dataframe, returns_to_use, prices
     global rolling_optimization, performance_pct, performance_fund, dates_end,quantities,cumulative_results
+    global book_cost,realized_pnl,holding_tickers,current_weights
 
     tickers_dataframe = pd.DataFrame()
     tickers = []
+    holding_tickers=[]
     dataframe = pd.DataFrame()
     cumulative_results=pd.DataFrame()
     
+    current_weights=pd.DataFrame()
+    book_cost=pd.DataFrame()
+    realized_pnl=pd.DataFrame()
+    
     returns_to_use = pd.DataFrame()
     prices = pd.DataFrame()
+    
     rolling_optimization = pd.DataFrame()
     quantities=pd.DataFrame()
+    
     performance_pct = pd.DataFrame()
     performance_fund = pd.DataFrame()
+    
     dates_end = []
     constraint_container = {'constraints': [], 'allocation_df': pd.DataFrame()}
 
@@ -368,7 +377,11 @@ def display_crypto_app(Binance):
     price_output=widgets.Output()
     # --- price fetching ---
     def get_prices(_=None):
-        global prices, dataframe, returns_to_use, dates_end
+        global prices, dataframe, returns_to_use, dates_end,valid_cols_model
+        
+        get_holdings(None)
+        combined_tickers=sorted(list(set(tickers+holding_tickers)))
+        
         with main_output:
             main_output.clear_output()
             if not tickers:
@@ -393,12 +406,12 @@ def display_crypto_app(Binance):
 
             try:
                 for _ in range(numbers_of_table + 1):
-                    data = Binance.get_price(tickers, temp_end)
+                    data = Binance.get_price(combined_tickers, temp_end)
                     temp_end += datetime.timedelta(days=500)
                     scope_prices = scope_prices.combine_first(data)
 
                 temp_end = datetime.datetime.combine(today - datetime.timedelta(days=remaining), datetime.time())
-                data = Binance.get_price(tickers, temp_end)
+                data = Binance.get_price(combined_tickers, temp_end)
                 scope_prices = scope_prices.combine_first(data)
 
                 scope_prices = scope_prices.sort_index()
@@ -409,6 +422,7 @@ def display_crypto_app(Binance):
                 returns = np.log(1 + prices.pct_change(fill_method=None))
                 returns.index = pd.to_datetime(returns.index)
                 valid_cols = returns.columns[returns.isna().sum() < 30]
+
                 returns_to_use = returns[valid_cols].sort_index()
                 dataframe = prices[valid_cols].sort_index().dropna()
                 dataframe.index = pd.to_datetime(dataframe.index)
@@ -429,6 +443,8 @@ def display_crypto_app(Binance):
             with price_output:
                 price_output.clear_output()
                 display(display_scrollable_df(dataframe))
+
+
                 
     data_button.on_click(get_prices)
     start_date.observe(lambda ch: get_prices() if ch['name'] == 'value' and ch['new'] else None, names='value')
@@ -465,7 +481,7 @@ def display_crypto_app(Binance):
         if grid.data is None or grid.data.empty:
             return
         new_row = np.zeros(dataframe.shape[1])
-        label = f"Allocation {grid.data.shape[0]-5}"
+        label = f"Allocation {grid.data.shape[0]}"
         new_df = pd.DataFrame([new_row], columns=grid.data.columns, index=[label])
         updated_df = pd.concat([pd.DataFrame(grid.data), new_df])
         grid.data = updated_df
@@ -649,10 +665,12 @@ def display_crypto_app(Binance):
                 'Min Variance': minvar.tolist(),
                 'Constrained Min Var': minvar_c.tolist() if minvar_c is not None else minvar.tolist(),
                 'Risk Parity': rp.tolist(),
-                'Constrained RP': rp_c.tolist() if rp_c is not None else rp.tolist()
-            }
-    
+                'Constrained RP': rp_c.tolist() if rp_c is not None else rp.tolist()}
+            
             allocation_df = pd.DataFrame(allocation, index=dataframe.columns).T.round(4)
+            if set(current_weights.index).issubset(dataframe.columns):
+                allocation_df = allocation_df.combine_first(current_weights.T).fillna(0)
+            
             constraint_container = {'constraints': constraints, 'allocation_df': allocation_df}
             grid.data = allocation_df
         
@@ -759,38 +777,132 @@ def display_crypto_app(Binance):
     results_button.on_click(get_result)
 
     positions_output=widgets.Output()
+    holding_output=widgets.Output()
     
     def get_holdings(_):
+
+        global holding_tickers,current_weights,pnl
         
+        quantities_api=Binance.binance_api.user_asset()
+        current_quantities=pd.DataFrame(quantities_api).sort_values(by='free',ascending=False)
+        current_quantities['asset']=current_quantities['asset']+'USDT'
+        current_quantities=current_quantities.set_index('asset')
+        
+        current_positions=Binance.get_inventory().round(4)
+        current_positions.columns=['Current Portfolio in USDT','Current Weights']
+        amount=current_positions.loc['Total']['Current Portfolio in USDT']
+        condition=current_positions.index!='Total'
+
+        holding_tickers=current_positions.index[condition]
+        holding_tickers=holding_tickers.to_list()
+        
+        inventory_weights=(current_positions['Current Weights'].apply(lambda x: np.round(x,4))).to_dict()
+        inventory_weights.pop('Total')
+        inventory_weights.pop('USDCUSDT')
+        
+        if "USDTUSDT" in holding_tickers:
+            inventory_weights.pop('USDTUSDT')
+        else: 
+            pass
+            
+        current_weights=pd.DataFrame(inventory_weights.values(),index=inventory_weights.keys(),columns=['Current Weights'])
+                
         with positions_output:
             positions_output.clear_output()
-            if dataframe.empty or returns_to_use.empty or quantities.empty:
+        
+            if dataframe.empty or returns_to_use.empty:
+                print("⚠️ Load Prices.")
+                # display(display_scrollable_df(current_positions))
+        
+            elif quantities.empty:
                 print("⚠️ Load Model.")
-                return
-                
-            current_positions=Binance.get_inventory().round(4)
-            current_positions.columns=['Current Portfolio in USDT','Current Weights']
-            amount=current_positions.loc['Total']['Current Portfolio in USDT']
-            last_prices=Binance.get_price(list(quantities.iloc[-1].keys()))
-            positions=pd.DataFrame(quantities.iloc[-1]*last_prices).T
-            
-            amount_ex_out_of_positions = (
-                current_positions.loc[
-                    ~(current_positions.index.isin(positions.index) | (current_positions.index == 'Total')),
-                'Current Portfolio in USDT'
-                ].sum()
-            )
-            
-            positions['Weights Model']=positions/positions.sum()
-            positions['Model (without out of Model Positions)']=positions['Weights Model']*(amount-amount_ex_out_of_positions)
-            positions['Model']=positions['Weights Model']*amount
-            condition=current_positions.index!='Total'
-            portfolio=pd.concat([positions[['Model','Model (without out of Model Positions)','Weights Model']],current_positions.loc[condition]],axis=1).fillna(0)
-            portfolio['Spread']=portfolio['Current Portfolio in USDT']-portfolio['Model']
-            portfolio.loc['Total']=portfolio.sum(axis=0)
-            portfolio=portfolio.loc[~(portfolio == 0).all(axis=1)].sort_values(by='Weights Model',ascending=False).round(4)
+                # display(display_scrollable_df(current_positions))
+        
+            else:
+                last_prices = Binance.get_price(list(quantities.iloc[-1].keys()))
+                positions = pd.DataFrame(quantities.iloc[-1] * last_prices).T
+        
+                amount_ex_out_of_positions = (
+                    current_positions.loc[
+                        ~(current_positions.index.isin(positions.index) | (current_positions.index == 'Total')),
+                        'Current Portfolio in USDT'
+                    ].sum()
+                )
+        
+                positions['Weights Model'] = positions / positions.sum()
+                positions['Model (without out of Model Positions)'] = (
+                    positions['Weights Model'] * (amount - amount_ex_out_of_positions)
+                )
+                positions['Model'] = positions['Weights Model'] * amount
+        
+                portfolio = pd.concat(
+                    [positions[['Model', 'Model (without out of Model Positions)', 'Weights Model']],
+                     current_positions.loc[condition]],
+                    axis=1
+                ).fillna(0)
+        
+                portfolio['Spread'] = portfolio['Current Portfolio in USDT'] - portfolio['Model']
+                portfolio.loc['Total'] = portfolio.sum(axis=0)
+                portfolio = (
+                    portfolio.loc[~(portfolio == 0).all(axis=1)]
+                    .sort_values(by='Weights Model', ascending=False)
+                    .round(4)
+                )
+        
+                display(display_scrollable_df(portfolio))
+        
+        # --- Now, this block will always run ---
+        with holding_output:
+            holding_output.clear_output()
+        
+            if book_cost.empty and realized_pnl.empty:
+                display(display_scrollable_df(current_positions))
+                print("⚠️ P&L not Computed.")
+            else:
+                last_book_cost = book_cost.iloc[-1] if not book_cost.empty else pd.Series(dtype=float)
+                realized_pnl_filled = realized_pnl if not realized_pnl.empty else pd.Series(dtype=float)
+        
+                last_book_cost = last_book_cost.reindex(current_positions.index).fillna(0)
+                realized_pnl_filled = realized_pnl_filled.reindex(current_positions.index).fillna(0)
+        
+                pnl = pd.concat(
+                    [last_book_cost, last_book_cost, current_positions.loc[condition], realized_pnl_filled],
+                    axis=1
+                )
+                pnl.columns = ['Average Cost', 'Book Cost', 'Price in USDT', 'Weights', 'Realized PnL']
+        
+                pnl['Book Cost'] = (pnl['Book Cost'] * current_quantities['free'].astype(float)).fillna(0)
+                pnl['Unrealized PnL'] = (pnl['Price in USDT'] - pnl['Book Cost']).round(2)
+                pnl = pnl.fillna(0)
+                pnl['Weights'] = pnl['Weights'].round(4)
+        
+                pnl['Total PnL'] = pnl['Unrealized PnL'] + pnl['Realized PnL']
+                pnl.loc['Total'] = pnl.sum()
+                pnl.loc['Total', 'Average Cost'] = np.nan
+                pnl.loc['Total', 'Book Cost'] = pnl.loc['Total', 'Price in USDT'] - pnl.loc['Total', 'Total PnL']
+        
+                if pnl.loc['Total', 'Book Cost'] != 0:
+                    pnl['Total PnL %'] = pnl['Total PnL'] / pnl.loc['Total', 'Book Cost'] * 100
+                else:
+                    pnl['Total PnL %'] = 0
+        
+                display(display_scrollable_df(pnl.sort_values(by='Weights', ascending=False).round(4)))             
 
-            display(display_scrollable_df(portfolio))
+            
+    
+    def get_pnl_on_click(_):
+        global book_cost,realized_pnl
+        url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Trade%20History%20Reconstructed.xlsx'
+        myfile = requests.get(url)
+        trade_history=pd.read_excel(BytesIO(myfile.content))
+        trades=Pnl_calculation.get_trade_in_usdt(trade_history)
+        
+        book_cost=Pnl_calculation.get_book_cost(trades)
+        realized_pnl,profit_and_loss=Pnl_calculation.get_pnl(book_cost,trades)
+        get_holdings(None)
+        
+    pnl_button=widgets.Button(description='Get P&L',button_style='info')
+    pnl_button.on_click(get_pnl_on_click)
             
     position_button=widgets.Button(description='Get Positions',button_style='info')
     position_button.on_click(get_holdings)
@@ -818,7 +930,7 @@ def display_crypto_app(Binance):
     ])
 
     calendar_perf=widgets.VBox([widgets.HBox([frequency_graph,fund,benchmark,graph_button]),calendar_output])
-    positions_ui=widgets.VBox([position_button,positions_output])
+    positions_ui=widgets.VBox([widgets.HBox([position_button,pnl_button]),positions_output,holding_output])
     
     tab = widgets.Tab()
     tab.children = [universe_ui, constraint_ui,calendar_perf,positions_ui]
