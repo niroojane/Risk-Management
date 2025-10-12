@@ -648,7 +648,7 @@ def display_crypto_app(Binance,Pnl_calculation):
                 except Exception as e:
                     print("Error building constraints:", e)
                     
-            portfolio = RiskAnalysis(returns_to_use)
+            portfolio = RiskAnalysis(returns_to_use.loc[start_date_perf.value:end_date_perf.value])
             sharpe = portfolio.optimize("sharpe_ratio")
             minvar = portfolio.optimize("minimum_variance")
             rp = portfolio.optimize("risk_parity")
