@@ -1004,8 +1004,6 @@ def display_crypto_app(Binance,Pnl_calculation):
                 last_book_cost = book_cost.iloc[-1] if not book_cost.empty else pd.Series(dtype=float)
                 realized_pnl_filled = realized_pnl if not realized_pnl.empty else pd.Series(dtype=float)
         
-                last_book_cost = last_book_cost.reindex(current_positions.index).fillna(0)
-                realized_pnl_filled = realized_pnl_filled.reindex(current_positions.index).fillna(0)
         
                 pnl = pd.concat(
                     [last_book_cost, last_book_cost, current_positions.loc[condition], realized_pnl_filled],
