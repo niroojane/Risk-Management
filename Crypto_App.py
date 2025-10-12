@@ -81,6 +81,31 @@ def build_constraint(prices, constraint_matrix):
 
     return constraints
 
+    
+def get_expected_metrics(returns,dataframe):
+    portfolio=RiskAnalysis(returns)
+    allocation_dict={}
+
+    for idx in dataframe.index:
+        allocation_dict[idx]=dataframe.loc[idx].to_numpy()
+
+
+    
+    metrics={}
+    metrics['Expected Returns']={}
+    metrics['Expected Volatility']={}
+    metrics['Sharpe Ratio']={}
+
+    for key in allocation_dict:
+
+        metrics['Expected Returns'][key]=(np.round(portfolio.performance(allocation_dict[key]), 4))
+        metrics['Expected Volatility'][key]=(np.round(portfolio.variance(allocation_dict[key]), 4))
+        sharpe_ratio=np.round(portfolio.performance(allocation_dict[key])/portfolio.variance(allocation_dict[key]),2)
+        metrics['Sharpe Ratio'][key]=sharpe_ratio
+
+    indicators = pd.DataFrame(metrics,index=allocation_dict.keys())
+
+    return indicators.T.round(4)
 def rebalanced_time_series(prices,dataframe,frequency='Monthly'):
 
     portfolio_returns=pd.DataFrame()
@@ -106,10 +131,36 @@ def rebalanced_metrics(portfolio_returns):
     
     return perfs.T.round(4)
 
-
-def get_portfolio_risk(portfolio_returns):
-
     
+def get_portfolio_risk(dataframe,prices,portfolio_returns,benchmark):
+
+    allocation_dict={}
+    
+    returns=prices.pct_change()
+    
+    for idx in dataframe.index:
+        allocation_dict[idx]=dataframe.loc[idx].to_numpy()
+
+
+    tracking_error_daily={}
+    tracking_error_monthly={}
+    monthly_returns=prices.resample('ME').last().iloc[-180:].pct_change()
+
+
+    for key in allocation_dict:
+        if key not in allocation_dict or benchmark not in allocation_dict:
+            continue
+
+        tracking_error_daily['Buy and Hold '+key]=RiskAnalysis(returns).variance(allocation_dict[key]-allocation_dict[benchmark])/np.sqrt(252)*np.sqrt(260)
+        tracking_error_daily['Rebalanced '+key]=RiskAnalysis(returns).variance(allocation_dict[key]-allocation_dict[benchmark])/np.sqrt(252)*np.sqrt(260)
+        tracking_error_monthly['Buy and Hold '+key]=RiskAnalysis(monthly_returns).variance(allocation_dict[key]-allocation_dict[benchmark])/np.sqrt(252)*np.sqrt(12)
+        tracking_error_monthly['Rebalanced '+key]=RiskAnalysis(monthly_returns).variance(allocation_dict[key]-allocation_dict[benchmark])/np.sqrt(252)*np.sqrt(12)
+
+ 
+            
+    tracking_error_daily=pd.DataFrame(tracking_error_daily.values(),index=tracking_error_daily.keys(),columns=['Tracking Error (daily)'])
+    tracking_error_monthly=pd.DataFrame(tracking_error_monthly.values(),index=tracking_error_monthly.keys(),columns=['Tracking Error (Monthly)'])
+
     dates_drawdown=((portfolio_returns-portfolio_returns.cummax())/portfolio_returns.cummax()).idxmin().dt.date
     
     vol=portfolio_returns.pct_change().iloc[:].std()*np.sqrt(260)
@@ -120,14 +171,14 @@ def get_portfolio_risk(portfolio_returns):
     intervals=np.arange(Q, 1, 0.0005, dtype=float)
     cvar=monthly_vol*norm(loc =0 , scale = 1).ppf(1-intervals).mean()/0.05
 
-    risk=pd.concat([vol,monthly_vol,cvar,drawdown,dates_drawdown],axis=1).round(4)
-    risk.columns=['Annualized Volatility (daily)',
-                  'Annualized Volatility (Monthly)',
+    risk=pd.concat([vol,tracking_error_daily,monthly_vol,tracking_error_monthly,cvar,drawdown,dates_drawdown],axis=1).round(4)
+    risk.columns=['Annualized Volatility (daily)','TEV (daily)',
+                  'Annualized Volatility (Monthly)','TEV (Monthly)',
                   'CVar Parametric '+str(int((1-Q)*100))+'%',
                   'Max Drawdown','Date of Max Drawdown']
     
     return risk.T.round(4)
-
+    
 def get_asset_returns(prices):
     
     ret=prices.iloc[-1]/prices.iloc[0]-1
@@ -158,7 +209,7 @@ def get_asset_risk(prices):
     risk=pd.concat([vol,weekly_vol,monthly_vol_1Y,monthly_vol_5Y,cvar,drawdown,dates_drawdown],axis=1).round(4)
     risk.columns=['Annualized Volatility (daily)',
     'Annualized Volatility 3Y (Weekly)',
-    'Annualized Volatility 5Y (Monthly)','Annualized Volatility since 2020 (Monthly)',
+    'Annualized Volatility 5Y (Monthly)','Annualized Volatility since '+str(prices.index[0].year) +' (Monthly)',
     'CVar Parametric '+str(int((1-Q)*100))+'%','Max Drawdown','Date of Max Drawdown']
     
     
@@ -294,7 +345,80 @@ def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Ye
                 textfont=dict(family="Arial Narrow", size=15),
                 hovertemplate="Year: %{x}<br>%{y:.3f}<extra></extra>")
             fig.show()
+def get_frontier(returns,dataframe):
+    portfolio=RiskAnalysis(returns)
+    frontier_weights, frontier_returns, frontier_risks, frontier_sharpe_ratio = portfolio.efficient_frontier()
+    
+    weight_matrix={}
 
+    for idx in dataframe.index:
+        
+        weight_matrix[idx]=dataframe.loc[idx].to_numpy()
+    
+    metrics = {
+        'Returns': {},
+        'Volatility': {},
+        'Sharpe Ratio': {}
+    }
+    for key in weight_matrix:
+        
+        metrics['Returns'][key]=(np.round(portfolio.performance(weight_matrix[key]), 4))
+        metrics['Volatility'][key]=(np.round(portfolio.variance(weight_matrix[key]), 4))
+        metrics['Sharpe Ratio'][key]=np.round(metrics['Returns'][key]/metrics['Volatility'][key],4)
+    
+    
+    frontier = pd.DataFrame(
+        {
+            "Returns": frontier_returns,
+            "Volatility": frontier_risks,
+            "Sharpe Ratio": frontier_sharpe_ratio,
+        }
+    )
+    
+    fig = px.scatter(
+        frontier,
+        y="Returns",
+        x="Volatility",
+        color="Sharpe Ratio",
+        color_continuous_scale='blues',
+    )
+    
+    for key in weight_matrix:
+    
+        fig.add_scatter(
+            x=[metrics["Volatility"][key]],
+            y=[metrics["Returns"][key]],
+            mode="markers",
+            marker=dict(color="orange", size=8, symbol="x"),
+            name=key,
+        )
+        
+        
+    fig.add_scatter(
+        x=[metrics["Volatility"]['Optimal Portfolio']],
+        y=[metrics["Returns"]['Optimal Portfolio']],
+        mode="markers",
+        marker=dict(color="red", size=8, symbol="x"),
+        name='Optimal Portfolio',
+    )
+    
+    fig.update_layout(
+        showlegend=False, 
+        hoverlabel_namelength=-1,
+        font=dict(
+            family="Arial Narrow",
+            size=14,
+            color="white" 
+        ),
+        plot_bgcolor="black", 
+        paper_bgcolor="black"  
+    )
+    
+    fig.update_layout(showlegend=False)
+    fig.update_layout(hoverlabel_namelength=-1)
+    indicators = pd.DataFrame(metrics,index=weight_matrix.keys()).T
+
+    return indicators,fig
 
 def display_crypto_app(Binance,Pnl_calculation):
 
@@ -485,6 +609,7 @@ def display_crypto_app(Binance,Pnl_calculation):
         new_df = pd.DataFrame([new_row], columns=grid.data.columns, index=[label])
         updated_df = pd.concat([pd.DataFrame(grid.data), new_df])
         grid.data = updated_df
+        benchmark_tracking_error.options=grid.data.index
 
     def clear_allocation(b):
         
@@ -510,6 +635,7 @@ def display_crypto_app(Binance,Pnl_calculation):
     frequency_graph=widgets.Dropdown(description='Frequency:', options=['Year','Month'], value='Year')
     benchmark=widgets.Dropdown(description='Benchmark:', options=['Fund','Bitcoin'], value='Bitcoin')
     fund=widgets.Dropdown(description='Fund:', options=['Fund','Bitcoin'], value='Fund')
+    benchmark_tracking_error=widgets.Dropdown(description='Benchmark:')
     
     # --- performance update ---
     def updated_cumulative_perf(_):
@@ -528,6 +654,8 @@ def display_crypto_app(Binance,Pnl_calculation):
             
             main_output.clear_output()
             range_prices=dataframe.loc[start_ts:end_ts]
+            range_returns=range_prices.pct_change()
+            
             asset_risk=get_asset_risk(range_prices)
             asset_returns=get_asset_returns(range_prices)
             display(display_scrollable_df(asset_returns))
@@ -565,35 +693,51 @@ def display_crypto_app(Binance,Pnl_calculation):
         portfolio_returns = rebalanced_time_series(range_prices, grid.data, frequency=rebalancing_frequency.value)
         cumulative_results=pd.concat([cumulative_results,portfolio_returns],axis=1)
         drawdown = (cumulative_results - cumulative_results.cummax()) / cumulative_results.cummax()
-        
+        rolling_vol_ptf=cumulative_results.pct_change().rolling(window_vol.value).std()*np.sqrt(260)
+        frontier_indicators, fig4 = get_frontier(range_returns, grid.data)
         update_dropdown_options()
+
+
 
 
         with output_returns:
             
             output_returns.clear_output()
             display(display_scrollable_df(rebalanced_metrics(cumulative_results)))
-            display(display_scrollable_df(get_portfolio_risk(cumulative_results)))
+            display(display_scrollable_df(get_portfolio_risk(grid.data, range_prices, cumulative_results, benchmark_tracking_error.value)))
+
             fig = px.line(cumulative_results, title='Performance', width=800, height=400)
             fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
             fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
             fig.show()
+            
             fig2 = px.line(drawdown, title='Drawdown', width=800, height=400)
             fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
             fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
-            
             fig2.show()
+
+            fig3 = px.line(rolling_vol_ptf, title="Portfolio Rolling Volatility").update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
+            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white") 
+            fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
+            fig3.show()
+
+            display(display_scrollable_df(frontier_indicators))
+            fig4.show()
             # display(display_scrollable_df(cumulative_results))
             # display(display_scrollable_df(drawdown))
 
         
     start_date_perf.observe(updated_cumulative_perf)
     end_date_perf.observe(updated_cumulative_perf)
-
+    # benchmark_tracking_error.observe(updated_cumulative_perf)
     # --- optimization ---
     rebalancing_frequency = widgets.Dropdown(description='Frequency', options=['Monthly', 'Quarterly', 'Yearly'], value='Monthly')
     strat = widgets.Dropdown(description='Strategy', options=options_strat, value='Minimum Variance')
-    
+    window_vol=widgets.IntText(
+    value=30,
+    description='Vol Window:',
+    disabled=False
+    )    
     calendar_output=widgets.Output()
     def show_graph(_):
         with calendar_output:
@@ -631,8 +775,7 @@ def display_crypto_app(Binance,Pnl_calculation):
     
         fund.options = fund_opts
         benchmark.options = bench_opts
-
-        allocation_button=widgets.Button(description='Get Allocation')
+        benchmark_tracking_error.options=grid.data.index
         
     def on_optimize_clicked(_):
         with strategy_output:
@@ -660,8 +803,8 @@ def display_crypto_app(Binance,Pnl_calculation):
                 rp_c = portfolio.optimize("risk_parity", constraints=cons)
     
             allocation = {
-                'Sharpe Ratio': sharpe.tolist(),
-                'Constrained Sharpe': sharpe_c.tolist() if sharpe_c is not None else sharpe.tolist(),
+                'Optimal Portfolio': sharpe.tolist(),
+                'Constrained Optimal Portfolio': sharpe_c.tolist() if sharpe_c is not None else sharpe.tolist(),
                 'Min Variance': minvar.tolist(),
                 'Constrained Min Var': minvar_c.tolist() if minvar_c is not None else minvar.tolist(),
                 'Risk Parity': rp.tolist(),
@@ -673,8 +816,7 @@ def display_crypto_app(Binance,Pnl_calculation):
             
             constraint_container = {'constraints': constraints, 'allocation_df': allocation_df}
             grid.data = allocation_df
-        
-
+            benchmark_tracking_error.options=grid.data.index
                 
     def get_result(_):
         
@@ -910,7 +1052,7 @@ def display_crypto_app(Binance,Pnl_calculation):
     # --- layout ---
     constraint_ui = widgets.VBox([widgets.HBox([start_date_perf, end_date_perf]),
                                                main_output,
-        widgets.VBox([strat, rebalancing_frequency]),
+        widgets.VBox([strat, rebalancing_frequency,benchmark_tracking_error,window_vol]),
         widgets.HBox([
             widgets.VBox([dropdown_asset, dropdown_sign, dropdown_limit]),
             widgets.VBox([add_constraint_btn, clear_constraints_btn, optimize_btn])
