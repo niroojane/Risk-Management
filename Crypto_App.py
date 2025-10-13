@@ -1019,7 +1019,7 @@ def display_crypto_app(Binance,Pnl_calculation):
                 pnl = pnl.fillna(0)
                 pnl['Weights'] = pnl['Weights'].round(4)
         
-                pnl['Total PnL'] = pnl['Unrealized PnL'] + pnl['Realized PnL']
+                pnl['Total PnL'] = pnl['Unrealized P&L'] + pnl['Realized PnL']
                 pnl.loc['Total'] = pnl.sum()
                 pnl.loc['Total', 'Average Cost'] = np.nan
                 pnl.loc['Total', 'Book Cost'] = pnl.loc['Total', 'Price in USDT'] - pnl.loc['Total', 'Total P&L']
