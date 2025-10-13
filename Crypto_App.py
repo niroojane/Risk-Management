@@ -1009,22 +1009,26 @@ def display_crypto_app(Binance,Pnl_calculation):
                     [last_book_cost, last_book_cost, current_positions.loc[condition], realized_pnl_filled],
                     axis=1
                 )
+                )
                 pnl.columns = ['Average Cost', 'Book Cost', 'Price in USDT', 'Weights', 'Realized PnL']
         
                 pnl['Book Cost'] = (pnl['Book Cost'] * current_quantities['free'].astype(float)).fillna(0)
-                pnl['Unrealized PnL'] = (pnl['Price in USDT'] - pnl['Book Cost']).round(2)
+                pnl['Unrealized P&L'] = (pnl['Price in USDT'] - pnl['Book Cost']).round(2)
                 pnl = pnl.fillna(0)
                 pnl['Weights'] = pnl['Weights'].round(4)
         
                 pnl['Total PnL'] = pnl['Unrealized PnL'] + pnl['Realized PnL']
                 pnl.loc['Total'] = pnl.sum()
                 pnl.loc['Total', 'Average Cost'] = np.nan
-                pnl.loc['Total', 'Book Cost'] = pnl.loc['Total', 'Price in USDT'] - pnl.loc['Total', 'Total PnL']
+                pnl.loc['Total', 'Book Cost'] = pnl.loc['Total', 'Price in USDT'] - pnl.loc['Total', 'Total P&L']
         
                 if pnl.loc['Total', 'Book Cost'] != 0:
-                    pnl['Total PnL %'] = pnl['Total PnL'] / pnl.loc['Total', 'Book Cost'] * 100
+                    pnl['Total P&L %'] = pnl['Total P&L'] / pnl.loc['Total', 'Book Cost'] * 100
                 else:
-                    pnl['Total PnL %'] = 0
+                    pnl['Total P&L %'] = 0
+        
+                display(display_scrollable_df(pnl.sort_values(by='Weights', ascending=False).round(4)))             
+
         
                 display(display_scrollable_df(pnl.sort_values(by='Weights', ascending=False).round(4)))             
 
