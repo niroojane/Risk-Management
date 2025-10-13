@@ -1011,15 +1011,14 @@ def display_crypto_app(Binance,Pnl_calculation):
                     [last_book_cost, last_book_cost, current_positions.loc[condition], realized_pnl_filled],
                     axis=1
                 )
-                )
-                pnl.columns = ['Average Cost', 'Book Cost', 'Price in USDT', 'Weights', 'Realized PnL']
+                pnl.columns = ['Average Cost', 'Book Cost', 'Price in USDT', 'Weights', 'Realized P&L']
         
                 pnl['Book Cost'] = (pnl['Book Cost'] * current_quantities['free'].astype(float)).fillna(0)
                 pnl['Unrealized P&L'] = (pnl['Price in USDT'] - pnl['Book Cost']).round(2)
                 pnl = pnl.fillna(0)
                 pnl['Weights'] = pnl['Weights'].round(4)
         
-                pnl['Total PnL'] = pnl['Unrealized P&L'] + pnl['Realized PnL']
+                pnl['Total P&L'] = pnl['Unrealized P&L'] + pnl['Realized P&L']
                 pnl.loc['Total'] = pnl.sum()
                 pnl.loc['Total', 'Average Cost'] = np.nan
                 pnl.loc['Total', 'Book Cost'] = pnl.loc['Total', 'Price in USDT'] - pnl.loc['Total', 'Total P&L']
@@ -1029,10 +1028,7 @@ def display_crypto_app(Binance,Pnl_calculation):
                 else:
                     pnl['Total P&L %'] = 0
         
-                display(display_scrollable_df(pnl.sort_values(by='Weights', ascending=False).round(4)))             
-
-        
-                display(display_scrollable_df(pnl.sort_values(by='Weights', ascending=False).round(4)))             
+                display(display_scrollable_df(pnl.sort_values(by='Weights', ascending=False).round(4)))                
 
             
     
