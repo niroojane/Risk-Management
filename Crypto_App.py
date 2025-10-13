@@ -901,6 +901,8 @@ def display_crypto_app(Binance,Pnl_calculation):
             metrics['Fund Return']=performance_fund['Fund'].iloc[-2]/performance_fund['Fund'].iloc[0]
             metrics['Bitcoin Return']=performance_fund['Bitcoin'].iloc[-2]/performance_fund['Bitcoin'].iloc[0]
             metrics['Sharpe Ratio']=(1+metrics['Fund Return'])**(1/len(set(returns_to_use.index.year)))/metrics['Fund Vol']
+            metrics['Bitcoin Sharpe Ratio']=(1+metrics['Bitcoin Return'])**(1/len(set(returns_to_use.index.year)))/metrics['Bitcoin Vol']
+
             metrics['Fund Drawdown']=max_drawdown['Fund']
             metrics['Bitcoin Drawdown']=max_drawdown['Bitcoin']
             
