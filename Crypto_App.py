@@ -770,11 +770,12 @@ def display_crypto_app(Binance,Pnl_calculation):
         options = list(cumulative_results.columns)
     
         # Fund options exclude the currently selected benchmark
-        fund_opts = [x for x in options if x != benchmark.value]
-        bench_opts = [x for x in options if x != fund.value]
     
-        fund.options = fund_opts
-        benchmark.options = bench_opts
+        fund.options = options
+        benchmark.options = options
+        
+        fund.value = options[0]
+        benchmark.value = options[1]
         benchmark_tracking_error.options=grid.data.index
         
     def on_optimize_clicked(_):
