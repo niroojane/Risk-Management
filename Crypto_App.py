@@ -622,14 +622,11 @@ def display_crypto_app(Binance,Pnl_calculation):
         benchmark_tracking_error.options=grid.data.index
         
         selected_fund.options=grid.data.index
-        selected_fund.value=grid.data.index[0]
 
         selected_bench.options=grid.data.index
-        selected_bench.value=grid.data.index[0]
 
         
         selected_fund_var.options=grid.data.index
-        selected_fund_var.value=grid.data.index[0]
 
     def clear_allocation(b):
         
@@ -800,16 +797,13 @@ def display_crypto_app(Binance,Pnl_calculation):
         benchmark.value = options[1]
         fund_names=list(grid.data.index)
         benchmark_tracking_error.options=grid.data.index
-        
+
         selected_fund.options=grid.data.index
-        selected_fund.value=grid.data.index[0]
 
         selected_bench.options=grid.data.index
-        selected_bench.value=grid.data.index[0]
 
         
         selected_fund_var.options=grid.data.index
-        selected_fund_var.value=grid.data.index[0]
         
     def on_optimize_clicked(_):
         global fund_names,grid
@@ -854,7 +848,8 @@ def display_crypto_app(Binance,Pnl_calculation):
             grid.data = allocation_df
             
             benchmark_tracking_error.options=grid.data.index
-            
+            benchmark_tracking_error.value=grid.data.index[0]
+
             selected_fund.options=grid.data.index
             selected_fund.value=grid.data.index[0]
     
