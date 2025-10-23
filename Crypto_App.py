@@ -8,8 +8,7 @@ import requests
 
 import ipywidgets as widgets
 from ipydatagrid import DataGrid, TextRenderer
-from IPython.display import display
-from IPython.display import HTML
+from IPython.display import display,Markdown,HTML
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -434,13 +433,14 @@ def display_crypto_app(Binance,Pnl_calculation):
     # --- globals ---
     global tickers_dataframe, tickers, dataframe, returns_to_use, prices
     global rolling_optimization, performance_pct, performance_fund, dates_end,quantities,cumulative_results
-    global book_cost,realized_pnl,holding_tickers,current_weights
+    global book_cost,realized_pnl,holding_tickers,current_weights,fund_names,grid
 
     tickers_dataframe = pd.DataFrame()
     tickers = []
     holding_tickers=[]
     dataframe = pd.DataFrame()
     cumulative_results=pd.DataFrame()
+    fund_names=[]
     
     current_weights=pd.DataFrame()
     book_cost=pd.DataFrame()
@@ -478,7 +478,8 @@ def display_crypto_app(Binance,Pnl_calculation):
     strategy_output = widgets.Output()
     main_output = widgets.Output()
     output_returns = widgets.Output()
-
+    constraint_output = widgets.Output()
+    
     # --- helper: update crypto scope ---
     def scope_update(n):
         nonlocal scope_output
@@ -581,27 +582,35 @@ def display_crypto_app(Binance,Pnl_calculation):
     add_constraint_btn = widgets.Button(description='Add Constraint', button_style='success')
     clear_constraints_btn = widgets.Button(description='Clear All', button_style='danger')
     constraints = []
-
+    
+    
+    selected_fund = widgets.Dropdown(description="Fund:")
+    selected_bench = widgets.Dropdown(description="Bench:")
+    selected_fund_var = widgets.Dropdown(description="Fund:")
+    
     def on_add_constraint_clicked(_):
         constraints.append({
             'Asset': dropdown_asset.value,
             'Sign': dropdown_sign.value,
             'Limit': dropdown_limit.value
         })
-        with strategy_output:
-            strategy_output.clear_output()
+        with constraint_output:
+            constraint_output.clear_output()
             display(display_scrollable_df(pd.DataFrame(constraints)))
 
     def on_clear_constraints(_):
         constraints.clear()
-        with strategy_output:
-            strategy_output.clear_output()
+        with constraint_output:
+            constraint_output.clear_output()
             display(display_scrollable_df(pd.DataFrame(columns=['Asset', 'Sign', 'Limit'])))
 
     add_constraint_btn.on_click(on_add_constraint_clicked)
     clear_constraints_btn.on_click(on_clear_constraints)
     
     def on_add_click(b):
+        
+        global fund_names,grid
+
         if grid.data is None or grid.data.empty:
             return
         new_row = np.zeros(dataframe.shape[1])
@@ -609,7 +618,18 @@ def display_crypto_app(Binance,Pnl_calculation):
         new_df = pd.DataFrame([new_row], columns=grid.data.columns, index=[label])
         updated_df = pd.concat([pd.DataFrame(grid.data), new_df])
         grid.data = updated_df
+        
         benchmark_tracking_error.options=grid.data.index
+        
+        selected_fund.options=grid.data.index
+        selected_fund.value=grid.data.index[0]
+
+        selected_bench.options=grid.data.index
+        selected_bench.value=grid.data.index[0]
+
+        
+        selected_fund_var.options=grid.data.index
+        selected_fund_var.value=grid.data.index[0]
 
     def clear_allocation(b):
         
@@ -729,7 +749,6 @@ def display_crypto_app(Binance,Pnl_calculation):
         
     start_date_perf.observe(updated_cumulative_perf)
     end_date_perf.observe(updated_cumulative_perf)
-    # benchmark_tracking_error.observe(updated_cumulative_perf)
     # --- optimization ---
     rebalancing_frequency = widgets.Dropdown(description='Frequency', options=['Monthly', 'Quarterly', 'Yearly'], value='Monthly')
     strat = widgets.Dropdown(description='Strategy', options=options_strat, value='Minimum Variance')
@@ -762,11 +781,14 @@ def display_crypto_app(Binance,Pnl_calculation):
     optimize_btn = widgets.Button(description='Optimize Portfolio', button_style='primary')
     grid = DataGrid(pd.DataFrame(), editable=True, layout={"height": "250px"})
     
+
     def update_dropdown_options():
         """Safely refresh fund/benchmark dropdowns after cumulative_results is updated."""
         if 'cumulative_results' not in globals() or cumulative_results.empty:
             return
-    
+
+        global fund_names
+        
         options = list(cumulative_results.columns)
     
         # Fund options exclude the currently selected benchmark
@@ -776,11 +798,24 @@ def display_crypto_app(Binance,Pnl_calculation):
         
         fund.value = options[0]
         benchmark.value = options[1]
+        fund_names=list(grid.data.index)
         benchmark_tracking_error.options=grid.data.index
         
+        selected_fund.options=grid.data.index
+        selected_fund.value=grid.data.index[0]
+
+        selected_bench.options=grid.data.index
+        selected_bench.value=grid.data.index[0]
+
+        
+        selected_fund_var.options=grid.data.index
+        selected_fund_var.value=grid.data.index[0]
+        
     def on_optimize_clicked(_):
-        with strategy_output:
-            strategy_output.clear_output()
+        global fund_names,grid
+
+        with constraint_output:
+            constraint_output.clear_output()
             if dataframe.empty or returns_to_use.empty:
                 print("⚠️ Load price data before optimizing.")
                 return
@@ -817,8 +852,23 @@ def display_crypto_app(Binance,Pnl_calculation):
             
             constraint_container = {'constraints': constraints, 'allocation_df': allocation_df}
             grid.data = allocation_df
+            
             benchmark_tracking_error.options=grid.data.index
-                
+            
+            selected_fund.options=grid.data.index
+            selected_fund.value=grid.data.index[0]
+    
+            selected_bench.options=grid.data.index
+            selected_bench.value=grid.data.index[0]
+    
+            
+            selected_fund_var.options=grid.data.index
+            selected_fund_var.value=grid.data.index[0]
+            
+            with constraint_output:
+                constraint_output.clear_output()
+                display(display_scrollable_df(pd.DataFrame(constraints))) 
+
     def get_result(_):
         
         nonlocal constraint_container
@@ -837,8 +887,6 @@ def display_crypto_app(Binance,Pnl_calculation):
                     cons = build_constraint(dataframe, constraint_df.to_numpy())
                 except Exception as e:
                     print("Error building constraints:", e)
-
-            display(display_scrollable_df(pd.DataFrame(constraints))) 
             
             freq_map = {
                 'Monthly': pd.offsets.BMonthEnd(),
@@ -1031,7 +1079,6 @@ def display_crypto_app(Binance,Pnl_calculation):
         
                 display(display_scrollable_df(pnl.sort_values(by='Weights', ascending=False).round(4)))                
 
-            
     
     def get_pnl_on_click(_):
         global book_cost,realized_pnl
@@ -1051,16 +1098,18 @@ def display_crypto_app(Binance,Pnl_calculation):
     position_button.on_click(get_holdings)
     
     # --- layout ---
+
+    allocation_ui=widgets.VBox([widgets.HBox([
+            widgets.VBox([dropdown_asset, dropdown_sign, dropdown_limit]),
+            widgets.VBox([add_constraint_btn, clear_constraints_btn, optimize_btn])]),
+                                constraint_output,
+        grid,
+        widgets.HBox([button_add,button_clear,results_button])])
+
     constraint_ui = widgets.VBox([widgets.HBox([start_date_perf, end_date_perf]),
                                                main_output,
         widgets.VBox([strat, rebalancing_frequency,benchmark_tracking_error,window_vol]),
-        widgets.HBox([
-            widgets.VBox([dropdown_asset, dropdown_sign, dropdown_limit]),
-            widgets.VBox([add_constraint_btn, clear_constraints_btn, optimize_btn])
-        ]),
-        grid,
-        widgets.HBox([button_add,button_clear,results_button]),
-        strategy_output,
+        allocation_ui,strategy_output,
         widgets.HBox([start_date_perf, end_date_perf]),
         output_returns
     ])
@@ -1071,16 +1120,237 @@ def display_crypto_app(Binance,Pnl_calculation):
         widgets.HBox([start_date_perf, end_date_perf]),
         main_output,price_output
     ])
-
+    
     calendar_perf=widgets.VBox([widgets.HBox([frequency_graph,fund,benchmark,graph_button]),calendar_output])
     positions_ui=widgets.VBox([widgets.HBox([position_button,pnl_button]),positions_output,holding_output])
     
+
+    #------------Rik Tab------------#
+    global var_scenarios, cvar_scenarios, fund_results
+    risk_output = widgets.Output()
+    
+    start_date_perf_risk = widgets.DatePicker(value=start_perf_date, layout=widgets.Layout(width='350px'))
+    end_date_perf_risk = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
+    # ---------- Ex-Ante / Risk Contribution ----------
+    def update_fund_display(fund_name):
+        
+        range_prices=dataframe.loc[start_date_perf_risk.value:end_date_perf_risk.value]
+        range_returns=range_prices.pct_change()
+        
+        portfolio = RiskAnalysis(range_returns)
+        selected_weights = grid.data.loc[selected_fund.value]
+
+        
+        decomposition = pd.DataFrame(portfolio.var_contrib_pct(selected_weights))
+        
+        quantities_rebalanced = rebalanced_portfolio(range_prices, selected_weights) / range_prices
+        quantities_buy_hold = buy_and_hold(range_prices, selected_weights) / range_prices
+        
+        cost_rebalanced = rebalanced_book_cost(range_prices, quantities_rebalanced)
+        cost_buy_and_hold = rebalanced_book_cost(range_prices, quantities_buy_hold)
+        
+        mtm_rebalanced = quantities_rebalanced * range_prices
+        mtm_buy_and_hold = quantities_buy_hold * range_prices
+        
+        pnl_buy_and_hold=pd.DataFrame((mtm_buy_and_hold-cost_buy_and_hold).iloc[-1])
+        pnl_buy_and_hold.columns=['Profit and Loss (Buy and Hold)']
+        
+        pnl_rebalanced=pd.DataFrame((mtm_rebalanced-cost_rebalanced).iloc[-1])
+        pnl_rebalanced.columns=['Profit and Loss (Rebalanced)']
+        
+        profit_and_loss_simulated = pd.concat([pnl_buy_and_hold, pnl_rebalanced, decomposition], axis=1)
+        profit_and_loss_simulated.loc['Total'] = profit_and_loss_simulated.sum(axis=0)
+        profit_and_loss_simulated=profit_and_loss_simulated.fillna(0)
+        
+        with risk_output:
+            risk_output.clear_output()
+            display(Markdown("### Performance and Risk Contribution"))
+            display(display_scrollable_df(
+                profit_and_loss_simulated.sort_values(by='Variance Contribution in %', ascending=False)
+            ))
+
+    def on_fund_change(change):
+        if change['name'] == 'value' and change['new'] in grid.data.index:
+            update_fund_display(change['new'])
+
+    selected_fund.observe(on_fund_change)
+
+    # ---------- Ex-Ante Metrics ----------
+    ex_ante_output = widgets.Output()
+
+    def ex_ante_metrics(bench_name):
+
+        range_prices=dataframe.loc[start_date_perf_risk.value:end_date_perf_risk.value]
+        range_returns=range_prices.pct_change()
+        
+        vol_ex_ante = {}
+        tracking_error_ex_ante = {}
+
+        portfolio = RiskAnalysis(range_returns)
+
+        for idx in grid.data.index:
+            vol_ex_ante[idx] = portfolio.variance(grid.data.loc[idx])
+            tracking_error_ex_ante[idx] = portfolio.variance(grid.data.loc[idx] - grid.data.loc[bench_name])
+
+        data = {
+            'Vol Ex Ante': vol_ex_ante,
+            'Tracking Error Ex Ante': tracking_error_ex_ante
+        }
+        ex_ante_dataframe = pd.DataFrame(data)
+        
+        with ex_ante_output:
+            ex_ante_output.clear_output()
+            display(Markdown("### Ex Ante Metrics"))
+            display(display_scrollable_df(ex_ante_dataframe))
+
+    def on_bench_change(change):
+        if change['name'] == 'value' and change['new'] in grid.data.index:
+            ex_ante_metrics(change['new'])
+
+    def update_contrib_and_ex_ante(_):
+        update_fund_display(selected_fund.value)
+        ex_ante_metrics(selected_bench.value)
+        
+        
+    ex_ante_metrics(selected_bench.value)
+    selected_bench.observe(on_bench_change, names='value')
+    
+    end_date_perf_risk.observe(update_contrib_and_ex_ante)
+    start_date_perf_risk.observe(update_contrib_and_ex_ante)
+
+    # ---------- VaR / CVaR Simulation ----------
+    var_output = widgets.Output()
+    var_scenarios, cvar_scenarios, fund_results = {}, {}, {}
+
+    stress_factor = widgets.BoundedFloatText(value=1.0, min=1.0, max=3.0, step=0.1, description='Stress Factor')
+    iterations = widgets.BoundedIntText(value=10000, min=1000, max=100000, step=1, description='Iterations')
+    num_scenarios = widgets.BoundedIntText(value=100, min=1, max=1000, step=1, description='Scenarios')
+
+    def get_var_metrics(_):
+        global var_scenarios, cvar_scenarios, fund_results
+
+        if dataframe.empty or returns_to_use.empty or grid.data.empty:
+            with var_output:
+                var_output.clear_output()
+                print("⚠️ Please compute optimization results first.")
+            return
+
+        horizon = 1 / 250
+        spot = dataframe.iloc[-1]
+        theta = 2
+
+        distrib_functions = {
+            'multivariate_distribution': (iterations.value, stress_factor.value),
+            'gaussian_copula': (iterations.value, stress_factor.value),
+            't_copula': (iterations.value, stress_factor.value),
+            'gumbel_copula': (iterations.value, theta),
+            'monte_carlo': (spot, horizon, iterations.value, stress_factor.value)
+        }
+
+        
+        range_prices=dataframe.loc[start_date_perf_risk.value:end_date_perf_risk.value]
+        range_returns=range_prices.pct_change()
+        
+        portfolio = RiskAnalysis(range_returns)
+        
+        var_scenarios, cvar_scenarios, fund_results = {}, {}, {}
+
+        for index in grid.data.index:
+            var_scenarios[index], cvar_scenarios[index] = {}, {}
+            for func_name, args in distrib_functions.items():
+                func = getattr(portfolio, func_name)
+                scenarios = {}
+
+                for i in range(num_scenarios.value):
+                    if func_name == 'monte_carlo':
+                        distrib = pd.DataFrame(func(*args)[1], columns=portfolio.returns.columns)
+                    else:
+                        distrib = pd.DataFrame(func(*args), columns=portfolio.returns.columns)
+
+                    distrib = distrib * grid.data.loc[index]
+                    distrib = distrib[distrib.columns[grid.data.loc[index] > 0]]
+                    distrib['Portfolio'] = distrib.sum(axis=1)
+
+                    results = distrib.sort_values(by='Portfolio').iloc[int(distrib.shape[0] * 0.05)]
+                    scenarios[i] = results
+
+                scenario = pd.DataFrame(scenarios).T
+                mean_scenario = scenario.mean()
+                index_cvar = scenario['Portfolio'] < mean_scenario['Portfolio']
+                cvar = scenario.loc[index_cvar].mean()
+
+                var_scenarios[index][func_name] = mean_scenario
+                cvar_scenarios[index][func_name] = cvar
+
+            fund_results[index] = {
+                'Value At Risk': mean_scenario.loc['Portfolio'],
+                'CVaR': cvar.loc['Portfolio']
+            }
+
+        display_var_results(selected_fund_var.value)
+
+    def display_var_results(fund_name):
+        if fund_name not in var_scenarios:
+            with var_output:
+                var_output.clear_output()
+                print(f"⚠️ No VaR data found for '{fund_name}'. Run simulation first.")
+            return
+
+        columns = ['Multivariate', 'Gaussian Copula', 'T-Student Copula', 'Gumbel Copula', 'Monte Carlo']
+        var_dataframe = pd.DataFrame(var_scenarios[fund_name])
+        var_dataframe.columns = columns
+
+        cvar_dataframe = pd.DataFrame(cvar_scenarios[fund_name])
+        cvar_dataframe.columns = columns
+
+        fund_results_dataframe = pd.DataFrame(fund_results).T
+
+        with var_output:
+            var_output.clear_output()
+            
+            display(display_scrollable_df(fund_results_dataframe))
+
+            display(Markdown(f"### VaR Results for **{fund_name}**"))
+
+            display(display_scrollable_df(var_dataframe))
+
+            display(Markdown(f"### CVaR Results for **{fund_name}**"))
+
+            display(display_scrollable_df(cvar_dataframe))
+
+    def update_var_metrics(change):
+        if change['name'] == 'value' and change['new'] in var_scenarios:
+            display_var_results(change['new'])
+
+    selected_fund_var.observe(update_var_metrics, names='value')
+
+    get_var_button = widgets.Button(description='Run Simulation', button_style='info')
+    get_var_button.on_click(get_var_metrics)
+
+
+    # ---------- Layout ----------
+    ex_ante_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk]),
+        widgets.VBox([selected_fund, selected_bench]),
+        risk_output,
+        ex_ante_output
+    ])
+
+    var_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk]),
+        widgets.VBox([selected_fund_var, stress_factor, iterations, num_scenarios, get_var_button]),
+        var_output
+    ])
+
+
+    
     tab = widgets.Tab()
-    tab.children = [universe_ui, constraint_ui,calendar_perf,positions_ui]
+    tab.children = [universe_ui, constraint_ui,calendar_perf,positions_ui,ex_ante_ui,var_ui]
     tab.set_title(0, 'Investment Universe')
     tab.set_title(1, 'Strategy')
     tab.set_title(2, 'Performance')
     tab.set_title(3,'Positioning')
+    tab.set_title(4, 'Ex Ante Metrics')
+    tab.set_title(5, 'Value at Risk Metrics')
+
+    dropdown_asset.options = list(dataframe.columns) + ['All']
     
     display(tab)
-    dropdown_asset.options = list(dataframe.columns) + ['All']
