@@ -480,6 +480,8 @@ def display_crypto_app(Binance,Pnl_calculation):
     output_returns = widgets.Output()
     constraint_output = widgets.Output()
     
+    dropdown_asset1 = widgets.Dropdown(description='Asset 1')
+    dropdown_asset2 = widgets.Dropdown(description='Asset 2')    
     # --- helper: update crypto scope ---
     def scope_update(n):
         nonlocal scope_output
@@ -489,11 +491,11 @@ def display_crypto_app(Binance,Pnl_calculation):
             tickers = list(tickers_dataframe.index)
         except Exception as e:
             with scope_output:
-                scope_output.clear_output()
+                scope_output.clear_output(wait=True)
                 print("Error fetching market caps:", e)
             return
         with scope_output:
-            scope_output.clear_output()
+            scope_output.clear_output(wait=True)
             display(display_scrollable_df(tickers_dataframe))
 
     scope_update(n_crypto.value)
@@ -508,7 +510,7 @@ def display_crypto_app(Binance,Pnl_calculation):
         combined_tickers=sorted(list(set(tickers+holding_tickers)))
         
         with main_output:
-            main_output.clear_output()
+            main_output.clear_output(wait=True)
             if not tickers:
                 print("No tickers available. Please fetch tickers first.")
                 return
@@ -554,7 +556,13 @@ def display_crypto_app(Binance,Pnl_calculation):
                 returns_to_use = returns_to_use[~returns_to_use.index.duplicated(keep='first')]
 
                 dropdown_asset.options = list(dataframe.columns) + ['All']
-
+                
+                dropdown_asset1.options=dataframe.columns
+                dropdown_asset1.value=dataframe.columns[0]
+        
+                dropdown_asset2.options=dataframe.columns
+                dropdown_asset2.value=dataframe.columns[1]
+                
                 print(f"✅ Loaded prices for {len(dataframe.columns)} assets from {dataframe.index[0].date()} to {dataframe.index[-1].date()}")
                 
                 asset_risk=get_asset_risk(dataframe)
@@ -566,7 +574,7 @@ def display_crypto_app(Binance,Pnl_calculation):
                 print("Error fetching prices:", e)
                 
             with price_output:
-                price_output.clear_output()
+                price_output.clear_output(wait=True)
                 display(display_scrollable_df(dataframe))
 
 
@@ -595,13 +603,13 @@ def display_crypto_app(Binance,Pnl_calculation):
             'Limit': dropdown_limit.value
         })
         with constraint_output:
-            constraint_output.clear_output()
+            constraint_output.clear_output(wait=True)
             display(display_scrollable_df(pd.DataFrame(constraints)))
 
     def on_clear_constraints(_):
         constraints.clear()
         with constraint_output:
-            constraint_output.clear_output()
+            constraint_output.clear_output(wait=True)
             display(display_scrollable_df(pd.DataFrame(columns=['Asset', 'Sign', 'Limit'])))
 
     add_constraint_btn.on_click(on_add_constraint_clicked)
@@ -653,6 +661,11 @@ def display_crypto_app(Binance,Pnl_calculation):
     benchmark=widgets.Dropdown(description='Benchmark:', options=['Fund','Bitcoin'], value='Bitcoin')
     fund=widgets.Dropdown(description='Fund:', options=['Fund','Bitcoin'], value='Fund')
     benchmark_tracking_error=widgets.Dropdown(description='Benchmark:')
+
+    perf_output=widgets.Output()
+    vol_output=widgets.Output()
+    drawdown_output=widgets.Output()
+    frontier_output=widgets.Output()
     
     # --- performance update ---
     def updated_cumulative_perf(_):
@@ -663,13 +676,13 @@ def display_crypto_app(Binance,Pnl_calculation):
             end_ts = pd.to_datetime(end_date_perf.value)
         except Exception:
             with output_returns:
-                output_returns.clear_output()
+                output_returns.clear_output(wait=True)
                 print("⚠️ Invalid start/end dates.")
             return
             
         with main_output:
             
-            main_output.clear_output()
+            main_output.clear_output(wait=True)
             range_prices=dataframe.loc[start_ts:end_ts]
             range_returns=range_prices.pct_change()
             
@@ -680,7 +693,7 @@ def display_crypto_app(Binance,Pnl_calculation):
 
         if performance_pct is None or performance_pct.empty:
             with output_returns:
-                output_returns.clear_output()
+                output_returns.clear_output(wait=True)
                 print("⚠️ No performance data available yet. Please run an optimization first.")
             return
 
@@ -689,7 +702,7 @@ def display_crypto_app(Binance,Pnl_calculation):
 
         if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
             with output_returns:
-                output_returns.clear_output()
+                output_returns.clear_output(wait=True)
                 print("⚠️ Invalid date range.")
             return
 
@@ -699,7 +712,7 @@ def display_crypto_app(Binance,Pnl_calculation):
             available_start = performance_pct.index.min().date()
             available_end = performance_pct.index.max().date()
             with output_returns:
-                output_returns.clear_output()
+                output_returns.clear_output(wait=True)
                 print(f"⚠️ No data found for this date range. Available range: {available_start} → {available_end}")
             return
 
@@ -713,32 +726,49 @@ def display_crypto_app(Binance,Pnl_calculation):
         rolling_vol_ptf=cumulative_results.pct_change().rolling(window_vol.value).std()*np.sqrt(260)
         frontier_indicators, fig4 = get_frontier(range_returns, grid.data)
         update_dropdown_options()
-
-
-
+        
 
         with output_returns:
-            
-            output_returns.clear_output()
+            output_returns.clear_output(wait=True)
             display(display_scrollable_df(rebalanced_metrics(cumulative_results)))
             display(display_scrollable_df(get_portfolio_risk(grid.data, range_prices, cumulative_results, benchmark_tracking_error.value)))
+            display(display_scrollable_df(frontier_indicators))
 
+        with perf_output:
+            
+            perf_output.clear_output(wait=True)
             fig = px.line(cumulative_results, title='Performance', width=800, height=400)
             fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
             fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
+            fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+
             fig.show()
+        with drawdown_output:
             
+            drawdown_output.clear_output(wait=True)
+
             fig2 = px.line(drawdown, title='Drawdown', width=800, height=400)
             fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
             fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
+            fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+
             fig2.show()
 
-            fig3 = px.line(rolling_vol_ptf, title="Portfolio Rolling Volatility").update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
-            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white") 
-            fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
-            fig3.show()
+        with vol_output:
+            vol_output.clear_output(wait=True)
 
-            display(display_scrollable_df(frontier_indicators))
+            fig3 = px.line(rolling_vol_ptf, title="Portfolio Rolling Volatility").update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
+            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400) 
+            fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
+            fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
+
+            fig3.show()
+        with frontier_output:
+            frontier_output.clear_output(wait=True)
+
+            fig4.update_layout(width=800, height=400,title={'text': "Efficient Frontier"})
+            fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
+
             fig4.show()
             # display(display_scrollable_df(cumulative_results))
             # display(display_scrollable_df(drawdown))
@@ -758,7 +788,7 @@ def display_crypto_app(Binance,Pnl_calculation):
     def show_graph(_):
         with calendar_output:
 
-            calendar_output.clear_output()
+            calendar_output.clear_output(wait=True)
 
             if fund.value==benchmark.value:
                 print("⚠️ Benchmark and Fund must be different.")
@@ -809,7 +839,7 @@ def display_crypto_app(Binance,Pnl_calculation):
         global fund_names,grid
 
         with constraint_output:
-            constraint_output.clear_output()
+            constraint_output.clear_output(wait=True)
             if dataframe.empty or returns_to_use.empty:
                 print("⚠️ Load price data before optimizing.")
                 return
@@ -861,7 +891,7 @@ def display_crypto_app(Binance,Pnl_calculation):
             selected_fund_var.value=grid.data.index[0]
             
             with constraint_output:
-                constraint_output.clear_output()
+                constraint_output.clear_output(wait=True)
                 display(display_scrollable_df(pd.DataFrame(constraints))) 
 
     def get_result(_):
@@ -870,7 +900,7 @@ def display_crypto_app(Binance,Pnl_calculation):
         global rolling_optimization, performance_pct, performance_fund, dates_end,quantities
         
         with strategy_output:
-            strategy_output.clear_output()
+            strategy_output.clear_output(wait=True)
             if dataframe.empty or returns_to_use.empty:
                 print("⚠️ Load price data before optimizing.")
                 return
@@ -996,7 +1026,7 @@ def display_crypto_app(Binance,Pnl_calculation):
         current_weights=pd.DataFrame(inventory_weights.values(),index=inventory_weights.keys(),columns=['Current Weights'])
                 
         with positions_output:
-            positions_output.clear_output()
+            positions_output.clear_output(wait=True)
         
             if dataframe.empty or returns_to_use.empty:
                 print("⚠️ Load Prices.")
@@ -1041,7 +1071,7 @@ def display_crypto_app(Binance,Pnl_calculation):
         
         # --- Now, this block will always run ---
         with holding_output:
-            holding_output.clear_output()
+            holding_output.clear_output(wait=True)
         
             if book_cost.empty and realized_pnl.empty:
                 display(display_scrollable_df(current_positions))
@@ -1106,7 +1136,7 @@ def display_crypto_app(Binance,Pnl_calculation):
         widgets.VBox([strat, rebalancing_frequency,benchmark_tracking_error,window_vol]),
         allocation_ui,strategy_output,
         widgets.HBox([start_date_perf, end_date_perf]),
-        output_returns
+        output_returns,widgets.HBox([perf_output, drawdown_output]),widgets.HBox([vol_output,frontier_output])
     ])
 
     universe_ui = widgets.VBox([
@@ -1158,7 +1188,7 @@ def display_crypto_app(Binance,Pnl_calculation):
         profit_and_loss_simulated=profit_and_loss_simulated.fillna(0)
         
         with risk_output:
-            risk_output.clear_output()
+            risk_output.clear_output(wait=True)
             display(Markdown("### Performance and Risk Contribution"))
             display(display_scrollable_df(
                 profit_and_loss_simulated.sort_values(by='Variance Contribution in %', ascending=False)
@@ -1183,6 +1213,13 @@ def display_crypto_app(Binance,Pnl_calculation):
 
         portfolio = RiskAnalysis(range_returns)
 
+        if dataframe.empty or returns_to_use.empty or grid.data.empty:
+            with ex_ante_output:
+                ex_ante_output.clear_output(wait=True)
+                print("⚠️ Please compute optimization results first.")
+            return
+
+            
         for idx in grid.data.index:
             vol_ex_ante[idx] = portfolio.variance(grid.data.loc[idx])
             tracking_error_ex_ante[idx] = portfolio.variance(grid.data.loc[idx] - grid.data.loc[bench_name])
@@ -1194,7 +1231,7 @@ def display_crypto_app(Binance,Pnl_calculation):
         ex_ante_dataframe = pd.DataFrame(data)
         
         with ex_ante_output:
-            ex_ante_output.clear_output()
+            ex_ante_output.clear_output(wait=True)
             display(Markdown("### Ex Ante Metrics"))
             display(display_scrollable_df(ex_ante_dataframe))
 
@@ -1220,13 +1257,14 @@ def display_crypto_app(Binance,Pnl_calculation):
     stress_factor = widgets.BoundedFloatText(value=1.0, min=1.0, max=3.0, step=0.1, description='Stress Factor')
     iterations = widgets.BoundedIntText(value=10000, min=1000, max=100000, step=1, description='Iterations')
     num_scenarios = widgets.BoundedIntText(value=100, min=1, max=1000, step=1, description='Scenarios')
+    var_centile = widgets.BoundedFloatText(value=0.05, min=0, max=1, step=0.01, description='VaR Centile')
 
     def get_var_metrics(_):
         global var_scenarios, cvar_scenarios, fund_results
 
         if dataframe.empty or returns_to_use.empty or grid.data.empty:
             with var_output:
-                var_output.clear_output()
+                var_output.clear_output(wait=True)
                 print("⚠️ Please compute optimization results first.")
             return
 
@@ -1266,7 +1304,7 @@ def display_crypto_app(Binance,Pnl_calculation):
                     distrib = distrib[distrib.columns[grid.data.loc[index] > 0]]
                     distrib['Portfolio'] = distrib.sum(axis=1)
 
-                    results = distrib.sort_values(by='Portfolio').iloc[int(distrib.shape[0] * 0.05)]
+                    results = distrib.sort_values(by='Portfolio').iloc[int(distrib.shape[0] * var_centile.value)]
                     scenarios[i] = results
 
                 scenario = pd.DataFrame(scenarios).T
@@ -1287,7 +1325,7 @@ def display_crypto_app(Binance,Pnl_calculation):
     def display_var_results(fund_name):
         if fund_name not in var_scenarios:
             with var_output:
-                var_output.clear_output()
+                var_output.clear_output(wait=True)
                 print(f"⚠️ No VaR data found for '{fund_name}'. Run simulation first.")
             return
 
@@ -1301,7 +1339,7 @@ def display_crypto_app(Binance,Pnl_calculation):
         fund_results_dataframe = pd.DataFrame(fund_results).T
 
         with var_output:
-            var_output.clear_output()
+            var_output.clear_output(wait=True)
             
             display(display_scrollable_df(fund_results_dataframe))
 
@@ -1331,20 +1369,140 @@ def display_crypto_app(Binance,Pnl_calculation):
     ])
 
     var_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk]),
-        widgets.VBox([selected_fund_var, stress_factor, iterations, num_scenarios, get_var_button]),
+        widgets.VBox([selected_fund_var, stress_factor, iterations, num_scenarios,var_centile, get_var_button]),
         var_output
     ])
 
 
+    # ---------- Market Risk Metrics ----------
+
+    pca_output=widgets.Output()
+    pca_components=widgets.Output()
     
+    def get_market_risk_metrics(_):
+        if returns_to_use.empty:
+            with pca_components:
+                pca_components.clear_output(wait=True)
+                print('⚠️Load Prices')
+                return
+        range_returns=returns_to_use.loc[start_date_perf_risk.value:end_date_perf_risk.value]
+        portfolio=RiskAnalysis(range_returns)
+        
+
+
+        eigval,eigvec,portfolio_components=portfolio.pca(num_components=num_components.value)
+        selected_components.options=portfolio_components.columns
+        num_components.max=len(range_returns.columns)
+        num_closest_to_pca.max=len(range_returns.columns)
+        
+        variance_explained=eigval/eigval.sum()
+        variance_explained_dataframe=pd.DataFrame(variance_explained,index=portfolio_components.columns,columns=['Variance Explained'])
+        
+        pca_weight=dict((portfolio_components[selected_components.value]/(portfolio_components[selected_components.value]).sum()))
+        pca_portfolio=pd.DataFrame(portfolio_components[selected_components.value]).sort_values(by=selected_components.value,ascending=False)
+        
+        historical_PCA=pd.DataFrame(np.array(list(pca_weight.values())).dot(np.transpose(portfolio.returns)),index=portfolio.returns.index,columns=['PCA'])
+        historical_PCA=historical_PCA.dropna()
+    
+        comparison=portfolio.returns.copy()
+        comparison['PCA']=historical_PCA
+        distances=np.sqrt(np.sum(comparison.apply(lambda y:(y-historical_PCA['PCA'])**2),axis=0)).sort_values()
+        pca_similarity=(1+comparison[distances.index[:num_closest_to_pca.value]]).cumprod()
+    
+        with pca_components:
+            
+            pca_components.clear_output(wait=True)
+            
+            fig=px.bar(variance_explained_dataframe,title='Variance Explanation in %')
+            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400) 
+            fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+
+            fig2=px.bar(pca_portfolio,title='Eigen Weights')
+            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400) 
+            fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+
+            fig.show()
+            fig2.show()
+            
+        with pca_output:
+            pca_output.clear_output(wait=True)
+            
+            fig3=px.line((1+historical_PCA).cumprod(),title='Eigen Index')
+            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
+            fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
+
+            fig4=px.line(pca_similarity,title='PCA Similarity')
+            fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
+            fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
+
+            fig3.show()
+            fig4.show()
+    
+    asset_output_corr = widgets.Output()
+
+    button_corr = widgets.Button(description="Show Correlation", button_style="success")
+    
+    window_corr=widgets.IntText(
+    value=30,
+    description='Rolling Correlation:',
+    disabled=False,style={'description_width': 'auto'}
+    )
+
+    
+    def update_correlation(change=None):
+        range_returns=returns_to_use.loc[start_date_perf_risk.value:end_date_perf_risk.value]
+        
+        if returns_to_use.empty:
+            with asset_output_corr:
+                asset_output_corr.clear_output(wait=True)
+                print('⚠️Load Prices')
+                return
+            
+        if dropdown_asset1.value==dropdown_asset2.value:
+            asset_output_corr.clear_output(wait=True)
+            print('⚠️Same asset')
+            return
+
+        with asset_output_corr:
+            asset_output_corr.clear_output(wait=True)
+
+            rolling_correlation = range_returns[dropdown_asset1.value].rolling(window_corr.value).corr(
+                range_returns[dropdown_asset2.value]
+            ).dropna()
+            
+            fig = px.line(rolling_correlation, title=f"{dropdown_asset1.value}/{dropdown_asset2.value} Correlation")
+            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
+            fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+
+            fig.show()
+
+            fig2 = px.imshow(range_returns.corr().round(2), title='Correlation Matrix',color_continuous_scale='blues', text_auto=True, aspect="auto")
+            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+            fig2.update_traces(xgap=2, ygap=2)
+            fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+            fig2.show()
+    
+    selected_components=widgets.Dropdown(options=['PC1'])
+    num_components=widgets.BoundedIntText(min=1,max=5,value=5)
+    num_closest_to_pca=widgets.BoundedIntText(min=1,max=20,value=5)
+    market_button=widgets.Button(description='Market Risk Analysis',button_style='info')
+    market_button.on_click(get_market_risk_metrics)    
+    correlation_button=widgets.Button(description='Get Correlation',button_style='info')
+    correlation_button.on_click(update_correlation)
+    market_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,market_button]),num_components,selected_components,num_closest_to_pca,widgets.HBox([pca_components,pca_output])])
+    correlation_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,correlation_button]),dropdown_asset1,dropdown_asset2,window_corr,asset_output_corr])                        
+    
+
     tab = widgets.Tab()
-    tab.children = [universe_ui, constraint_ui,calendar_perf,positions_ui,ex_ante_ui,var_ui]
+    tab.children = [universe_ui, constraint_ui,calendar_perf,positions_ui,ex_ante_ui,var_ui,market_ui,correlation_ui]
     tab.set_title(0, 'Investment Universe')
     tab.set_title(1, 'Strategy')
     tab.set_title(2, 'Performance')
     tab.set_title(3,'Positioning')
     tab.set_title(4, 'Ex Ante Metrics')
     tab.set_title(5, 'Value at Risk Metrics')
+    tab.set_title(6, 'Market Risk')
+    tab.set_title(7, 'Correlation')
 
     dropdown_asset.options = list(dataframe.columns) + ['All']
     
