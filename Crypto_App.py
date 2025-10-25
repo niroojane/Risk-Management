@@ -480,8 +480,8 @@ def display_crypto_app(Binance,Pnl_calculation):
     output_returns = widgets.Output()
     constraint_output = widgets.Output()
     
-    dropdown_asset1 = widgets.Dropdown(description='Asset 1')
-    dropdown_asset2 = widgets.Dropdown(description='Asset 2')    
+    dropdown_asset1 = widgets.Dropdown(description='Asset 1',style={'description_width': '150px'})
+    dropdown_asset2 = widgets.Dropdown(description='Asset 2',style={'description_width': '150px'} ) 
     # --- helper: update crypto scope ---
     def scope_update(n):
         nonlocal scope_output
@@ -716,12 +716,13 @@ def display_crypto_app(Binance,Pnl_calculation):
                 print(f"⚠️ No data found for this date range. Available range: {available_start} → {available_end}")
             return
 
-        
         cumulative_performance = cumulative_performance.copy()
         cumulative_performance.iloc[0] = 0
         cumulative_results = (1 + cumulative_performance).cumprod() * 100
         portfolio_returns = rebalanced_time_series(range_prices, grid.data, frequency=rebalancing_frequency.value)
         cumulative_results=pd.concat([cumulative_results,portfolio_returns],axis=1)
+
+                
         drawdown = (cumulative_results - cumulative_results.cummax()) / cumulative_results.cummax()
         rolling_vol_ptf=cumulative_results.pct_change().rolling(window_vol.value).std()*np.sqrt(260)
         frontier_indicators, fig4 = get_frontier(range_returns, grid.data)
@@ -1445,7 +1446,7 @@ def display_crypto_app(Binance,Pnl_calculation):
     window_corr=widgets.IntText(
     value=30,
     description='Rolling Correlation:',
-    disabled=False,style={'description_width': 'auto'}
+    disabled=False,style={'description_width': '150px'}
     )
 
     
@@ -1482,12 +1483,12 @@ def display_crypto_app(Binance,Pnl_calculation):
             fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
             fig2.show()
     
-    selected_components=widgets.Dropdown(options=['PC1'])
-    num_components=widgets.BoundedIntText(min=1,max=5,value=5)
-    num_closest_to_pca=widgets.BoundedIntText(min=1,max=20,value=5)
-    market_button=widgets.Button(description='Market Risk Analysis',button_style='info')
+    selected_components=widgets.Dropdown(options=['PC1'],description='Select PCA',style={'description_width': '150px'})
+    num_components=widgets.BoundedIntText(min=1,max=5,value=5,description='PCA Components',style={'description_width': '150px'})
+    num_closest_to_pca=widgets.BoundedIntText(min=1,max=20,value=5,description='PCA Closest',style={'description_width': '150px'})
+    market_button=widgets.Button(description='Market Risk Analysis',button_style='info',style={'description_width': '150px'})
     market_button.on_click(get_market_risk_metrics)    
-    correlation_button=widgets.Button(description='Get Correlation',button_style='info')
+    correlation_button=widgets.Button(description='Get Correlation',button_style='info',style={'description_width': '150px'})
     correlation_button.on_click(update_correlation)
     market_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,market_button]),num_components,selected_components,num_closest_to_pca,widgets.HBox([pca_components,pca_output])])
     correlation_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,correlation_button]),dropdown_asset1,dropdown_asset2,window_corr,asset_output_corr])                        
