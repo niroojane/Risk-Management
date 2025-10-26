@@ -419,7 +419,7 @@ def get_frontier(returns,dataframe):
 
     return indicators,fig
 
-def display_crypto_app(Binance,Pnl_calculation):
+def display_crypto_app(Binance,Pnl_calculation,git):
 
     # --- strategy dictionary ---
     dico_strategies = {
@@ -432,20 +432,21 @@ def display_crypto_app(Binance,Pnl_calculation):
 
     # --- globals ---
     global tickers_dataframe, tickers, dataframe, returns_to_use, prices
-    global rolling_optimization, performance_pct, performance_fund, dates_end,quantities,cumulative_results
-    global book_cost,realized_pnl,holding_tickers,current_weights,fund_names,grid
+    global rolling_optimization, performance_pct, performance_fund, dates_end,quantities,cumulative_results,global_returns
+    global book_cost,realized_pnl,profit_and_loss,holding_tickers,current_weights,fund_names,grid
 
     tickers_dataframe = pd.DataFrame()
     tickers = []
     holding_tickers=[]
     dataframe = pd.DataFrame()
     cumulative_results=pd.DataFrame()
+    global_returns=pd.DataFrame()
+
     fund_names=[]
-    
     current_weights=pd.DataFrame()
     book_cost=pd.DataFrame()
     realized_pnl=pd.DataFrame()
-    
+    profit_and_loss=pd.DataFrame()
     returns_to_use = pd.DataFrame()
     prices = pd.DataFrame()
     
@@ -669,7 +670,7 @@ def display_crypto_app(Binance,Pnl_calculation):
     
     # --- performance update ---
     def updated_cumulative_perf(_):
-        global performance_pct, performance_fund,cumulative_results
+        global performance_pct, performance_fund,cumulative_results,global_returns
 
         try:
             start_ts = pd.to_datetime(start_date_perf.value)
@@ -716,12 +717,12 @@ def display_crypto_app(Binance,Pnl_calculation):
                 print(f"⚠️ No data found for this date range. Available range: {available_start} → {available_end}")
             return
 
-        cumulative_performance = cumulative_performance.copy()
+        # cumulative_performance = cumulative_performance.copy()
         cumulative_performance.iloc[0] = 0
         cumulative_results = (1 + cumulative_performance).cumprod() * 100
         portfolio_returns = rebalanced_time_series(range_prices, grid.data, frequency=rebalancing_frequency.value)
         cumulative_results=pd.concat([cumulative_results,portfolio_returns],axis=1)
-
+        global_returns=cumulative_results.pct_change()
                 
         drawdown = (cumulative_results - cumulative_results.cummax()) / cumulative_results.cummax()
         rolling_vol_ptf=cumulative_results.pct_change().rolling(window_vol.value).std()*np.sqrt(260)
@@ -1107,7 +1108,7 @@ def display_crypto_app(Binance,Pnl_calculation):
 
     
     def get_pnl_on_click(_):
-        global book_cost,realized_pnl
+        global book_cost,realized_pnl,profit_and_loss
         url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Trade%20History%20Reconstructed.xlsx'
         myfile = requests.get(url)
         trade_history=pd.read_excel(BytesIO(myfile.content))
@@ -1490,20 +1491,197 @@ def display_crypto_app(Binance,Pnl_calculation):
     market_button.on_click(get_market_risk_metrics)    
     correlation_button=widgets.Button(description='Get Correlation',button_style='info',style={'description_width': '150px'})
     correlation_button.on_click(update_correlation)
-    market_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,market_button]),num_components,selected_components,num_closest_to_pca,widgets.HBox([pca_components,pca_output])])
+
+    market_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,
+                                          end_date_perf_risk,market_button]),
+                            num_components,selected_components,num_closest_to_pca,
+                            widgets.HBox([pca_components,pca_output])])
+    
     correlation_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,correlation_button]),dropdown_asset1,dropdown_asset2,window_corr,asset_output_corr])                        
+    global daily_pnl,pnl_history,historical_ptf,performance_ex_post,positions,quantities_holding
+    
+    daily_pnl=pd.DataFrame()
+    pnl_history=pd.DataFrame()
+    historical_ptf=pd.DataFrame()
+    performance_ex_post=pd.DataFrame()
+        
+    #position=pd.read_excel('Positions.xlsx',index_col=0)
+    url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Positions.xlsx'
+    myfile = requests.get(url)
+    position=pd.read_excel(BytesIO(myfile.content),index_col=0)
+    positions,quantities_holding=Binance.get_positions_history(enddate=datetime.datetime.today())
+    positions=positions.sort_index()
+    
+    positions.index=pd.to_datetime(positions.index)
+    positions=pd.concat([position,positions])
+    positions.index=pd.to_datetime(positions.index)
+    positions=pd.concat([position,positions])
+    positions=positions.loc[~positions.index.duplicated(),:]
+    positions=positions.interpolate()
+    positions=positions.loc[:,positions.columns!='Total']
+    positions['Total']=positions.sum(axis=1)
+    
+    url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Quantities.xlsx'
+    myfile = requests.get(url)
+    quantities_history=pd.read_excel(BytesIO(myfile.content),index_col=0)
+    # quantities_history=pd.read_excel('Quantities.xlsx',index_col=0)
+    
+    quantities_holding.index=pd.to_datetime(quantities_holding.index)
+    quantities_holding=pd.concat([quantities_holding,quantities_history])
+    quantities_holding=quantities_holding.loc[~quantities_holding.index.duplicated(),:]
+
+    quantities_holding=quantities_holding.sort_index()
     
 
+    start_date_perf_ex_post = widgets.DatePicker(value=positions.index[0].date(), layout=widgets.Layout(width='350px'))
+    end_date_perf_ex_post = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
+    ex_post_perf=widgets.Output()
+    
+    def update_ex_post_chart(_):
+        
+        selected_history=pnl_history['Total'].loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value]
+        selected_daily_pnl=daily_pnl.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value]
+
+        if global_returns.empty:
+            performance_ex_post=historical_ptf['Historical Portfolio'].copy()
+        else:
+            performance_ex_post=historical_ptf['Historical Portfolio'].copy()
+            performance_ex_post=pd.concat([performance_ex_post,global_returns],axis=1).sort_index()
+            
+        cumulative_performance_ex_post=performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value].copy()
+        cumulative_performance_ex_post.iloc[0]=0
+        cumulative_performance_ex_post=(1+cumulative_performance_ex_post).cumprod()*100
+        
+        with ex_post_perf:
+            ex_post_perf.clear_output(wait=True)
+            
+            fig=px.line(selected_history,title='Portfolio Value')
+            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+            fig.update_layout(xaxis_title=None, yaxis_title=None)
+            fig.show()
+            
+    
+            fig2=px.line(cumulative_performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value])
+            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+            fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio'])
+            fig2.update_layout(xaxis_title=None, yaxis_title=None)
+            fig2.show()
+            
+            fig3 = px.bar(selected_daily_pnl, color=selected_daily_pnl['color'],
+                 color_discrete_map={'green': 'green', 'red': 'red'},
+                 title="Daily P&L")
+            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+            fig3.update_layout(xaxis_title=None, yaxis_title=None,showlegend=False)
+            fig3.show()
+            
+    def get_ex_post_returns(_):
+        
+        global daily_pnl,pnl_history,historical_ptf,performance_ex_post
+    
+    
+        if book_cost.empty:
+            get_pnl_on_click(None)
+    
+                            
+        quantities_tickers=list(quantities_holding.columns)
+        daily_book_cost=book_cost.resample("D").last().dropna().sort_index()
+        book_cost_history=pd.DataFrame()
+        book_cost_history.index=set(daily_book_cost.index.append(quantities_holding.index))
+        
+        book_cost_history=book_cost_history.sort_index()
+        cols= quantities_holding.columns[quantities_holding.columns!='USDCUSDT']
+        
+        for col in cols:
+            
+            book_cost_history[col]=daily_book_cost[col]
+        
+        book_cost_history=book_cost_history.ffill()
+        book_cost_history=book_cost_history.loc[quantities_holding.index] 
+        
+        today = datetime.date.today()
+        start_pnl=quantities_holding.index[0]
+        days_total = (today - start_pnl.date()).days
+        
+        weights_ex_post=positions.copy()
+        weights_ex_post=weights_ex_post.drop(columns=['USDTUSDT'])
+        weights_ex_post=weights_ex_post.apply(lambda x: x/weights_ex_post['Total'])
+        
+        start_date=weights_ex_post.index[0].date()
+        
+        days=(today-start_date).days
+        
+        remaining=days%500
+        numbers_of_table=days//500
+        remaining
+        temp_end=weights_ex_post.index[0]
+        prices=pd.DataFrame()
+        for i in range(numbers_of_table+1):
+            temp_data=Binance.get_price(weights_ex_post.columns,temp_end)
+            temp_end=temp_end+datetime.timedelta(500)
+            prices=prices.combine_first(temp_data)
+            
+        temp_end=temp_end+datetime.timedelta(500)
+        last_data=Binance.get_price(weights_ex_post.columns,temp_end)
+        binance_data=prices.combine_first(last_data)
+        binance_data=binance_data.sort_index()
+        binance_data = binance_data[~binance_data.index.duplicated(keep='first')]
+        binance_data.index=pd.to_datetime(binance_data.index)
+    
+        pnl_history=pd.DataFrame()
+        pnl_history.index=quantities_holding.index
+        pnl_history=pnl_history.sort_index()
+        
+        for col in cols:
+            pnl_history[col]=quantities_holding[col]*(binance_data[col]-book_cost_history[col])
+        pnl_history['Total']=pnl_history.sum(axis=1)
+    
+        
+        daily_pnl=pnl_history['Total']-pnl_history['Total'].shift(1)
+        daily_pnl=pd.DataFrame(daily_pnl)
+        colors = ['green' if value >= 0 else 'red' for value in daily_pnl.values]
+        
+        daily_pnl['color'] = daily_pnl['Total'].apply(lambda v: 'green' if v >= 0 else 'red')
+    
+        binance_data_return=np.log(1+binance_data.pct_change(fill_method=None))
+        weight_date=set(weights_ex_post.index)
+        binance_date=set(binance_data_return.index)
+        common_date=weight_date.intersection(binance_date)
+        
+        binance_data2=binance_data_return.loc[list(common_date)].copy().sort_index()
+        weights_ex_post2=weights_ex_post.loc[list(common_date)].copy().sort_index()
+        historical_ptf=pd.DataFrame()
+        
+        for col in binance_data:
+            historical_ptf[col]=weights_ex_post2[col]*binance_data2[col]
+        historical_ptf['Historical Portfolio']=historical_ptf.sum(axis=1)   
+    
+        if global_returns.empty:
+            performance_ex_post=historical_ptf['Historical Portfolio'].copy()
+
+        else:
+            performance_ex_post=historical_ptf['Historical Portfolio'].copy()
+            performance_ex_post=pd.concat([performance_ex_post,global_returns],axis=1).sort_index()
+    
+        update_ex_post_chart(None)
+    
+    ex_post_button=widgets.Button(description='Get Ex Post Metrics',button_style='info')
+    ex_post_button.on_click(get_ex_post_returns)
+    start_date_perf_ex_post.observe(update_ex_post_chart)
+    end_date_perf_ex_post.observe(update_ex_post_chart)
+    
+    ex_post_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button]),ex_post_perf])    
+
     tab = widgets.Tab()
-    tab.children = [universe_ui, constraint_ui,calendar_perf,positions_ui,ex_ante_ui,var_ui,market_ui,correlation_ui]
+    tab.children = [universe_ui, constraint_ui,positions_ui,calendar_perf,ex_post_ui,ex_ante_ui,var_ui,market_ui,correlation_ui]
     tab.set_title(0, 'Investment Universe')
     tab.set_title(1, 'Strategy')
-    tab.set_title(2, 'Performance')
-    tab.set_title(3,'Positioning')
-    tab.set_title(4, 'Ex Ante Metrics')
-    tab.set_title(5, 'Value at Risk Metrics')
-    tab.set_title(6, 'Market Risk')
-    tab.set_title(7, 'Correlation')
+    tab.set_title(2,'Positioning')
+    tab.set_title(3, 'Performance')
+    tab.set_title(4, 'Ex Post Metrics')
+    tab.set_title(5, 'Ex Ante Metrics')
+    tab.set_title(6, 'Value at Risk Metrics')
+    tab.set_title(7, 'Market Risk')
+    tab.set_title(8, 'Correlation')
 
     dropdown_asset.options = list(dataframe.columns) + ['All']
     
