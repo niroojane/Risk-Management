@@ -1387,7 +1387,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 pca_components.clear_output(wait=True)
                 print('⚠️Load Prices')
                 return
-        range_returns=returns_to_use.loc[start_date_perf_risk.value:end_date_perf_risk.value]
+        range_returns=returns_to_use.loc[start_date_perf_risk.value:end_date_perf_risk.value,market_tickers]
         portfolio=RiskAnalysis(range_returns)
         
 
@@ -1541,7 +1541,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         selected_history=pnl_history['Total'].loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value]
         selected_daily_pnl=daily_pnl.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value]
-
+        selected_positions=positions.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value,"Total"]
+        
         if global_returns.empty:
             performance_ex_post=historical_ptf['Historical Portfolio'].copy()
         else:
@@ -1551,28 +1552,52 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         cumulative_performance_ex_post=performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value].copy()
         cumulative_performance_ex_post.iloc[0]=0
         cumulative_performance_ex_post=(1+cumulative_performance_ex_post).cumprod()*100
+
+        git_output=widgets.Output()
+        
+        def git_push(_):
+            
+            with git_output:
+                git_output.clear_output(wait=True)
+                
+                quantities_holding.to_excel('Quantities.xlsx',index=False)
+                positions.to_excel('Positions.xlsx')
+                
+                git.push_or_update_file(positions,'Positions')
+                git.push_or_update_file(quantities_holding,'Quantities')
+                    
+
+        push_button=widgets.Button(description='Upload Files',button_style='success')
+        push_button.on_click(git_push)
         
         with ex_post_perf:
             ex_post_perf.clear_output(wait=True)
             
-            fig=px.line(selected_history,title='Portfolio Value')
+            fig=px.line(selected_positions,title='Portfolio Value')
             fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
             fig.update_layout(xaxis_title=None, yaxis_title=None)
             fig.show()
             
-    
-            fig2=px.line(cumulative_performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value])
+            fig2=px.line(selected_history,title='Cumulative P&L')
             fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-            fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio'])
             fig2.update_layout(xaxis_title=None, yaxis_title=None)
-            fig2.show()
+            fig2.show()            
+    
+            fig3=px.line(cumulative_performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value],title='Cumulative Return')
+            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+            fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio'])
+            fig3.update_layout(xaxis_title=None, yaxis_title=None)
+            fig3.show()
             
-            fig3 = px.bar(selected_daily_pnl, color=selected_daily_pnl['color'],
+            fig4 = px.bar(selected_daily_pnl, color=selected_daily_pnl['color'],
                  color_discrete_map={'green': 'green', 'red': 'red'},
                  title="Daily P&L")
-            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-            fig3.update_layout(xaxis_title=None, yaxis_title=None,showlegend=False)
-            fig3.show()
+            fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+            fig4.update_layout(xaxis_title=None, yaxis_title=None,showlegend=False)
+            fig4.show()
+
+            display(push_button)
+            display(git_output)
             
     def get_ex_post_returns(_):
         
