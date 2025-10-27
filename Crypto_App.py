@@ -420,7 +420,6 @@ def get_frontier(returns,dataframe):
     return indicators,fig
 
 def display_crypto_app(Binance,Pnl_calculation,git):
-
     # --- strategy dictionary ---
     dico_strategies = {
         'Minimum Variance': 'minimum_variance',
@@ -1165,6 +1164,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         range_returns=range_prices.pct_change()
         
         portfolio = RiskAnalysis(range_returns)
+
+        if grid.data.empty:
+            with risk_output:
+                risk_output.clear_output()
+                print("⚠️ No Allocation.")
+                return
+                
         selected_weights = grid.data.loc[selected_fund.value]
 
         
@@ -1380,6 +1386,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     pca_output=widgets.Output()
     pca_components=widgets.Output()
+    start_date_market_risk = widgets.DatePicker(value=start_perf_date, layout=widgets.Layout(width='350px'))
+    end_date_market_risk = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
     
     def get_market_risk_metrics(_):
         if returns_to_use.empty:
@@ -1387,7 +1395,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 pca_components.clear_output(wait=True)
                 print('⚠️Load Prices')
                 return
-        range_returns=returns_to_use.loc[start_date_perf_risk.value:end_date_perf_risk.value,market_tickers]
+        
+        market_tickers=[t for t in tickers if t in dataframe.columns]
+
+        range_returns=returns_to_use.loc[start_date_market_risk.value:end_date_market_risk.value,market_tickers]
         portfolio=RiskAnalysis(range_returns)
         
 
@@ -1439,7 +1450,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
             fig3.show()
             fig4.show()
-    
+
+
+    start_date_market_risk.observe(get_market_risk_metrics)
+    end_date_market_risk.observe(get_market_risk_metrics)
+
     asset_output_corr = widgets.Output()
 
     button_corr = widgets.Button(description="Show Correlation", button_style="success")
@@ -1492,8 +1507,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     correlation_button=widgets.Button(description='Get Correlation',button_style='info',style={'description_width': '150px'})
     correlation_button.on_click(update_correlation)
 
-    market_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,
-                                          end_date_perf_risk,market_button]),
+    market_ui=widgets.VBox([widgets.HBox([start_date_market_risk,
+                                          end_date_market_risk,market_button]),
                             num_components,selected_components,num_closest_to_pca,
                             widgets.HBox([pca_components,pca_output])])
     
