@@ -1519,22 +1519,22 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     pnl_history=pd.DataFrame()
     historical_ptf=pd.DataFrame()
     performance_ex_post=pd.DataFrame()
-        
-    #position=pd.read_excel('Positions.xlsx',index_col=0)
+    positions=pd.DataFrame()
+    quantities_holding=pd.DataFrame()
+    
     url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Positions.xlsx'
     myfile = requests.get(url)
     position=pd.read_excel(BytesIO(myfile.content),index_col=0)
+    # position=pd.read_excel('Positions.xlsx',index_col=0)
+    
     positions,quantities_holding=Binance.get_positions_history(enddate=datetime.datetime.today())
     positions=positions.sort_index()
-    
     positions.index=pd.to_datetime(positions.index)
     positions=pd.concat([position,positions])
     positions.index=pd.to_datetime(positions.index)
-    positions=pd.concat([position,positions])
-    positions=positions.loc[~positions.index.duplicated(),:]
-    positions=positions.interpolate()
-    positions=positions.loc[:,positions.columns!='Total']
-    positions['Total']=positions.sum(axis=1)
+    positions=pd.concat([position,positions]).sort_index()
+    positions=positions.loc[~positions.index.duplicated(keep='first'),:]
+    positions['Total']=positions.loc[:,positions.columns!='Total'].sum(axis=1)
     
     url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Quantities.xlsx'
     myfile = requests.get(url)
