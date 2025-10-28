@@ -1406,7 +1406,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         eigval,eigvec,portfolio_components=portfolio.pca(num_components=num_components.value)
         selected_components.options=portfolio_components.columns
         num_components.max=len(range_returns.columns)
-        num_closest_to_pca.max=len(range_returns.columns)
+        num_closest_to_pca.max=len(range_returns.columns)+1
         
         variance_explained=eigval/eigval.sum()
         variance_explained_dataframe=pd.DataFrame(variance_explained,index=portfolio_components.columns,columns=['Variance Explained'])
