@@ -215,73 +215,110 @@ def get_asset_risk(prices):
     return risk.T.round(4)
 
 def get_yearly_metrics(portfolio_returns,fund='Fund',bench='Bitcoin'):
-    
-    portfolio_returns=portfolio_returns[[fund,bench]]
-    years=sorted(list(set(portfolio_returns.index.year)))
-    portfolio_returns_pct=portfolio_returns.pct_change()
-    
-    year_returns={}
-    year_vol={}
-    year_tracking_error={}
-    year_sharpe_ratio={}
-    
-    for year in years:
-        temp=portfolio_returns_pct.loc[str(year)]
-        year_vol[year]=temp.std()*np.sqrt(252)
-    
-        temp_2=temp.copy()
-    
-        for col in temp_2.columns:
-            temp_2[col]=temp_2[col]-temp[bench]
-            
-        year_tracking_error[year]=temp_2.std()*np.sqrt(252)
-        perf_year=portfolio_returns.loc[str(year)].iloc[-1]/portfolio_returns.loc[str(year)].iloc[0]-1
-        year_sharpe_ratio[year]=perf_year/(temp.std()*np.sqrt(252))
-        year_returns[year]=perf_year
-        
-    
-    year_returns_dataframe=pd.DataFrame(year_returns).round(4)
-    year_vol_dataframe=pd.DataFrame(year_vol).round(4)
-    year_tracking_error_dataframe=pd.DataFrame(year_tracking_error.values(),index=year_tracking_error.keys()).round(4)
-    year_sharpe_ratio_dataframe=pd.DataFrame(year_sharpe_ratio).round(4)
 
-    return year_returns_dataframe,year_vol_dataframe,year_tracking_error_dataframe,year_sharpe_ratio_dataframe
+    portfolio_returns = portfolio_returns[[fund, bench]]
+    portfolio_returns_pct = portfolio_returns.pct_change()
 
-def get_monthly_metrics(portfolio_returns,fund='Fund',bench='Bitcoin'):
-    
-    portfolio_returns=portfolio_returns[[fund,bench]]
-    portfolio_returns_pct=portfolio_returns.pct_change()
-    
-    month_returns={}
-    month_vol={}
-    month_tracking_error={}
-    month_sharpe_ratio={}
-    
-    month_year=portfolio_returns.index.strftime('%Y-%m')
-    month_year=sorted(list(set(month_year)))
-    
-    for month in month_year:
-        temp=portfolio_returns_pct.loc[str(month)]
-        month_vol[month]=temp.std()*np.sqrt(252)
-    
-        temp_2=temp.copy()
-    
-        for col in temp_2.columns:
-            temp_2[col]=temp_2[col]-temp[bench]
-            
-        month_tracking_error[month]=temp_2.std()*np.sqrt(252)
-        perf_month=portfolio_returns.loc[str(month)].iloc[-1]/portfolio_returns.loc[str(month)].iloc[0]-1
-        month_sharpe_ratio[month]=perf_month/(temp.std()*np.sqrt(252))
-        month_returns[month]=perf_month
-        
-    
-    month_returns_dataframe=pd.DataFrame(month_returns).round(4)
-    month_vol_dataframe=pd.DataFrame(month_vol).round(4)
-    month_tracking_error_dataframe=pd.DataFrame(month_tracking_error.values(),index=month_tracking_error.keys()).round(4)
-    month_sharpe_ratio_dataframe=pd.DataFrame(month_sharpe_ratio).round(4)
+    year_returns = {}
+    year_vol = {}
+    year_tracking_error = {}
+    year_sharpe_ratio = {}
 
-    return month_returns_dataframe,month_vol_dataframe,month_tracking_error_dataframe,month_sharpe_ratio_dataframe
+    years = sorted(portfolio_returns.index.strftime('%Y').unique())
 
+    for i, year in enumerate(years):
+        mask_curr = portfolio_returns.index.strftime('%Y') == year
+        temp = portfolio_returns_pct.loc[mask_curr]
+        temp_prices = portfolio_returns.loc[mask_curr]
+
+        if len(temp_prices) < 2:
+            continue  
+
+        if i > 0:
+            prev_mask = portfolio_returns.index.strftime('%Y') == years[i - 1]
+            prev_prices = portfolio_returns.loc[prev_mask]
+            if not prev_prices.empty:
+                first_price = prev_prices.iloc[-1]
+            else:
+                first_price = temp_prices.iloc[0]
+        else:
+            first_price = temp_prices.iloc[0]
+
+        last_price = temp_prices.iloc[-1]
+
+        perf_year = last_price / first_price - 1
+        year_returns[year] = perf_year
+
+        vol = temp.std() * np.sqrt(252)
+        year_vol[year] = vol
+
+        tracking_error = (temp[fund] - temp[bench]).std() * np.sqrt(252)
+        year_tracking_error[year] = tracking_error
+
+        sharpe = perf_year / vol
+        year_sharpe_ratio[year] = sharpe
+
+    year_returns_df = pd.DataFrame(year_returns).round(4)
+    year_vol_df = pd.DataFrame(year_vol).round(4)
+    year_tracking_error_df = pd.DataFrame.from_dict(
+        year_tracking_error, orient='index', columns=['Tracking Error']
+    ).round(4)
+    year_sharpe_ratio_df = pd.DataFrame(year_sharpe_ratio).round(4)
+
+    return year_returns_df, year_vol_df, year_tracking_error_df, year_sharpe_ratio_df
+
+def get_monthly_metrics(portfolio_returns, fund='Fund', bench='Bitcoin'):
+    portfolio_returns = portfolio_returns[[fund, bench]]
+    portfolio_returns_pct = portfolio_returns.pct_change()
+
+    month_returns = {}
+    month_vol = {}
+    month_tracking_error = {}
+    month_sharpe_ratio = {}
+
+    month_years = sorted(portfolio_returns.index.strftime('%Y-%m').unique())
+
+    for i, month in enumerate(month_years):
+
+        mask_curr = portfolio_returns.index.strftime('%Y-%m') == month
+        temp = portfolio_returns_pct.loc[mask_curr]
+        temp_prices = portfolio_returns.loc[mask_curr]
+
+        if len(temp_prices) < 2:
+            continue  
+        if i > 0:
+            prev_mask = portfolio_returns.index.strftime('%Y-%m') == month_years[i - 1]
+            prev_prices = portfolio_returns.loc[prev_mask]
+            if not prev_prices.empty:
+                first_price = prev_prices.iloc[-1]  
+            else:
+                first_price = temp_prices.iloc[0]
+        else:
+            first_price = temp_prices.iloc[0]
+
+        last_price = temp_prices.iloc[-1]
+
+        perf_month = last_price / first_price - 1
+        month_returns[month] = perf_month
+
+        vol = temp.std() * np.sqrt(252)
+        month_vol[month] = vol
+
+        tracking_error = (temp[fund] - temp[bench]).std() * np.sqrt(252)
+        month_tracking_error[month] = tracking_error
+
+        sharpe = perf_month / vol
+        month_sharpe_ratio[month] = sharpe
+
+    month_returns_df = pd.DataFrame(month_returns).round(4)
+    month_vol_df = pd.DataFrame(month_vol).round(4)
+    month_tracking_error_df = pd.DataFrame.from_dict(
+        month_tracking_error, orient='index', columns=['Tracking Error']
+    ).round(4)
+    month_sharpe_ratio_df = pd.DataFrame(month_sharpe_ratio).round(4)
+
+    return month_returns_df, month_vol_df, month_tracking_error_df, month_sharpe_ratio_df
+    
 def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Year'):
 
     if freq=='Year':
