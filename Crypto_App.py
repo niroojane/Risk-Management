@@ -1604,6 +1604,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         cumulative_performance_ex_post=performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value].copy()
         cumulative_performance_ex_post.iloc[0]=0
         cumulative_performance_ex_post=(1+cumulative_performance_ex_post).cumprod()*100
+        pnl_contribution=(pnl_history-pnl_history.shift(1)).loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value]
 
         git_output=widgets.Output()
         
@@ -1647,6 +1648,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
             fig4.update_layout(xaxis_title=None, yaxis_title=None,showlegend=False)
             fig4.show()
+            
+            display(display_scrollable_df(pnl_contribution))
 
             display(push_button)
             display(git_output)
