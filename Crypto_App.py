@@ -457,7 +457,7 @@ def get_frontier(returns,dataframe):
     return indicators,fig
 
 def display_crypto_app(Binance,Pnl_calculation,git):
-    # --- strategy dictionary ---
+     # --- strategy dictionary ---
     dico_strategies = {
         'Minimum Variance': 'minimum_variance',
         'Risk Parity': 'risk_parity',
@@ -469,8 +469,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     # --- globals ---
     global tickers_dataframe, tickers, dataframe, returns_to_use, prices
     global rolling_optimization, performance_pct, performance_fund, dates_end,quantities,cumulative_results,global_returns
-    global book_cost,realized_pnl,profit_and_loss,holding_tickers,current_weights,fund_names,grid
-
+    global book_cost,realized_pnl,profit_and_loss,holding_tickers,current_weights,fund_names,grid,trades
+    
     tickers_dataframe = pd.DataFrame()
     tickers = []
     holding_tickers=[]
@@ -482,6 +482,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     current_weights=pd.DataFrame()
     book_cost=pd.DataFrame()
     realized_pnl=pd.DataFrame()
+    trades=pd.DataFrame()
+
     profit_and_loss=pd.DataFrame()
     returns_to_use = pd.DataFrame()
     prices = pd.DataFrame()
@@ -1141,10 +1143,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     pnl['Total P&L %'] = 0
         
                 display(display_scrollable_df(pnl.sort_values(by='Weights', ascending=False).round(4)))                
-
+                display(display_scrollable_df(trades))
+                
     
     def get_pnl_on_click(_):
-        global book_cost,realized_pnl,profit_and_loss
+        global book_cost,realized_pnl,profit_and_loss,trades
         url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Trade%20History%20Reconstructed.xlsx'
         myfile = requests.get(url)
         trade_history=pd.read_excel(BytesIO(myfile.content))
@@ -1442,8 +1445,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
         eigval,eigvec,portfolio_components=portfolio.pca(num_components=num_components.value)
         selected_components.options=portfolio_components.columns
-        num_components.max=len(range_returns.columns)
-        num_closest_to_pca.max=len(range_returns.columns)+1
+        num_components.max=len(range_returns.columns)+1
+        num_closest_to_pca.max=len(range_returns.columns)
         
         variance_explained=eigval/eigval.sum()
         variance_explained_dataframe=pd.DataFrame(variance_explained,index=portfolio_components.columns,columns=['Variance Explained'])
@@ -1605,7 +1608,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         cumulative_performance_ex_post.iloc[0]=0
         cumulative_performance_ex_post=(1+cumulative_performance_ex_post).cumprod()*100
         pnl_contribution=(pnl_history-pnl_history.shift(1)).loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value]
-
+        
         git_output=widgets.Output()
         
         def git_push(_):
@@ -1650,7 +1653,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             fig4.show()
             
             display(display_scrollable_df(pnl_contribution))
-
+            
             display(push_button)
             display(git_output)
             
