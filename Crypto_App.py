@@ -224,7 +224,7 @@ def get_asset_risk(prices):
 def get_yearly_metrics(portfolio_returns,fund='Fund',bench='Bitcoin'):
 
     portfolio_returns = portfolio_returns[[fund, bench]]
-    portfolio_returns_pct = portfolio_returns.pct_change()
+    portfolio_returns_pct = portfolio_returns.pct_change(fill_method=None)
 
     year_returns = {}
     year_vol = {}
@@ -276,7 +276,7 @@ def get_yearly_metrics(portfolio_returns,fund='Fund',bench='Bitcoin'):
 
 def get_monthly_metrics(portfolio_returns, fund='Fund', bench='Bitcoin'):
     portfolio_returns = portfolio_returns[[fund, bench]]
-    portfolio_returns_pct = portfolio_returns.pct_change()
+    portfolio_returns_pct = portfolio_returns.pct_change(fill_method=None)
 
     month_returns = {}
     month_vol = {}
@@ -388,6 +388,7 @@ def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Ye
                 textfont=dict(family="Arial Narrow", size=15),
                 hovertemplate="Year: %{x}<br>%{y:.3f}<extra></extra>")
             fig.show()
+            
 def get_frontier(returns,dataframe):
     portfolio=RiskAnalysis(returns)
     frontier_weights, frontier_returns, frontier_risks, frontier_sharpe_ratio = portfolio.efficient_frontier()
@@ -464,7 +465,8 @@ def get_frontier(returns,dataframe):
     return indicators,fig
 
 def display_crypto_app(Binance,Pnl_calculation,git):
-     # --- strategy dictionary ---
+
+    # --- strategy dictionary ---
     dico_strategies = {
         'Minimum Variance': 'minimum_variance',
         'Risk Parity': 'risk_parity',
@@ -763,8 +765,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             return
 
         # cumulative_performance = cumulative_performance.copy()
+
+            
         cumulative_performance.iloc[0] = 0
         cumulative_results = (1 + cumulative_performance).cumprod() * 100
+        
         portfolio_returns = rebalanced_time_series(range_prices, grid.data, frequency=rebalancing_frequency.value)
         cumulative_results=pd.concat([cumulative_results,portfolio_returns],axis=1)
         global_returns=cumulative_results.pct_change()
@@ -840,9 +845,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if fund.value==benchmark.value:
                 print("⚠️ Benchmark and Fund must be different.")
                 return
-            if cumulative_results.empty:
+            if cumulative_results.empty or cumulative_results.shape[1]<2:
                 print("⚠️ No performance data available yet. Please run an optimization first.")
                 return
+
+            
             get_calendar_graph(cumulative_results, 
                                freq=frequency_graph.value, 
                                benchmark=benchmark.value, 
@@ -1559,7 +1566,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                             num_components,selected_components,num_closest_to_pca,
                             widgets.HBox([pca_components,pca_output])])
     
-    correlation_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,correlation_button]),dropdown_asset1,dropdown_asset2,window_corr,asset_output_corr])                        
+    correlation_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,correlation_button]),dropdown_asset1,dropdown_asset2,window_corr,asset_output_corr])    
+    
     global daily_pnl,pnl_history,historical_ptf,performance_ex_post,positions,quantities_holding
     
     daily_pnl=pd.DataFrame()
@@ -1598,7 +1606,43 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     start_date_perf_ex_post = widgets.DatePicker(value=positions.index[0].date(), layout=widgets.Layout(width='350px'))
     end_date_perf_ex_post = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
     ex_post_perf=widgets.Output()
+    ex_post_calendar=widgets.Output()
     
+    fund_ex_post=widgets.Dropdown(value='Historical Portfolio',options=['Historical Portfolio','Fund'],description='Select Fund',style={'description_width': '150px'})
+    benchmark_ex_post=widgets.Dropdown(value='Historical Portfolio',options=['Historical Portfolio','Fund'],description='Select Benchmark',style={'description_width': '150px'})
+    frequency_graph_ex_post=widgets.Dropdown(options=['Year','Month'],value='Year',description='Select Frequency',style={'description_width': '150px'})
+    calendar_button_ex_post=widgets.Button(description='Update', button_style='info')
+    
+    def show_graph_ex_post(_):
+
+        cumulative_performance_ex_post=pd.DataFrame()
+        
+        with ex_post_calendar:
+            
+            ex_post_calendar.clear_output(wait=True)
+            
+            if performance_ex_post.empty:
+                print("⚠️ Load Ex Post Performance.")
+                return
+            if fund_ex_post.value==benchmark_ex_post.value:
+                print("⚠️ Benchmark and Fund must be different.")
+                return
+            if performance_ex_post.empty or performance_ex_post.shape[1]<2:
+                print("⚠️ No performance data available yet. Please run an optimization first.")
+                return
+                
+            cumulative_performance_ex_post=performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value].copy()
+            cumulative_performance_ex_post.iloc[0]=0
+            cumulative_performance_ex_post=(1+cumulative_performance_ex_post).cumprod()*100   
+            
+            get_calendar_graph(cumulative_performance_ex_post, 
+                               freq=frequency_graph_ex_post.value, 
+                               benchmark=benchmark_ex_post.value, 
+                               fund=fund_ex_post.value)
+    
+    calendar_button_ex_post.on_click(show_graph_ex_post)
+
+
     def update_ex_post_chart(_):
         
         selected_history=pnl_history['Total'].loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value]
@@ -1607,10 +1651,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         if global_returns.empty:
             performance_ex_post=historical_ptf['Historical Portfolio'].copy()
+            performance_ex_post=performance_ex_post.to_frame()
         else:
             performance_ex_post=historical_ptf['Historical Portfolio'].copy()
-            performance_ex_post=pd.concat([performance_ex_post,global_returns],axis=1).sort_index()
-            
+            performance_ex_post=pd.concat([performance_ex_post,global_returns],axis=1).sort_index()  
+        
         cumulative_performance_ex_post=performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value].copy()
         cumulative_performance_ex_post.iloc[0]=0
         cumulative_performance_ex_post=(1+cumulative_performance_ex_post).cumprod()*100
@@ -1632,7 +1677,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
         push_button=widgets.Button(description='Upload Files',button_style='success')
         push_button.on_click(git_push)
-        
+
         with ex_post_perf:
             ex_post_perf.clear_output(wait=True)
             
@@ -1646,7 +1691,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             fig2.update_layout(xaxis_title=None, yaxis_title=None)
             fig2.show()            
     
-            fig3=px.line(cumulative_performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value],title='Cumulative Return')
+            fig3=px.line(cumulative_performance_ex_post,title='Cumulative Return')
             fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
             fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio'])
             fig3.update_layout(xaxis_title=None, yaxis_title=None)
@@ -1663,7 +1708,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
             display(push_button)
             display(git_output)
-            
+        
+
     def get_ex_post_returns(_):
         
         global daily_pnl,pnl_history,historical_ptf,performance_ex_post
@@ -1743,35 +1789,45 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         for col in binance_data:
             historical_ptf[col]=weights_ex_post2[col]*binance_data2[col]
+            
         historical_ptf['Historical Portfolio']=historical_ptf.sum(axis=1)   
     
         if global_returns.empty:
             performance_ex_post=historical_ptf['Historical Portfolio'].copy()
-
+            performance_ex_post=performance_ex_post.to_frame()
         else:
             performance_ex_post=historical_ptf['Historical Portfolio'].copy()
             performance_ex_post=pd.concat([performance_ex_post,global_returns],axis=1).sort_index()
-    
+        
+            options = list(performance_ex_post.columns)
+            fund_ex_post.options = options
+            benchmark_ex_post.options = options
+            fund_ex_post.value = 'Historical Portfolio'
+            benchmark_ex_post.value ='Fund'
+        
         update_ex_post_chart(None)
-    
+        show_graph_ex_post(None)
+        
     ex_post_button=widgets.Button(description='Get Ex Post Metrics',button_style='info')
     ex_post_button.on_click(get_ex_post_returns)
     start_date_perf_ex_post.observe(update_ex_post_chart)
     end_date_perf_ex_post.observe(update_ex_post_chart)
     
     ex_post_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button]),ex_post_perf])    
-
+    calendar_ui_ex_post=widgets.VBox([widgets.HBox([frequency_graph_ex_post,fund_ex_post,benchmark_ex_post,calendar_button_ex_post]),ex_post_calendar])
+    
     tab = widgets.Tab()
-    tab.children = [universe_ui, constraint_ui,positions_ui,calendar_perf,ex_post_ui,ex_ante_ui,var_ui,market_ui,correlation_ui]
+    tab.children = [universe_ui, constraint_ui,positions_ui,calendar_perf,ex_post_ui,calendar_ui_ex_post,ex_ante_ui,var_ui,market_ui,correlation_ui]
     tab.set_title(0, 'Investment Universe')
     tab.set_title(1, 'Strategy')
     tab.set_title(2,'Positioning')
-    tab.set_title(3, 'Performance')
+    tab.set_title(3, 'Strategy Return')
     tab.set_title(4, 'Ex Post Metrics')
-    tab.set_title(5, 'Ex Ante Metrics')
-    tab.set_title(6, 'Value at Risk Metrics')
-    tab.set_title(7, 'Market Risk')
-    tab.set_title(8, 'Correlation')
+    tab.set_title(5, 'Calendar Metrics')
+    tab.set_title(6, 'Ex Ante Metrics')
+    tab.set_title(7, 'Value at Risk Metrics')
+    tab.set_title(8, 'Market Risk')
+    tab.set_title(9, 'Correlation')
 
     dropdown_asset.options = list(dataframe.columns) + ['All']
     
