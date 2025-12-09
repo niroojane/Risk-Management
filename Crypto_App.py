@@ -1617,6 +1617,17 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
         cumulative_performance_ex_post=pd.DataFrame()
         
+        if global_returns.empty:
+            performance_ex_post=historical_ptf['Historical Portfolio'].copy()
+            performance_ex_post=performance_ex_post.to_frame()
+        else:
+            performance_ex_post=historical_ptf['Historical Portfolio'].copy()
+            performance_ex_post=pd.concat([performance_ex_post,global_returns],axis=1).sort_index()
+        
+            options = list(performance_ex_post.columns)
+            fund_ex_post.options = options
+            benchmark_ex_post.options = options
+            
         with ex_post_calendar:
             
             ex_post_calendar.clear_output(wait=True)
@@ -1639,7 +1650,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                                freq=frequency_graph_ex_post.value, 
                                benchmark=benchmark_ex_post.value, 
                                fund=fund_ex_post.value)
-    
+            update_ex_post_chart(None)
+
     calendar_button_ex_post.on_click(show_graph_ex_post)
 
 
