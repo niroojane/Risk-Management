@@ -223,7 +223,7 @@ def get_asset_risk(prices):
 
 def get_yearly_metrics(portfolio_returns,fund='Fund',bench='Bitcoin'):
 
-    portfolio_returns = portfolio_returns[[fund, bench]]
+    portfolio_returns = portfolio_returns[[fund, bench]].ffill()
     portfolio_returns_pct = portfolio_returns.pct_change(fill_method=None)
 
     year_returns = {}
@@ -275,7 +275,7 @@ def get_yearly_metrics(portfolio_returns,fund='Fund',bench='Bitcoin'):
     return year_returns_df, year_vol_df, year_tracking_error_df, year_sharpe_ratio_df
 
 def get_monthly_metrics(portfolio_returns, fund='Fund', bench='Bitcoin'):
-    portfolio_returns = portfolio_returns[[fund, bench]]
+    portfolio_returns = portfolio_returns[[fund, bench]].ffill()
     portfolio_returns_pct = portfolio_returns.pct_change(fill_method=None)
 
     month_returns = {}
