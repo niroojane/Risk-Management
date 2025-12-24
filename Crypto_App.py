@@ -910,7 +910,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             minvar = portfolio.optimize("minimum_variance")
             rp = portfolio.optimize("risk_parity")
             sharpe_c = minvar_c = rp_c = None
-    
+            equal_weights = np.ones(returns_to_use.shape[1]) / returns_to_use.shape[1]
+
             if cons is not None:
                 sharpe_c = portfolio.optimize("sharpe_ratio", constraints=cons)
                 minvar_c = portfolio.optimize("minimum_variance", constraints=cons)
@@ -922,8 +923,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 'Min Variance': minvar.tolist(),
                 'Constrained Min Var': minvar_c.tolist() if minvar_c is not None else minvar.tolist(),
                 'Risk Parity': rp.tolist(),
-                'Constrained RP': rp_c.tolist() if rp_c is not None else rp.tolist()}
-            
+                'Constrained RP': rp_c.tolist() if rp_c is not None else rp.tolist(),
+                'Equal Weighted':equal_weights.tolist()}
+
             allocation_df = pd.DataFrame(allocation, index=dataframe.columns).T.round(4)
             if set(current_weights.index).issubset(dataframe.columns):
                 allocation_df = allocation_df.combine_first(current_weights.T).fillna(0)
