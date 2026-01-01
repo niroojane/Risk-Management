@@ -623,10 +623,26 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 
             with price_output:
                 price_output.clear_output(wait=True)
+                
+                fig = px.line(dataframe.loc[start_date_perf.value:end_date_perf.value], title='Price', width=800, height=400)
+                fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
+
+                fig.show()
+
+                cumulative_returns=returns_to_use.loc[start_date_perf.value:end_date_perf.value].copy()
+                cumulative_returns.iloc[0]=0
+                cumulative_returns=(1+cumulative_returns).cumprod()*100
+                
+                fig2 = px.line(cumulative_returns, title='Cumulative Performance', width=800, height=400)
+                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
+
+                fig2.show()
                 display(display_scrollable_df(dataframe))
 
-
-                
     data_button.on_click(get_prices)
     start_date.observe(lambda ch: get_prices() if ch['name'] == 'value' and ch['new'] else None, names='value')
     
@@ -738,6 +754,29 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             asset_returns=get_asset_returns(range_prices)
             display(display_scrollable_df(asset_returns))
             display(display_scrollable_df(asset_risk))
+            
+        with price_output:
+            price_output.clear_output(wait=True)
+            
+            fig = px.line(dataframe.loc[start_date_perf.value:end_date_perf.value], title='Price', width=800, height=400)
+            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+            fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+            fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
+
+            fig.show()
+
+            cumulative_returns=returns_to_use.loc[start_date_perf.value:end_date_perf.value].copy()
+            cumulative_returns.iloc[0]=0
+            cumulative_returns=(1+cumulative_returns).cumprod()*100
+            
+            fig2 = px.line(cumulative_returns, title='Cumulative Performance', width=800, height=400)
+            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+            fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+            fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
+
+            fig2.show()
+            
+            display(display_scrollable_df(dataframe))
 
         if performance_pct is None or performance_pct.empty:
             with output_returns:
