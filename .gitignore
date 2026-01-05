@@ -60,3 +60,4 @@ frontend/build/
 backend/__pycache__/
 backend/*.pyc
 backend/.pytest_cache/
+backend/logs/
