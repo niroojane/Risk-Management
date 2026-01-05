@@ -2,13 +2,14 @@ beautifulsoup4==4.14.2
 binance_connector==3.11.0
 ipydatagrid==1.4.0
 ipython==8.27.0
-ipython==8.12.3
-ipywidgets==7.8.1
 ipywidgets==8.0.4
+jupyter==1.1.1
 matplotlib==3.10.7
 numpy==2.3.4
+openpyxl==3.1.2
 pandas==2.3.3
 plotly==5.24.1
+python-dotenv==1.0.0
 Requests==2.32.5
 scipy==1.16.3
 seaborn==0.13.2

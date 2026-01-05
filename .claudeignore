@@ -1,0 +1,41 @@
+# Fichiers de données
+*.xlsx
+*.xls
+*.csv
+
+# Scripts spécifiques
+Git.py
+
+# Notebooks Jupyter
+*.ipynb
+.ipynb_checkpoints/
+
+# Fichiers sensibles et credentials
+.env
+*.key
+*.pem
+secrets.json
+credentials.json
+config.local.*
+
+# Dossiers Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+.venv/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs et temporaires
+*.log
+*.tmp
+logs/
+temp/

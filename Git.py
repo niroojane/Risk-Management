@@ -1,13 +1,17 @@
 import requests
 from io import BytesIO
 import base64
+import config
 
-token = ''
-repo_owner = ''
-repo_name = ''
-branch = ''
-binance_api_key=''
-binance_api_secret=''
+# GitHub configuration
+token = config.GITHUB_TOKEN
+repo_owner = config.GITHUB_REPO_OWNER
+repo_name = config.GITHUB_REPO_NAME
+branch = config.GITHUB_BRANCH
+
+# Binance API credentials
+binance_api_key = config.BINANCE_API_KEY
+binance_api_secret = config.BINANCE_API_SECRET
 
 class GitHub:
 
