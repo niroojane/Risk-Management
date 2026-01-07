@@ -1051,7 +1051,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 first_row = pd.Series(1 / len(dataframe.columns), index=dataframe.columns, name=dates_end[0])
                 rolling_optimization = pd.concat([pd.DataFrame([first_row]), rolling_optimization])
             display(display_scrollable_df(rolling_optimization))
+            
+            model=pd.DataFrame(rolling_optimization.iloc[-2])
+            model.columns=['Model']
 
+            if not 'Model' in grid.data.index:
+                grid.data=pd.concat([grid.data,model.T],axis=0)
+                
             quantities = rebalanced_dynamic_quantities(dataframe, rolling_optimization)
             performance_fund = pd.DataFrame({'Fund': (quantities * dataframe).sum(axis=1)})
             if 'BTCUSDT' in dataframe.columns:
