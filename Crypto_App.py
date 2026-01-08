@@ -465,7 +465,6 @@ def get_frontier(returns,dataframe):
     return indicators,fig
 
 def display_crypto_app(Binance,Pnl_calculation,git):
-
     # --- strategy dictionary ---
     dico_strategies = {
         'Minimum Variance': 'minimum_variance',
@@ -623,7 +622,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 
             with price_output:
                 price_output.clear_output(wait=True)
-                
                 fig = px.line(dataframe.loc[start_date_perf.value:end_date_perf.value], title='Price', width=800, height=400)
                 fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                 fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
@@ -733,8 +731,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     # --- performance update ---
     def updated_cumulative_perf(_):
+        
         global performance_pct, performance_fund,cumulative_results,global_returns
-
+        
         try:
             start_ts = pd.to_datetime(start_date_perf.value)
             end_ts = pd.to_datetime(end_date_perf.value)
@@ -744,6 +743,38 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 print("⚠️ Invalid start/end dates.")
             return
             
+        if dataframe.empty:
+            with main_output:
+                main_output.clear_output(wait=True)
+                print("⚠️ Load Prices.")
+                return
+
+        if performance_pct is None or performance_pct.empty:
+            with output_returns:
+                output_returns.clear_output(wait=True)
+                print("⚠️ No performance data available yet. Please run an optimization first.")
+            return
+       
+        if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
+            
+            with main_output:
+                main_output.clear_output()
+                print("⚠️ Invalid date range.")
+            with output_returns:
+                output_returns.clear_output()
+                print("⚠️ Invalid date range.")
+            with vol_output:
+                vol_output.clear_output()
+            with perf_output:
+                perf_output.clear_output()
+            with drawdown_output:
+                drawdown_output.clear_output()
+            with frontier_output:
+                frontier_output.clear_output()
+                
+            return
+            
+
         with main_output:
             
             main_output.clear_output(wait=True)
@@ -778,20 +809,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
             display(display_scrollable_df(dataframe))
 
-        if performance_pct is None or performance_pct.empty:
-            with output_returns:
-                output_returns.clear_output(wait=True)
-                print("⚠️ No performance data available yet. Please run an optimization first.")
-            return
-
         performance_pct.index = pd.to_datetime(performance_pct.index)
-
-
-        if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
-            with output_returns:
-                output_returns.clear_output(wait=True)
-                print("⚠️ Invalid date range.")
-            return
 
         cumulative_performance = performance_pct.loc[start_ts:end_ts]
 
@@ -876,16 +894,18 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     disabled=False
     )    
     calendar_output=widgets.Output()
+    
     def show_graph(_):
         with calendar_output:
-
+            
             calendar_output.clear_output(wait=True)
+            
+            if cumulative_results.empty or cumulative_results.shape[1]<2:
+                print("⚠️ No performance data available yet. Please run an optimization first.")
+                return
 
             if fund.value==benchmark.value:
                 print("⚠️ Benchmark and Fund must be different.")
-                return
-            if cumulative_results.empty or cumulative_results.shape[1]<2:
-                print("⚠️ No performance data available yet. Please run an optimization first.")
                 return
 
             
@@ -1054,7 +1074,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
             model=pd.DataFrame(rolling_optimization.iloc[-2])
             model.columns=['Model']
-
             if not 'Model' in grid.data.index:
                 grid.data=pd.concat([grid.data,model.T],axis=0)
                 
@@ -1259,19 +1278,56 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     start_date_perf_risk = widgets.DatePicker(value=start_perf_date, layout=widgets.Layout(width='350px'))
     end_date_perf_risk = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
     # ---------- Ex-Ante / Risk Contribution ----------
-    def update_fund_display(fund_name):
+    def update_fund_display(_):
         
-        range_prices=dataframe.loc[start_date_perf_risk.value:end_date_perf_risk.value]
-        range_returns=range_prices.pct_change()
-        
-        portfolio = RiskAnalysis(range_returns)
-
-        if grid.data.empty:
+        try:
+            start_ts = pd.to_datetime(start_date_perf_risk.value)
+            end_ts = pd.to_datetime(end_date_perf_risk.value)
+        except Exception:
+            with ex_ante_output:
+                ex_ante_output.clear_output()   
+                print("⚠️ Invalid start or end date.")
             with risk_output:
-                risk_output.clear_output()
-                print("⚠️ No Allocation.")
-                return
+                risk_output.clear_output()   
+            return
                 
+        if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts: 
+            with ex_ante_output:
+                ex_ante_output.clear_output()   
+                print("⚠️ Error with date range.")
+            with risk_output:
+                risk_output.clear_output()   
+                return
+    
+        if dataframe.empty or returns_to_use.empty or grid.data.empty:
+            with ex_ante_output:
+                ex_ante_output.clear_output()   
+                print("⚠️ Please compute optimization results first.")
+            with risk_output:
+                risk_output.clear_output()   
+                return    
+        range_prices = dataframe.loc[start_ts:end_ts]
+    
+        if range_prices.empty:
+            with ex_ante_output:
+                ex_ante_output.clear_output()   
+                print("⚠️ No data available in selected date range.")
+            with risk_output:
+                risk_output.clear_output()   
+            return
+    
+        range_returns = range_prices.pct_change().dropna()
+ 
+        if grid.data.empty:
+            with ex_ante_output:
+                ex_ante_output.clear_output()
+                print("⚠️ No Allocation.")
+            with risk_output:
+                risk_output.clear_output()   
+            return     
+            
+        portfolio = RiskAnalysis(range_returns)
+     
         selected_weights = grid.data.loc[selected_fund.value]
 
         
@@ -1313,22 +1369,57 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     ex_ante_output = widgets.Output()
 
     def ex_ante_metrics(bench_name):
+        
+        try:
+            start_ts = pd.to_datetime(start_date_perf_risk.value)
+            end_ts = pd.to_datetime(end_date_perf_risk.value)
+        except Exception:
+            with ex_ante_output:
+                ex_ante_output.clear_output()   
+                print("⚠️ Invalid start or end date.")
 
-        range_prices=dataframe.loc[start_date_perf_risk.value:end_date_perf_risk.value]
-        range_returns=range_prices.pct_change()
+            with risk_output:
+                risk_output.clear_output()   
+            return
+
+        if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts: 
+            with ex_ante_output:
+                ex_ante_output.clear_output()   
+                print("⚠️ Error with date range.")
+            with risk_output:
+                risk_output.clear_output()   
+                return
+    
+        if dataframe.empty or returns_to_use.empty or grid.data.empty:
+            with ex_ante_output:
+                ex_ante_output.clear_output()   
+                print("⚠️ Please compute optimization results first.")
+            with risk_output:
+                risk_output.clear_output()   
+                return
+    
+        # ✅ Safe slicing
+        range_prices = dataframe.loc[start_ts:end_ts]
+    
+        if range_prices.empty:
+            with ex_ante_output:
+                ex_ante_output.clear_output()   
+                print("⚠️ No data available in selected date range.")
+            return
+    
+        range_returns = range_prices.pct_change().dropna()
+    
+        if range_returns.empty:
+            with ex_ante_output:
+                ex_ante_output.clear_output()   
+                print("⚠️ Not enough data to compute returns.")
+            return
         
         vol_ex_ante = {}
         tracking_error_ex_ante = {}
 
         portfolio = RiskAnalysis(range_returns)
-
-        if dataframe.empty or returns_to_use.empty or grid.data.empty:
-            with ex_ante_output:
-                ex_ante_output.clear_output(wait=True)
-                print("⚠️ Please compute optimization results first.")
-            return
-
-            
+        
         for idx in grid.data.index:
             vol_ex_ante[idx] = portfolio.variance(grid.data.loc[idx])
             tracking_error_ex_ante[idx] = portfolio.variance(grid.data.loc[idx] - grid.data.loc[bench_name])
@@ -1349,7 +1440,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             ex_ante_metrics(change['new'])
 
     def update_contrib_and_ex_ante(_):
-        update_fund_display(selected_fund.value)
+        update_fund_display(None)
         ex_ante_metrics(selected_bench.value)
         
         
@@ -1370,12 +1461,27 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     def get_var_metrics(_):
         global var_scenarios, cvar_scenarios, fund_results
-
-        if dataframe.empty or returns_to_use.empty or grid.data.empty:
+        
+        try:
+            start_ts = pd.to_datetime(start_date_perf_risk.value)
+            end_ts = pd.to_datetime(end_date_perf_risk.value)
+        except Exception:
             with var_output:
-                var_output.clear_output(wait=True)
-                print("⚠️ Please compute optimization results first.")
+                var_output.clear_output()   
+                print("⚠️ Invalid start or end date.")
             return
+            
+        with var_output:
+            var_output.clear_output()   
+            if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
+                print("⚠️ Error with date range.")
+                return
+            if returns_to_use.empty:
+                print('⚠️Load Prices.')
+                return
+            if dataframe.empty or returns_to_use.empty or grid.data.empty:
+                print("⚠️ Please compute optimization results first.")
+                return
 
         horizon = 1 / 250
         spot = dataframe.iloc[-1]
@@ -1390,7 +1496,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         }
 
         
-        range_prices=dataframe.loc[start_date_perf_risk.value:end_date_perf_risk.value]
+        range_prices=dataframe.loc[start_ts:end_ts]
         range_returns=range_prices.pct_change()
         
         portfolio = RiskAnalysis(range_returns)
@@ -1491,15 +1597,38 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     end_date_market_risk = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
     
     def get_market_risk_metrics(_):
-        if returns_to_use.empty:
-            with pca_components:
-                pca_components.clear_output(wait=True)
-                print('⚠️Load Prices')
-                return
         
+        try:
+            start_ts = pd.to_datetime(start_date_market_risk.value)
+            end_ts = pd.to_datetime(end_date_market_risk.value)
+        except Exception:
+            with pca_output:
+                pca_output.clear_output()   
+            with pca_components:
+                pca_components.clear_output()   
+                print("⚠️ Invalid start or end date.")
+            return
+        
+        if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
+            with pca_output:
+                pca_output.clear_output()   
+            with pca_components:
+                pca_components.clear_output()   
+                print("⚠️ Error with date range.")
+            return
+        
+        if returns_to_use.empty:
+
+            with pca_output:
+                pca_output.clear_output()            
+            with pca_components:
+                pca_components.clear_output()
+                print('⚠️ Load Prices.')
+            return
+            
         market_tickers=[t for t in tickers if t in dataframe.columns]
 
-        range_returns=returns_to_use.loc[start_date_market_risk.value:end_date_market_risk.value,market_tickers]
+        range_returns=returns_to_use.loc[start_ts:end_ts,market_tickers]
         portfolio=RiskAnalysis(range_returns)
         
 
@@ -1568,18 +1697,37 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     
     def update_correlation(change=None):
-        range_returns=returns_to_use.loc[start_date_perf_risk.value:end_date_perf_risk.value]
-        
+
+        try:
+            start_ts = pd.to_datetime(start_date_market_risk.value)
+            end_ts = pd.to_datetime(end_date_market_risk.value)
+        except Exception:
+            with asset_output_corr:
+                asset_output_corr.clear_output()
+                print("⚠️ Invalid start or end date.")
+            return
+            
         if returns_to_use.empty:
             with asset_output_corr:
-                asset_output_corr.clear_output(wait=True)
-                print('⚠️Load Prices')
+                asset_output_corr.clear_output()
+                print('⚠️Load Prices.')
                 return
             
         if dropdown_asset1.value==dropdown_asset2.value:
-            asset_output_corr.clear_output(wait=True)
-            print('⚠️Same asset')
-            return
+            with asset_output_corr:
+
+                asset_output_corr.clear_output()
+                print('⚠️Same asset')
+                return    
+            
+        with asset_output_corr:
+            asset_output_corr.clear_output()
+            if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
+                print("⚠️ Error with date range.")
+                return
+   
+        
+        range_returns=returns_to_use.loc[start_ts:end_ts]
 
         with asset_output_corr:
             asset_output_corr.clear_output(wait=True)
@@ -1613,7 +1761,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                             num_components,selected_components,num_closest_to_pca,
                             widgets.HBox([pca_components,pca_output])])
     
-    correlation_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,correlation_button]),dropdown_asset1,dropdown_asset2,window_corr,asset_output_corr])    
+    correlation_ui=widgets.VBox([widgets.HBox([start_date_market_risk,end_date_market_risk,correlation_button]),dropdown_asset1,dropdown_asset2,window_corr,asset_output_corr])    
     
     global daily_pnl,pnl_history,historical_ptf,performance_ex_post,positions,quantities_holding
     
@@ -1662,6 +1810,25 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     def show_graph_ex_post(_):
 
+        try:
+            start_ts = pd.to_datetime(start_date_perf_ex_post.value)
+            end_ts = pd.to_datetime(end_date_perf_ex_post.value)
+        except Exception:
+            with ex_post_calendar:
+                ex_post_calendar.clear_output()
+                print("⚠️ Invalid start or end date.")
+            return
+    
+        with ex_post_calendar:
+            ex_post_calendar.clear_output()
+    
+            if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
+                print("⚠️ Error with date range.")
+                return
+    
+            if pnl_history.empty:
+                print("⚠️ P&L not computed.")
+                return  
         cumulative_performance_ex_post=pd.DataFrame()
         
         if global_returns.empty:
@@ -1677,7 +1844,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
         with ex_post_calendar:
             
-            ex_post_calendar.clear_output(wait=True)
+            ex_post_calendar.clear_output()
             
             if performance_ex_post.empty:
                 print("⚠️ Load Ex Post Performance.")
@@ -1703,10 +1870,31 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
 
     def update_ex_post_chart(_):
-        
-        selected_history=pnl_history['Total'].loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value]
-        selected_daily_pnl=daily_pnl.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value]
-        selected_positions=positions.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value,"Total"]
+
+        try:
+            start_ts = pd.to_datetime(start_date_perf_ex_post.value)
+            end_ts = pd.to_datetime(end_date_perf_ex_post.value)
+        except Exception:
+            with ex_post_perf:
+                ex_post_perf.clear_output()
+                print("⚠️ Invalid start or end date.")
+
+            return
+    
+        with ex_post_perf:
+            ex_post_perf.clear_output()
+    
+            if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
+                print("⚠️ Error with date range.")
+                return
+    
+            if pnl_history.empty:
+                print("⚠️ P&L not computed.")
+                return
+                
+        selected_history=pnl_history['Total'].loc[start_ts:end_ts]
+        selected_daily_pnl=daily_pnl.loc[start_ts:end_ts]
+        selected_positions=positions.loc[start_ts:end_ts,"Total"]
         
         if global_returns.empty:
             performance_ex_post=historical_ptf['Historical Portfolio'].copy()
@@ -1715,10 +1903,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             performance_ex_post=historical_ptf['Historical Portfolio'].copy()
             performance_ex_post=pd.concat([performance_ex_post,global_returns],axis=1).sort_index()  
         
-        cumulative_performance_ex_post=performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value].copy()
+        cumulative_performance_ex_post=performance_ex_post.loc[start_ts:end_ts].copy()
         cumulative_performance_ex_post.iloc[0]=0
         cumulative_performance_ex_post=(1+cumulative_performance_ex_post).cumprod()*100
-        pnl_contribution=(pnl_history-pnl_history.shift(1)).loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value]
+        pnl_contribution=(pnl_history-pnl_history.shift(1)).loc[start_ts:end_ts]
         
         git_output=widgets.Output()
         
@@ -1867,7 +2055,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         update_ex_post_chart(None)
         show_graph_ex_post(None)
         
-    ex_post_button=widgets.Button(description='Get Ex Post Metrics',button_style='info')
+    ex_post_button=widgets.Button(description='Get P&L',button_style='info')
     ex_post_button.on_click(get_ex_post_returns)
     start_date_perf_ex_post.observe(update_ex_post_chart)
     end_date_perf_ex_post.observe(update_ex_post_chart)
@@ -1881,10 +2069,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     tab.set_title(1, 'Strategy')
     tab.set_title(2,'Positioning')
     tab.set_title(3, 'Strategy Return')
-    tab.set_title(4, 'Ex Post Metrics')
+    tab.set_title(4, 'P&L')
     tab.set_title(5, 'Calendar Metrics')
-    tab.set_title(6, 'Ex Ante Metrics')
-    tab.set_title(7, 'Value at Risk Metrics')
+    tab.set_title(6, 'Risk Contribution')
+    tab.set_title(7, 'Value at Risk')
     tab.set_title(8, 'Market Risk')
     tab.set_title(9, 'Correlation')
 
