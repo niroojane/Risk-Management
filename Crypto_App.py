@@ -1892,7 +1892,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 print("⚠️ P&L not computed.")
                 return
                 
-        selected_history=pnl_history['Total'].loc[start_ts:end_ts]
+        selected_history=pd.concat([daily_pnl.loc[start_ts:end_ts,'Total'].cumsum(),pnl_history['Total'].loc[start_ts:end_ts]],axis=1)
+        selected_history.columns=['Cumulative P&L','Total P&L']
         selected_daily_pnl=daily_pnl.loc[start_ts:end_ts]
         selected_positions=positions.loc[start_ts:end_ts,"Total"]
         
@@ -1935,6 +1936,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
             fig2=px.line(selected_history,title='Cumulative P&L')
             fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+            fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
+
             fig2.update_layout(xaxis_title=None, yaxis_title=None)
             fig2.show()            
     
