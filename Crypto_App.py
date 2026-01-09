@@ -1331,7 +1331,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         selected_weights = grid.data.loc[selected_fund.value]
 
         
-        decomposition = pd.DataFrame(portfolio.var_contrib_pct(selected_weights))
+        decomposition = pd.DataFrame(portfolio.var_contrib_pct(selected_weights))*100
         
         quantities_rebalanced = rebalanced_portfolio(range_prices, selected_weights) / range_prices
         quantities_buy_hold = buy_and_hold(range_prices, selected_weights) / range_prices
