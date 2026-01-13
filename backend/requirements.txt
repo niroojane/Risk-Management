@@ -1,0 +1,19 @@
+# FastAPI and server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.5
+pydantic-settings==2.7.1
+
+# Binance and market data
+binance-connector==3.11.0
+pandas==2.3.3
+numpy==2.3.4
+requests==2.32.5
+
+# Configuration
+python-dotenv==1.0.0
+
+# Optional: Testing
+pytest==8.3.5
+pytest-asyncio==0.24.0
+httpx==0.28.1  # For testing FastAPI endpoints

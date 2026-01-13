@@ -12,11 +12,11 @@ Feuille de route pour le développement du backend FastAPI.
 - [x] Documentation auto-générée
 - [x] Dependency injection
 
-## ⏳ Phase 2 : Services Fondamentaux
+## ✅ Phase 2 : Services Fondamentaux
 
-- [ ] Rate limiter pour Binance API (`core/rate_limiter.py`)
-- [ ] Cache service avec TTL (`services/cache_service.py`)
-- [ ] Binance service wrapper (`services/binance_service.py`)
+- [x] Rate limiter pour Binance API (`core/rate_limiter.py`)
+- [x] Cache service avec TTL (`services/cache_service.py`)
+- [x] Binance service wrapper (`services/binance_service.py`)
 
 ## ⏳ Phase 3 : Investment Universe API
 
@@ -50,4 +50,4 @@ Feuille de route pour le développement du backend FastAPI.
 
 ---
 
-**Status actuel** : Phase 1 complétée ✅ | Phase 2 en cours ⏳
+**Status actuel** : Phase 1 ✅ | Phase 2 ✅ | Phase 3 en cours ⏳
