@@ -469,8 +469,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     dico_strategies = {
         'Minimum Variance': 'minimum_variance',
         'Risk Parity': 'risk_parity',
-        'Sharpe Ratio': 'sharpe_ratio'
-    }
+        'Sharpe Ratio': 'sharpe_ratio',
+        'Maximum Diversification':'maximum_diversification'}
     
     options_strat = list(dico_strategies.keys())
 
@@ -968,22 +968,28 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             sharpe = portfolio.optimize("sharpe_ratio")
             minvar = portfolio.optimize("minimum_variance")
             rp = portfolio.optimize("risk_parity")
-            sharpe_c = minvar_c = rp_c = None
+            max_div=portfolio.optimize("maximum_diversification")
+            
+            sharpe_c = minvar_c = rp_c =max_div_c= None
             equal_weights = np.ones(returns_to_use.shape[1]) / returns_to_use.shape[1]
-
+            
             if cons is not None:
                 sharpe_c = portfolio.optimize("sharpe_ratio", constraints=cons)
                 minvar_c = portfolio.optimize("minimum_variance", constraints=cons)
                 rp_c = portfolio.optimize("risk_parity", constraints=cons)
-    
+                max_div_c=portfolio.optimize("maximum_diversification",constraints=cons)
+                
             allocation = {
                 'Optimal Portfolio': sharpe.tolist(),
                 'Constrained Optimal Portfolio': sharpe_c.tolist() if sharpe_c is not None else sharpe.tolist(),
                 'Min Variance': minvar.tolist(),
                 'Constrained Min Var': minvar_c.tolist() if minvar_c is not None else minvar.tolist(),
+                'Max Diversification':max_div.tolist(),
+                'Max Diversification Constrained':max_div_c.tolist() if max_div_c is not None else max_div.tolist(),
                 'Risk Parity': rp.tolist(),
                 'Constrained RP': rp_c.tolist() if rp_c is not None else rp.tolist(),
                 'Equal Weighted':equal_weights.tolist()}
+
 
             allocation_df = pd.DataFrame(allocation, index=dataframe.columns).T.round(4)
             if set(current_weights.index).issubset(dataframe.columns):
