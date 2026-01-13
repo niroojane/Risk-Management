@@ -104,7 +104,6 @@ backend/
 │   ├── models/              # Pydantic models
 │   ├── services/            # Business logic (cache, binance)
 │   ├── core/                # Core utilities (rate limiter, events, middleware)
-│   └── utils/               # Helpers
 ├── logs/                    # Application logs
 ├── tests/                   # Test suite (pytest)
 ├── requirements.txt         # Dependencies
