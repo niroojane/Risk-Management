@@ -14,7 +14,7 @@ Backend FastAPI pour le système de gestion de portefeuille crypto. Ce backend e
 
 ```bash
 cd backend
-pip install -r requirements-backend.txt
+pip install -r requirements.txt
 ```
 
 ### 2. Configuration
@@ -48,18 +48,38 @@ python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
-## ✅ Tester
+## ✅ Tests
 
-### Via curl
+### Tests unitaires (pytest)
 
 ```bash
-curl http://localhost:8000/health
+# Tous les tests
+pytest tests/ -v
+
+# Un fichier spécifique
+pytest tests/test_cache_service.py -v
+
+# Un test spécifique
+pytest tests/test_cache_service.py::test_cache_basic_operations -v
 ```
 
-### Via navigateur
+**Architecture des tests** :
+- `tests/conftest.py` - Fixtures réutilisables
+- `tests/test_cache_service.py` - Tests du cache (4 tests)
+- `tests/test_rate_limiter.py` - Tests du rate limiter (5 tests)
+- `tests/test_binance_service.py` - Tests du service Binance (3 tests)
 
-- **Documentation** : http://localhost:8000/docs
-- **Health check** : http://localhost:8000/health
+**Total : 12 tests essentiels** couvrant les services fondamentaux.
+
+### Tester l'API
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Documentation interactive
+open http://localhost:8000/docs
+```
 
 ## 📊 Endpoints Disponibles
 
@@ -82,12 +102,14 @@ backend/
 │   ├── dependencies.py      # DI
 │   ├── api/                 # Endpoints REST
 │   ├── models/              # Pydantic models
-│   ├── services/            # Business logic
-│   ├── core/                # Utilities
+│   ├── services/            # Business logic (cache, binance)
+│   ├── core/                # Core utilities (rate limiter, events, middleware)
 │   └── utils/               # Helpers
-├── logs/                    # Logs
-├── tests/                   # Tests
-└── requirements-backend.txt
+├── logs/                    # Application logs
+├── tests/                   # Test suite (pytest)
+├── requirements.txt         # Dependencies
+├── pytest.ini               # Pytest configuration
+└── run_tests.py             # Test runner
 ```
 
 ## 📝 Logs

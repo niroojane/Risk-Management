@@ -19,7 +19,12 @@ class RiskManagementException(Exception):
         super().__init__(self.message)
 
 
-class BinanceAPIError(RiskManagementException):
+class ExternalAPIError(RiskManagementException):
+    """Raised when external API call fails (Binance, GitHub, etc.)"""
+    pass
+
+
+class BinanceAPIError(ExternalAPIError):
     """Raised when Binance API returns an error"""
     pass
 
