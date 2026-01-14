@@ -463,7 +463,28 @@ def get_frontier(returns,dataframe):
     indicators = pd.DataFrame(metrics,index=weight_matrix.keys()).T
 
     return indicators,fig
-
+    
+def read_excel_from_url(url,index_col=None):
+        try:
+            response = requests.get(url)
+            response.raise_for_status()  # raises HTTPError for 4xx / 5xx
+    
+            return pd.read_excel(BytesIO(response.content), index_col=index_col)
+    
+        except requests.exceptions.HTTPError as e:
+            # File not found (404) or server error
+            print(f"HTTP error while downloading {url}: {e}")
+    
+        except ValueError as e:
+            # File exists but is not a valid Excel file
+            print(f"Invalid Excel file at {url}: {e}")
+    
+        except RequestException as e:
+            # Network issues, timeout, DNS, etc.
+            print(f"Request failed for {url}: {e}")
+    
+        return None 
+    
 def display_crypto_app(Binance,Pnl_calculation,git):
     # --- strategy dictionary ---
     dico_strategies = {
@@ -1234,11 +1255,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     def get_pnl_on_click(_):
         global book_cost,realized_pnl,profit_and_loss,trades
-        url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Trade%20History%20Reconstructed.xlsx'
-        myfile = requests.get(url)
-        trade_history=pd.read_excel(BytesIO(myfile.content))
-        trades=Pnl_calculation.get_trade_in_usdt(trade_history)
         
+        url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Trade%20History%20Reconstructed.xlsx'
+        trade_history = read_excel_from_url(url)
+        
+        if trade_history is None:
+            raise FileNotFoundError("Trade history could not be loaded. Execution stopped.")        
+        
+        trades=Pnl_calculation.get_trade_in_usdt(trade_history)
         book_cost=Pnl_calculation.get_book_cost(trades)
         realized_pnl,profit_and_loss=Pnl_calculation.get_pnl(book_cost,trades)
         get_holdings(None)
@@ -1778,33 +1802,46 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     positions=pd.DataFrame()
     quantities_holding=pd.DataFrame()
     
-    url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Positions.xlsx'
-    myfile = requests.get(url)
-    position=pd.read_excel(BytesIO(myfile.content),index_col=0)
-    # position=pd.read_excel('Positions.xlsx',index_col=0)
-    
-    positions,quantities_holding=Binance.get_positions_history(enddate=datetime.datetime.today())
-    positions=positions.sort_index()
-    positions.index=pd.to_datetime(positions.index)
-    positions=pd.concat([position,positions])
-    positions.index=pd.to_datetime(positions.index)
-    positions=pd.concat([position,positions]).sort_index()
-    positions=positions.loc[~positions.index.duplicated(keep='first'),:]
-    positions['Total']=positions.loc[:,positions.columns!='Total'].sum(axis=1)
-    
-    url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Quantities.xlsx'
-    myfile = requests.get(url)
-    quantities_history=pd.read_excel(BytesIO(myfile.content),index_col=0)
-    # quantities_history=pd.read_excel('Quantities.xlsx',index_col=0)
-    
-    quantities_holding.index=pd.to_datetime(quantities_holding.index)
-    quantities_holding=pd.concat([quantities_holding,quantities_history])
-    quantities_holding=quantities_holding.loc[~quantities_holding.index.duplicated(),:]
+    def check_connection(_):
+        global quantities_holding,positions
+        url_positions='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Positions.xlsx'
+        url_quantities='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Quantities.xlsx'
+        
+        with ex_post_perf:
+            
+            ex_post_perf.clear_output(wait=True)
+            
+            position = read_excel_from_url(url_positions,index_col=0)
+            if position is None:
+                raise FileNotFoundError("Positions.xlsx could not be loaded. Execution stopped.")
+                print('Positions Not Found in Repository')
+                
+            quantities_history = read_excel_from_url(url_quantities,index_col=0)
+            if quantities_history is None:
+                raise FileNotFoundError("Quantities.xlsx could not be loaded. Execution stopped.")
+                print('Quantities Not Found in Repository')
+            
+            # position=pd.read_excel('Positions.xlsx',index_col=0)
+            positions,quantities_holding=Binance.get_positions_history(enddate=datetime.datetime.today())
+            positions=positions.sort_index()
+            positions.index=pd.to_datetime(positions.index)
+            positions=pd.concat([position,positions])
+            positions.index=pd.to_datetime(positions.index)
+            positions=pd.concat([position,positions]).sort_index()
+            positions=positions.loc[~positions.index.duplicated(keep='first'),:]
+            positions['Total']=positions.loc[:,positions.columns!='Total'].sum(axis=1)
+            
+            # quantities_history=pd.read_excel('Quantities.xlsx',index_col=0)
+            
+            quantities_holding.index=pd.to_datetime(quantities_holding.index)
+            quantities_holding=pd.concat([quantities_holding,quantities_history])
+            quantities_holding=quantities_holding.loc[~quantities_holding.index.duplicated(),:]
+        
+            quantities_holding=quantities_holding.sort_index()
 
-    quantities_holding=quantities_holding.sort_index()
-    
+            start_date_perf_ex_post.value=positions.index[0].date()
 
-    start_date_perf_ex_post = widgets.DatePicker(value=positions.index[0].date(), layout=widgets.Layout(width='350px'))
+    start_date_perf_ex_post = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
     end_date_perf_ex_post = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
     ex_post_perf=widgets.Output()
     ex_post_calendar=widgets.Output()
@@ -2076,6 +2113,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     ex_post_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button]),ex_post_perf])    
     calendar_ui_ex_post=widgets.VBox([widgets.HBox([frequency_graph_ex_post,fund_ex_post,benchmark_ex_post,calendar_button_ex_post]),ex_post_calendar])
     
+    
     tab = widgets.Tab()
     tab.children = [universe_ui, constraint_ui,positions_ui,calendar_perf,ex_post_ui,calendar_ui_ex_post,ex_ante_ui,var_ui,market_ui,correlation_ui]
     tab.set_title(0, 'Investment Universe')
@@ -2091,4 +2129,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     dropdown_asset.options = list(dataframe.columns) + ['All']
     
+    check_connection(None)
+
     display(tab)
