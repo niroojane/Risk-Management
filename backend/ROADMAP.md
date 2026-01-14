@@ -20,7 +20,7 @@ Feuille de route pour le développement du backend FastAPI.
 
 ## ⏳ Phase 3 : Investment Universe API
 
-- [ ] Pydantic models (`models/common.py`, `models/investment_universe.py`)
+- [x] Pydantic models (`models/common.py`, `models/investment_universe.py`)
 - [ ] GET `/api/v1/investment-universe/market-cap`
 - [ ] GET `/api/v1/investment-universe/prices`
 - [ ] GET `/api/v1/investment-universe/returns`
