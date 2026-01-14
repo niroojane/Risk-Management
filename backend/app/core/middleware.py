@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
-from ..config import CORS_ORIGINS
+from .config import CORS_ORIGINS
 
 logger = logging.getLogger(__name__)
 

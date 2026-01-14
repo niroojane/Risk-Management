@@ -4,7 +4,7 @@ Risk Management API for cryptocurrency portfolio management
 """
 from fastapi import FastAPI
 
-from .config import API_TITLE, API_VERSION, API_DESCRIPTION, API_V1_PREFIX
+from .core.config import API_TITLE, API_VERSION, API_DESCRIPTION, API_V1_PREFIX
 from .core.logging_config import setup_logging
 from .core.exceptions import setup_exception_handlers
 from .core.middleware import setup_middlewares

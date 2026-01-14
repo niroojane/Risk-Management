@@ -19,7 +19,7 @@ from Binance_API import BinanceAPI
 from ..core.rate_limiter import BinanceRateLimiter, RateLimitExceeded
 from ..core.exceptions import ExternalAPIError
 from .cache_service import CacheService
-from ..config import (
+from ..core.config import (
     BINANCE_RATE_LIMIT_CALLS,
     BINANCE_RATE_LIMIT_PERIOD,
     CACHE_MARKET_CAP_TTL,

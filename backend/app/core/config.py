@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 # Add root directory to Python path to import root config
-root_dir = Path(__file__).parent.parent.parent
+root_dir = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(root_dir))
 
 # Import all settings from root config

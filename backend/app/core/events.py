@@ -5,7 +5,7 @@ Handles startup and shutdown operations
 import logging
 from typing import TYPE_CHECKING
 
-from ..config import (
+from .config import (
     API_TITLE,
     API_VERSION,
     CORS_ORIGINS,
@@ -48,6 +48,7 @@ async def startup_event() -> None:
     logger.info("✅ Cache service started")
 
     # Validate Binance API credentials
+    # TODO: Modify to use keys from .env file
     if not BINANCE_API_KEY or not BINANCE_API_SECRET:
         logger.warning(
             "⚠️  Binance API credentials not configured. "
