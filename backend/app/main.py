@@ -10,6 +10,7 @@ from .core.exceptions import setup_exception_handlers
 from .core.middleware import setup_middlewares
 from .core.events import startup_event, shutdown_event
 from .api.v1.health import router as health_router
+from .api.v1.investment_universe import router as investment_universe_router
 
 # Setup logging
 logger = setup_logging(log_level="INFO")
@@ -29,12 +30,9 @@ setup_middlewares(app)
 # Setup exception handlers
 setup_exception_handlers(app)
 
-# Include health and root routes
+# Include routers
 app.include_router(health_router)
-
-# Note: Additional routers will be added once implemented
-# from .api.router import api_router
-# app.include_router(api_router, prefix=API_V1_PREFIX)
+app.include_router(investment_universe_router, prefix=API_V1_PREFIX)
 
 # Register lifecycle events
 app.add_event_handler("startup", startup_event)
