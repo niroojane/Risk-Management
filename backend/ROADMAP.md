@@ -6,6 +6,7 @@ Feuille de route pour le développement du backend FastAPI.
 
 - [x] Structure des dossiers
 - [x] FastAPI app avec CORS
+- [x] Variables d'environnement
 - [x] Logging configuration
 - [x] Exception handlers
 - [x] Health check endpoint

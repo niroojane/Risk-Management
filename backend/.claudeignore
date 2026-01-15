@@ -1,0 +1,56 @@
+# ===========================
+# BACKEND CLAUDE AGENT CONFIG
+# ===========================
+
+../frontend/**
+
+../Crypto\ App.ipynb
+../*.ipynb
+
+../*.xlsx
+../*.xls
+../*.csv
+*.xlsx
+*.xls
+*.csv
+
+../Git.py
+../Stock_Data.py
+../Rebalancing.py
+../PnL_Computation.py
+
+.env
+.env.local
+../.env
+*.key
+*.pem
+secrets.json
+credentials.json
+
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+.venv/
+../__pycache__/
+
+logs/**
+*.log
+
+.pytest_cache/
+.coverage
+htmlcov/
+
+node_modules/
+
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ../README.md
+# ../LICENSE
+# ../SETUP.md
