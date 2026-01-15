@@ -1,13 +1,10 @@
-"""
-Returns API schemas
-Request and response models for returns endpoint
-"""
+"""Returns API schemas Request and response schemas for returns endpoint"""
 from datetime import datetime
 from typing import List
 from pydantic import BaseModel, Field, field_validator
 
-from ...common import TimeInterval, ReturnType, APIResponse
-from ...entities.investment_universe.returns_entities import AssetReturns
+from app.common import TimeInterval, ReturnType, APIResponse
+from ...models.investment_universe.returns_entities import AssetReturns
 
 
 class ReturnsRequest(BaseModel):

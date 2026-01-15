@@ -1,12 +1,9 @@
-"""
-Asset Metrics API schemas
-Request and response models for asset metrics endpoint
-"""
+"""Asset Metrics API schemas Request and response schemas for asset metrics endpoint"""
 from typing import List
 from pydantic import BaseModel, Field, field_validator
 
-from ...common import APIResponse
-from ...entities.investment_universe.asset_metrics_entities import AssetMetrics
+from app.common import APIResponse
+from ...models.investment_universe.asset_metrics_entities import AssetMetrics
 
 
 class AssetMetricsRequest(BaseModel):

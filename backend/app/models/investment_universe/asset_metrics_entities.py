@@ -1,7 +1,4 @@
-"""
-Asset Metrics entities
-Domain objects for asset metrics data
-"""
+"""Asset Metrics entities Domain objects for asset metrics data"""
 from pydantic import BaseModel, Field
 
 

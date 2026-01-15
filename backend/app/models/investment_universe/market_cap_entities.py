@@ -1,7 +1,4 @@
-"""
-Market Cap entities
-Domain objects for market capitalization data
-"""
+"""Market Cap entities Domain objects for market capitalization data"""
 from pydantic import BaseModel, Field
 
 

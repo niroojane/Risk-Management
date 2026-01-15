@@ -1,7 +1,4 @@
-"""
-Prices entities
-Domain objects for price data
-"""
+"""Prices entities Domain objects for price data"""
 from datetime import datetime
 from typing import List
 from pydantic import BaseModel, Field

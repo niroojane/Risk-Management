@@ -1,12 +1,9 @@
-"""
-Returns entities
-Domain objects for return data
-"""
+"""Returns entities Domain objects for return data"""
 from datetime import datetime
 from typing import List
 from pydantic import BaseModel, Field
 
-from ...common import ReturnType
+from app.common import ReturnType
 
 
 class ReturnDataPoint(BaseModel):

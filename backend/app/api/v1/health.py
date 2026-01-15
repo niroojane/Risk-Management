@@ -1,6 +1,4 @@
-"""
-Health and system status endpoints
-"""
+"""Health and system status endpoints"""
 from fastapi import APIRouter
 from datetime import datetime
 
@@ -11,12 +9,7 @@ router = APIRouter(tags=["Health"])
 
 @router.get("/health")
 async def health_check():
-    """
-    Health check endpoint
-
-    Returns:
-        dict: API health status and metadata
-    """
+    """Health check endpoint"""
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
@@ -27,12 +20,7 @@ async def health_check():
 
 @router.get("/")
 async def root():
-    """
-    Root endpoint with API information
-
-    Returns:
-        dict: API welcome message and documentation links
-    """
+    """Root endpoint with API information"""
     return {
         "message": f"Welcome to {API_TITLE}",
         "version": API_VERSION,

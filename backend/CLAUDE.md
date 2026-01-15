@@ -4,16 +4,31 @@ FastAPI backend for cryptocurrency portfolio management system.
 
 ## Architecture
 
-**Clean Architecture en 4 couches:**
+**Clean Architecture en 6 couches:**
 - `app/core/`: Config, rate limiter, cache, middleware, exceptions
 - `app/services/`: BinanceService (async wrapper des modules legacy)
-- `app/api/v1/`: Routes FastAPI par domaine
-- `app/models/`: Entities (domaine) + Schemas (API contracts)
+- `app/api/v1/`: Routes FastAPI (gestion HTTP uniquement)
+- `app/controllers/`: Logique métier et orchestration
+- `app/mappers/`: Transformation de données (external format ↔ domain entities)
+- `app/models/`: Entities (objets métier purs organisés par domaine)
+- `app/schemas/`: Schemas Pydantic (Request/Response API contracts)
 
-**Pattern clé:**
-- Entities = objets métier purs
-- Schemas = Request/Response wrappés dans `APIResponse`
-- Services utilisent `run_in_executor()` pour appeler les modules legacy sync
+**Pattern clé - Flux de données:**
+```
+Route → Controller → Service → API externe
+  ↓         ↓
+  ↓      Mapper → Entity
+  ↓         ↓
+Schema ← Response
+```
+
+**Séparation des responsabilités:**
+- **Route**: Validation HTTP, status codes, HTTPException
+- **Controller**: Orchestration, logique métier, construction réponse
+- **Mapper**: Transformation dict ↔ Entity (stateless)
+- **Service**: Appels API externes, rate limiting, cache
+- **Entity**: Objets métier purs
+- **Schema**: Contrats API (Request/Response)
 
 ## Variables d'environnement
 
@@ -49,10 +64,17 @@ curl http://localhost:8000/health
 
 ## Ajouter un endpoint
 
-1. Entity dans `app/models/entities/<domain>/<feature>_entities.py`
-2. Schema (Request + Response) dans `app/models/schemas/<domain>/<feature>_schemas.py`
+1. Entity dans `app/models/<domain>/<feature>_entities.py`
+2. Schema (Request + Response) dans `app/schemas/<domain>/<feature>_schemas.py`
 3. Route dans `app/api/v1/<domain>.py` avec `BinanceServiceDep` (dependency injection)
 4. Enregistrer le router dans `app/main.py`
+
+**Structure des imports:**
+```python
+# Dans app/api/v1/<domain>.py
+from ...models.<domain> import MyEntity
+from ...schemas.<domain> import MyRequest, MyResponse
+```
 
 ## Patterns importants
 

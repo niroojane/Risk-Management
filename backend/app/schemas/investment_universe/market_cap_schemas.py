@@ -1,12 +1,9 @@
-"""
-Market Cap API schemas
-Request and response models for market cap endpoint
-"""
+"""Market Cap API schemas Request and response schemas for market cap endpoint"""
 from typing import List
 from pydantic import BaseModel, Field
 
-from ...common import QuoteAsset, APIResponse
-from ...entities.investment_universe.market_cap_entities import MarketCapItem
+from app.common import QuoteAsset, APIResponse
+from ...models.investment_universe.market_cap_entities import MarketCapItem
 
 
 class MarketCapRequest(BaseModel):

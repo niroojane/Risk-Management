@@ -1,45 +1,11 @@
-"""
-Common Pydantic models
-Reusable models for the entire API
-"""
+"""Common API schemas Reusable schemas for API requests and responses"""
 from datetime import datetime
-from typing import Optional, List, Any
-from pydantic import BaseModel, Field, field_validator
-from enum import Enum
-
-
-class TimeInterval(str, Enum):
-    """Supported time intervals"""
-    ONE_MINUTE = "1m"
-    FIVE_MINUTES = "5m"
-    FIFTEEN_MINUTES = "15m"
-    THIRTY_MINUTES = "30m"
-    ONE_HOUR = "1h"
-    FOUR_HOURS = "4h"
-    ONE_DAY = "1d"
-    ONE_WEEK = "1w"
-    ONE_MONTH = "1M"
-
-
-class QuoteAsset(str, Enum):
-    """Supported quote assets"""
-    USDT = "USDT"
-    BUSD = "BUSD"
-    BTC = "BTC"
-    ETH = "ETH"
-
-
-class ReturnType(str, Enum):
-    """Return calculation types"""
-    SIMPLE = "simple"
-    LOGARITHMIC = "log"
+from typing import Optional, Any
+from pydantic import BaseModel, Field
 
 
 class APIResponse(BaseModel):
-    """
-    Standard response wrapper for all API endpoints
-    Data wrapper format
-    """
+    """Standard response wrapper for all API endpoints"""
     success: bool = Field(True, description="Request success status")
     data: Any = Field(..., description="Response data")
     message: Optional[str] = Field(None, description="Optional message")
@@ -60,9 +26,7 @@ class APIResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """
-    Error response format
-    """
+    """Error response format"""
     success: bool = Field(False, description="Always False for errors")
     error: str = Field(..., description="Error type")
     message: str = Field(..., description="Detailed error message")

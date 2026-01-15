@@ -1,13 +1,10 @@
-"""
-Prices API schemas
-Request and response models for prices endpoint
-"""
+"""Prices API schemas Request and response schemas for prices endpoint"""
 from datetime import datetime
 from typing import List
 from pydantic import BaseModel, Field, field_validator
 
-from ...common import TimeInterval, APIResponse
-from ...entities.investment_universe.prices_entities import AssetPrices
+from app.common import TimeInterval, APIResponse
+from ...models.investment_universe.prices_entities import AssetPrices
 
 
 class PricesRequest(BaseModel):
