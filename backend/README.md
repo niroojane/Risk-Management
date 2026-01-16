@@ -89,6 +89,7 @@ open http://localhost:8000/docs
 | GET | `/health` | Health check |
 | GET | `/docs` | Documentation Swagger |
 | GET | `/redoc` | Documentation ReDoc |
+| POST | `/api/v1/investment-universe/market-cap` | Get top N 
 
 > Les endpoints de l'Investment Universe API sont en cours de développement. Voir [ROADMAP.md](./ROADMAP.md)
 
@@ -97,18 +98,19 @@ open http://localhost:8000/docs
 ```
 backend/
 ├── app/
-│   ├── main.py              # Entry point
-│   ├── config.py            # Configuration
-│   ├── dependencies.py      # DI
-│   ├── api/                 # Endpoints REST
-│   ├── models/              # Pydantic models
-│   ├── services/            # Business logic (cache, binance)
-│   ├── core/                # Core utilities (rate limiter, events, middleware)
-├── logs/                    # Application logs
-├── tests/                   # Test suite (pytest)
-├── requirements.txt         # Dependencies
-├── pytest.ini               # Pytest configuration
-└── run_tests.py             # Test runner
+│   ├── main.py                 # Entry point
+│   ├── core/                   # Config, exceptions, dependencies
+│   ├── api/v1/                 # REST routes
+│   ├── controllers/            # Business logic
+│   ├── services/
+│   │   ├── binance/           # Binance API + market data
+│   │   └── infrastructure/    # Cache
+│   ├── models/                 # Entities
+│   ├── schemas/                # Request/Response
+│   └── mappers/                # Data transformers
+├── logs/                       # Logs
+├── tests/                      # Tests (12 tests)
+└── requirements.txt
 ```
 
 ## 📝 Logs
