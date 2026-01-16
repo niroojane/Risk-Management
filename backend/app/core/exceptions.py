@@ -44,6 +44,11 @@ class RateLimitError(RiskManagementException):
     pass
 
 
+class ServiceUnavailableError(RiskManagementException):
+    """Raised when a required service is not available or configured"""
+    pass
+
+
 # Exception Handlers
 async def binance_api_exception_handler(request: Request, exc: BinanceAPIError):
     """Handle Binance API errors"""
@@ -115,6 +120,20 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+async def service_unavailable_exception_handler(request: Request, exc: ServiceUnavailableError):
+    """Handle service unavailable errors"""
+    logger.warning(f"Service unavailable on {request.url.path}: {exc.message}")
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={
+            "error": "ServiceUnavailableError",
+            "message": exc.message,
+            "detail": exc.detail or "Required service is not available",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    )
+
+
 async def generic_exception_handler(request: Request, exc: Exception):
     """Handle all other unhandled exceptions"""
     logger.error(f"Unhandled exception on {request.url.path}: {str(exc)}", exc_info=True)
@@ -135,5 +154,6 @@ def setup_exception_handlers(app):
     app.add_exception_handler(DataValidationError, data_validation_exception_handler)
     app.add_exception_handler(CacheError, cache_exception_handler)
     app.add_exception_handler(RateLimitError, rate_limit_exception_handler)
+    app.add_exception_handler(ServiceUnavailableError, service_unavailable_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)
