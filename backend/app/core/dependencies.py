@@ -33,29 +33,24 @@ def get_binance_client() -> Optional[BinanceAPI]:
 @lru_cache()
 def get_cache_service():
     """Get singleton CacheService instance"""
-    from ..services.cache_service import CacheService
+    from ..services.infrastructure.cache_service import CacheService
     logger.info("Creating CacheService instance")
     return CacheService(default_ttl=CACHE_DEFAULT_TTL)
 
 
 @lru_cache()
 def get_binance_service():
-    """
-    Get singleton BinanceService instance (modern async wrapper)
-
-    Returns:
-        BinanceService: Configured Binance service with rate limiting and caching
-    """
-    from ..services.binance_service import BinanceService
+    """Get singleton BinanceClient instance"""
+    from ..services.binance import BinanceClient
 
     if not BINANCE_API_KEY or not BINANCE_API_SECRET:
         logger.warning("Binance API credentials not configured")
         return None
 
     cache = get_cache_service()
-    logger.info("Creating BinanceService instance with cache and rate limiting")
+    logger.info("Creating BinanceClient instance with cache and rate limiting")
 
-    return BinanceService(
+    return BinanceClient(
         api_key=BINANCE_API_KEY,
         api_secret=BINANCE_API_SECRET,
         cache=cache,
@@ -63,7 +58,21 @@ def get_binance_service():
     )
 
 
+@lru_cache()
+def get_market_data_service():
+    """Get singleton MarketDataService instance"""
+    from ..services.binance import MarketDataService
+
+    client = get_binance_service()
+    if client is None:
+        return None
+
+    logger.info("Creating MarketDataService instance")
+    return MarketDataService(client)
+
+
 # Type aliases for dependency injection
-BinanceClient = Annotated[Optional[BinanceAPI], Depends(get_binance_client)]
-BinanceServiceDep = Annotated[Optional["BinanceService"], Depends(get_binance_service)]
+BinanceClientDep = Annotated[Optional[BinanceAPI], Depends(get_binance_client)]
+BinanceServiceDep = Annotated[Optional["BinanceClient"], Depends(get_binance_service)]
+MarketDataServiceDep = Annotated[Optional["MarketDataService"], Depends(get_market_data_service)]
 CacheServiceDep = Annotated["CacheService", Depends(get_cache_service)]

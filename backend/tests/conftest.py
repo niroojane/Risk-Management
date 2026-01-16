@@ -24,11 +24,8 @@ def event_loop():
 
 @pytest.fixture
 async def cache_service():
-    """
-    Fixture providing a CacheService instance for testing
-    Démarre et arrête automatiquement le service
-    """
-    from app.services.cache_service import CacheService
+    """Fixture providing a CacheService instance for testing"""
+    from app.services.infrastructure.cache_service import CacheService
 
     cache = CacheService(default_ttl=5, cleanup_interval=60)
     await cache.start()
