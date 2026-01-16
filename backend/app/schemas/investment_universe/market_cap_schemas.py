@@ -3,7 +3,7 @@ from typing import List
 from pydantic import BaseModel, Field
 
 from app.common import QuoteAsset, APIResponse
-from ...models.investment_universe.market_cap_entities import MarketCapItem
+from ...models.investment_universe import MarketCapItem
 
 
 class MarketCapRequest(BaseModel):

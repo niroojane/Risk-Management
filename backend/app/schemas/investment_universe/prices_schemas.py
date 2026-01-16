@@ -4,7 +4,7 @@ from typing import List
 from pydantic import BaseModel, Field, field_validator
 
 from app.common import TimeInterval, APIResponse
-from ...models.investment_universe.prices_entities import AssetPrices
+from ...models.investment_universe import AssetPrices
 
 
 class PricesRequest(BaseModel):

@@ -3,7 +3,7 @@ from typing import List
 from pydantic import BaseModel, Field, field_validator
 
 from app.common import APIResponse
-from ...models.investment_universe.asset_metrics_entities import AssetMetrics
+from ...models.investment_universe import AssetMetrics
 
 
 class AssetMetricsRequest(BaseModel):

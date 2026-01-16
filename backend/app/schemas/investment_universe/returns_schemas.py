@@ -4,7 +4,7 @@ from typing import List
 from pydantic import BaseModel, Field, field_validator
 
 from app.common import TimeInterval, ReturnType, APIResponse
-from ...models.investment_universe.returns_entities import AssetReturns
+from ...models.investment_universe import AssetReturns
 
 
 class ReturnsRequest(BaseModel):

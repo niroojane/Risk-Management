@@ -1,7 +1,10 @@
 """Market Cap Mapper Transforms raw Binance API data to MarketCapItem entities"""
 from typing import List
+from pydantic import ValidationError
 
 from ...models.investment_universe import MarketCapItem
+from ...schemas.external.binance import BinanceMarketCapDTO
+from ...core import DataValidationError
 
 
 class MarketCapMapper:
@@ -10,15 +13,24 @@ class MarketCapMapper:
     @staticmethod
     def to_entity(raw_item: dict) -> MarketCapItem:
         """Transform a single raw Binance item to MarketCapItem entity"""
-        return MarketCapItem(
-            symbol=raw_item["Ticker"],
-            long_name=raw_item["Long name"],
-            base_asset=raw_item["Short Name"],
-            quote_asset=raw_item["Quote Short Name"],
-            price=float(raw_item["Close"]),
-            supply=float(raw_item["Supply"]),
-            market_cap=float(raw_item["Market Cap"])
-        )
+        try : 
+            dto = BinanceMarketCapDTO(**raw_item)
+
+            return MarketCapItem(
+                symbol=dto.Ticker,
+                long_name=dto.Long_name,
+                base_asset=dto.Short_Name,
+                quote_asset=dto.Quote_Short_Name,
+                price=float(dto.Close),
+                supply=float(dto.Supply),
+                market_cap=float(dto.Market_Cap)
+            ) 
+        except (KeyError, ValueError, ValidationError) as e:
+            raise DataValidationError(
+                message=f"Failed to map market cap data for symbol {raw_item.get('Ticker', 'UNKNOWN')}",
+                detail=str(e)
+            )
+            
 
     @staticmethod
     def to_entities(raw_data: List[dict], limit: int = None) -> List[MarketCapItem]:
