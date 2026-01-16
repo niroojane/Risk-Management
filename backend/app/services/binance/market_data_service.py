@@ -15,6 +15,7 @@ class MarketDataService:
     def __init__(self, client: BinanceClient):
         self._client = client
 
+    #TODO voir si il existe une solution de filtrage directement via l'appel au client
     async def get_market_cap(
         self, quote: str = "USDT", use_cache: bool = True
     ) -> Dict[str, Any]:

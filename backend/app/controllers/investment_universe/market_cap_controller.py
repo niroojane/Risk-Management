@@ -17,7 +17,7 @@ class MarketCapController:
         result = await self._service.get_market_cap(
             quote=request.quote.value, use_cache=True
         )
-
+        
         market_cap_items = MarketCapMapper.to_entities(
             raw_data=result["data"], limit=request.top_n
         )
