@@ -21,33 +21,65 @@ Feuille de route pour le développement du backend FastAPI.
 
 ## ⏳ Phase 3 : Investment Universe API
 
-- [x] Pydantic models (`models/common.py`, `models/investment_universe.py`)
-- [ ] GET `/api/v1/investment-universe/market-cap`
-- [ ] GET `/api/v1/investment-universe/prices`
-- [ ] GET `/api/v1/investment-universe/returns`
-- [ ] GET `/api/v1/investment-universe/asset-metrics`
-- [ ] Router aggregator (`api/router.py`)
+- [x] Pydantic models (`models/investment_universe/`, `schemas/investment_universe/`)
+- [x] POST `/api/v1/investment-universe/market-cap` (`api/v1/investment-universe/market_cap.py`)
+- [ ] GET `/api/v1/investment-universe/prices` (`api/v1/investment-universe/prices.py`)
+- [ ] GET `/api/v1/investment-universe/returns` (`api/v1/investment-universe/returns.py`)
+- [ ] GET `/api/v1/investment-universe/asset-metrics` (`api/v1/investment-universe/asset_metrics.py`)
+- [ ] Router aggregator (`api/v1/__init__.py`)
 - [ ] Tests unitaires
 
-## ⏳ Phase 4 : WebSocket
+## ⏳ Phase 4 : Strategy & Portfolio Optimization
+
+- [ ] Pydantic models (`models/strategy/`, `schemas/strategy/`)
+- [ ] POST `/api/v1/strategy/optimize` (`api/v1/strategy/optimization.py`)
+- [ ] GET/POST `/api/v1/strategy/constraints` (`api/v1/strategy/constraints.py`)
+- [ ] Controllers (`controllers/strategy/`)
+- [ ] Tests unitaires
+
+## ⏳ Phase 5 : Positioning & PnL
+
+- [ ] Pydantic models (`models/positioning/`, `schemas/positioning/`)
+- [ ] GET `/api/v1/positioning/positions` (`api/v1/positioning/positions.py`)
+- [ ] GET `/api/v1/positioning/pnl` (`api/v1/positioning/pnl.py`)
+- [ ] Controllers (`controllers/positioning/`)
+- [ ] Tests unitaires
+
+## ⏳ Phase 6 : Performance Analytics
+
+- [ ] Pydantic models (`models/performance/`, `schemas/performance/`)
+- [ ] GET `/api/v1/performance/returns` (`api/v1/performance/returns.py`)
+- [ ] GET `/api/v1/performance/drawdown` (`api/v1/performance/drawdown.py`)
+- [ ] GET `/api/v1/performance/volatility` (`api/v1/performance/volatility.py`)
+- [ ] Controllers (`controllers/performance/`)
+- [ ] Tests unitaires
+
+## ⏳ Phase 7 : Risk Metrics
+
+- [ ] Pydantic models (`models/metrics/`, `schemas/metrics/`)
+- [ ] GET `/api/v1/metrics/ex-post` (`api/v1/metrics/ex_post.py`)
+- [ ] GET `/api/v1/metrics/ex-ante` (`api/v1/metrics/ex_ante.py`)
+- [ ] GET `/api/v1/metrics/calendar` (`api/v1/metrics/calendar.py`)
+- [ ] GET `/api/v1/metrics/var` (`api/v1/metrics/var.py`)
+- [ ] Controllers (`controllers/metrics/`)
+- [ ] Tests unitaires
+
+## ⏳ Phase 8 : Market Risk Analytics
+
+- [ ] Pydantic models (`models/market_risk/`, `schemas/market_risk/`)
+- [ ] GET `/api/v1/market-risk/pca` (`api/v1/market-risk/pca.py`)
+- [ ] GET `/api/v1/market-risk/correlation` (`api/v1/market-risk/correlation.py`)
+- [ ] Controllers (`controllers/market_risk/`)
+- [ ] Tests unitaires
+
+## ⏳ Phase 9 : WebSocket Real-time Data
 
 - [ ] WebSocket manager (`services/websocket_service.py`)
-- [ ] WebSocket models (`models/websocket.py`)
-- [ ] WS `/ws/prices` endpoint
+- [ ] Pydantic models (`models/websocket/`, `schemas/websocket/`)
+- [ ] WS `/ws/prices` (`api/v1/websocket/prices.py`)
 - [ ] Background task pour polling prix
 - [ ] Heartbeat mechanism
-
-## ⏳ Phase 5 : Autres Features (Structure seulement)
-
-- [ ] Strategy router (`api/v1/strategy.py`)
-- [ ] Positioning router (`api/v1/positioning.py`)
-- [ ] Performance router (`api/v1/performance.py`)
-- [ ] Ex Post Metrics router (`api/v1/ex_post_metrics.py`)
-- [ ] Calendar Metrics router (`api/v1/calendar_metrics.py`)
-- [ ] Ex Ante Metrics router (`api/v1/ex_ante_metrics.py`)
-- [ ] VaR Metrics router (`api/v1/var_metrics.py`)
-- [ ] Market Risk router (`api/v1/market_risk.py`)
-- [ ] Correlation router (`api/v1/correlation.py`)
+- [ ] Tests unitaires
 
 ---
 

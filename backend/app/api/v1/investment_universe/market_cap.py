@@ -1,13 +1,13 @@
 """Investment Universe API endpoints"""
 from fastapi import APIRouter, HTTPException
 
-from ...schemas.investment_universe import (
+from ....schemas.investment_universe import (
     MarketCapRequest,
     MarketCapResponse,
 )
-from ...controllers.investment_universe import MarketCapController
-from ...core.dependencies import BinanceServiceDep
-from ...core.exceptions import ExternalAPIError
+from ....controllers.investment_universe import MarketCapController
+from ....core.dependencies import BinanceServiceDep
+from ....core.exceptions import ExternalAPIError
 
 router = APIRouter(prefix="/investment-universe", tags=["Investment Universe"])
 

@@ -9,8 +9,8 @@ from .core.logging_config import setup_logging
 from .core.exceptions import setup_exception_handlers
 from .core.middleware import setup_middlewares
 from .core.events import startup_event, shutdown_event
-from .api.v1.health import router as health_router
-from .api.v1.investment_universe import router as investment_universe_router
+from .api.v1.status.health import router as health_router
+from .api.v1.investment_universe.market_cap import router as investment_universe_router
 
 # Setup logging
 logger = setup_logging(log_level="INFO")

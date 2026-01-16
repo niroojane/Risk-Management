@@ -2,7 +2,7 @@
 from fastapi import APIRouter
 from datetime import datetime
 
-from ...core.config import API_VERSION, API_TITLE
+from ....core.config import API_VERSION, API_TITLE
 
 router = APIRouter(tags=["Health"])
 
