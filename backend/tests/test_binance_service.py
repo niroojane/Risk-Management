@@ -1,7 +1,4 @@
-"""
-Tests for BinanceClient
-Tests essentiels pour le wrapper Binance (sans appels API réels)
-"""
+"""Tests for BinanceClient"""
 import pytest
 import pandas as pd
 
