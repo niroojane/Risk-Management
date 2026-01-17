@@ -6,7 +6,7 @@ from ....controllers.investment_universe import MarketCapController
 from ....core.dependencies import MarketDataServiceDep
 from ....core.exceptions import ServiceUnavailableError
 
-router = APIRouter(prefix="/investment-universe", tags=["Investment Universe"])
+router = APIRouter()
 
 
 @router.post("/market-cap", response_model=MarketCapResponse)

@@ -1,6 +1,4 @@
-"""
-Custom exceptions and exception handlers for the Risk Management API
-"""
+"""Custom exceptions and exception handlers for the Risk Management API"""
 from datetime import datetime
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
@@ -109,12 +107,28 @@ async def rate_limit_exception_handler(request: Request, exc: RateLimitError):
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle FastAPI validation errors"""
     logger.warning(f"Validation error on {request.url.path}: {exc.errors()}")
+
+    errors = []
+    for error in exc.errors():
+        clean_error = {
+            "loc": error["loc"],
+            "msg": error["msg"],
+            "type": error["type"]
+        }
+        if "input" in error:
+            input_value = error["input"]
+            if isinstance(input_value, bytes):
+                clean_error["input"] = f"<bytes: {len(input_value)} bytes>"
+            else:
+                clean_error["input"] = input_value
+        errors.append(clean_error)
+    
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": "ValidationError",
             "message": "Request validation failed",
-            "detail": exc.errors(),
+            "detail": errors,
             "timestamp": datetime.utcnow().isoformat()
         }
     )

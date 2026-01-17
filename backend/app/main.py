@@ -9,8 +9,7 @@ from .core.logging_config import setup_logging
 from .core.exceptions import setup_exception_handlers
 from .core.middleware import setup_middlewares
 from .core.events import startup_event, shutdown_event
-from .api.v1.status.health import router as health_router
-from .api.v1.investment_universe.market_cap import router as investment_universe_router
+from .api.v1 import v1_router
 
 # Setup logging
 logger = setup_logging(log_level="INFO")
@@ -31,8 +30,7 @@ setup_middlewares(app)
 setup_exception_handlers(app)
 
 # Include routers
-app.include_router(health_router)
-app.include_router(investment_universe_router, prefix=API_V1_PREFIX)
+app.include_router(v1_router, prefix=API_V1_PREFIX)
 
 # Register lifecycle events
 app.add_event_handler("startup", startup_event)

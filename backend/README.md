@@ -68,14 +68,25 @@ pytest tests/test_cache_service.py::test_cache_basic_operations -v
 - `tests/test_cache_service.py` - Tests du cache (4 tests)
 - `tests/test_rate_limiter.py` - Tests du rate limiter (5 tests)
 - `tests/test_binance_service.py` - Tests du service Binance (3 tests)
+- `tests/test_position_service.py` - Tests du service Position (5 tests)
 
-**Total : 12 tests essentiels** couvrant les services fondamentaux.
+**Total : 17 tests** couvrant les services fondamentaux.
 
 ### Tester l'API
 
 ```bash
 # Health check
 curl http://localhost:8000/health
+
+# Market cap top 10
+curl -X POST http://localhost:8000/api/v1/investment-universe/market-cap \
+  -H "Content-Type: application/json" \
+  -d '{"quote":"USDT","top_n":10}'
+
+# Positions historiques
+curl -X POST http://localhost:8000/api/v1/investment-universe/positions \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":["BTCUSDT","ETHUSDT"],"start_date":"2026-01-15T00:00:00Z","end_date":"2026-01-17T00:00:00Z"}'
 
 # Documentation interactive
 open http://localhost:8000/docs
@@ -89,9 +100,10 @@ open http://localhost:8000/docs
 | GET | `/health` | Health check |
 | GET | `/docs` | Documentation Swagger |
 | GET | `/redoc` | Documentation ReDoc |
-| POST | `/api/v1/investment-universe/market-cap` | Get top N 
+| POST | `/api/v1/investment-universe/market-cap` | Top N cryptos par market cap |
+| POST | `/api/v1/investment-universe/positions` | Positions historiques (quantities × prices) |
 
-> Les endpoints de l'Investment Universe API sont en cours de développement. Voir [ROADMAP.md](./ROADMAP.md)
+> Autres endpoints de l'Investment Universe API en développement. Voir [ROADMAP.md](./ROADMAP.md)
 
 ## 📁 Structure
 
@@ -103,13 +115,18 @@ backend/
 │   ├── api/v1/                 # REST routes
 │   ├── controllers/            # Business logic
 │   ├── services/
-│   │   ├── binance/           # Binance API + market data
+│   │   ├── binance/           # BinanceClient, MarketDataService, PositionService
 │   │   └── infrastructure/    # Cache
-│   ├── models/                 # Entities
-│   ├── schemas/                # Request/Response
+│   ├── models/
+│   │   └── investment_universe/
+│   │       └── positions/     # Prices, Positions, Quantities entities
+│   ├── schemas/
+│   │   ├── investment_universe/
+│   │   │   └── positions/     # Prices, Positions, Quantities schemas
+│   │   └── external/binance/  # DTOs (KlineDTO, AccountSnapshotDTO)
 │   └── mappers/                # Data transformers
 ├── logs/                       # Logs
-├── tests/                      # Tests (12 tests)
+├── tests/                      # Tests (17 tests)
 └── requirements.txt
 ```
 

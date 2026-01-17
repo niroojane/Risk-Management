@@ -67,18 +67,7 @@ class BinanceClient:
         ttl: int,
         use_cache: bool = True,
     ) -> Any:
-        """Generic method to fetch data with caching and rate limiting
-
-        Args:
-            cache_key: Key for caching
-            api_call: Async callable that returns the data
-            weight: API call weight for rate limiting
-            ttl: Cache TTL in seconds
-            use_cache: Whether to use cache
-
-        Returns:
-            API call result
-        """
+        """Fetch data with caching and rate limiting"""
         if use_cache and self._cache:
             cached = await self._cache.get(cache_key)
             if cached is not None:

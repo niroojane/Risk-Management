@@ -4,7 +4,7 @@ from typing import List
 from pydantic import BaseModel, Field, field_validator
 
 from app.common import TimeInterval, APIResponse
-from ...models.investment_universe import AssetPrices
+from ....models.investment_universe import AssetPrices
 
 
 class PricesRequest(BaseModel):
@@ -54,12 +54,17 @@ class PricesResponse(APIResponse):
                         "symbol": "BTCUSDT",
                         "prices": [
                             {
-                                "timestamp": "2024-01-01T00:00:00Z",
+                                "open_time": "2024-01-01T00:00:00Z",
                                 "open": 42000.50,
                                 "high": 43500.00,
                                 "low": 41800.00,
                                 "close": 43200.75,
-                                "volume": 1250000.00
+                                "volume": 1250000.00,
+                                "close_time": "2024-01-01T23:59:59Z",
+                                "quote_asset_volume": 52500000.00,
+                                "number_of_trades": 125000,
+                                "taker_buy_base_volume": 625000.00,
+                                "taker_buy_quote_volume": 26250000.00
                             }
                         ]
                     },
@@ -67,12 +72,17 @@ class PricesResponse(APIResponse):
                         "symbol": "ETHUSDT",
                         "prices": [
                             {
-                                "timestamp": "2024-01-01T00:00:00Z",
+                                "open_time": "2024-01-01T00:00:00Z",
                                 "open": 2800.00,
                                 "high": 2950.00,
                                 "low": 2750.00,
                                 "close": 2900.50,
-                                "volume": 850000.00
+                                "volume": 850000.00,
+                                "close_time": "2024-01-01T23:59:59Z",
+                                "quote_asset_volume": 2450000.00,
+                                "number_of_trades": 85000,
+                                "taker_buy_base_volume": 425000.00,
+                                "taker_buy_quote_volume": 1225000.00
                             }
                         ]
                     }

@@ -71,8 +71,22 @@ def get_market_data_service():
     return MarketDataService(client)
 
 
+@lru_cache()
+def get_position_service():
+    """Get singleton PositionService instance"""
+    from ..services.binance import PositionService
+
+    client = get_binance_service()
+    if client is None:
+        return None
+
+    logger.info("Creating PositionService instance")
+    return PositionService(client)
+
+
 # Type aliases for dependency injection
 BinanceClientDep = Annotated[Optional[BinanceAPI], Depends(get_binance_client)]
 BinanceServiceDep = Annotated[Optional["BinanceClient"], Depends(get_binance_service)]
 MarketDataServiceDep = Annotated[Optional["MarketDataService"], Depends(get_market_data_service)]
+PositionServiceDep = Annotated[Optional["PositionService"], Depends(get_position_service)]
 CacheServiceDep = Annotated["CacheService", Depends(get_cache_service)]

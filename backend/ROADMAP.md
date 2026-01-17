@@ -19,15 +19,18 @@ Feuille de route pour le développement du backend FastAPI.
 - [x] Cache service avec TTL (`services/cache_service.py`)
 - [x] Binance service wrapper (`services/binance_service.py`)
 
-## ⏳ Phase 3 : Investment Universe API
+## ✅ Phase 3 : Investment Universe API
 
-- [x] Pydantic models (`models/investment_universe/`, `schemas/investment_universe/`)
-- [x] POST `/api/v1/investment-universe/market-cap` (`api/v1/investment-universe/market_cap.py`)
-- [ ] GET `/api/v1/investment-universe/prices` (`api/v1/investment-universe/prices.py`)
-- [ ] GET `/api/v1/investment-universe/returns` (`api/v1/investment-universe/returns.py`)
-- [ ] GET `/api/v1/investment-universe/asset-metrics` (`api/v1/investment-universe/asset_metrics.py`)
-- [ ] Router aggregator (`api/v1/__init__.py`)
-- [ ] Tests unitaires
+- [x] Pydantic models restructurés (`models/investment_universe/positions/`)
+- [x] Schemas API positions (`schemas/investment_universe/positions/`)
+- [x] DTOs externes Binance (klines, account snapshots)
+- [x] PositionService avec parallélisation (`services/binance/position_service.py`)
+- [x] PositionsController (`controllers/investment_universe/positions_controller.py`)
+- [x] POST `/api/v1/investment-universe/market-cap`
+- [x] POST `/api/v1/investment-universe/positions` (quantities × prices)
+- [x] Tests unitaires PositionService (5/5)
+- [ ] GET `/api/v1/investment-universe/returns`
+- [ ] GET `/api/v1/investment-universe/asset-metrics`
 
 ## ⏳ Phase 4 : Strategy & Portfolio Optimization
 
