@@ -38,7 +38,8 @@ class PositionService:
                 f"({start_date.date()} to {end_date.date()})"
             )
 
-            timestamp_sec = int((end_date - timedelta(1)).timestamp() * 1000)
+            start_timestamp = int(start_date.timestamp() * 1000)
+            end_timestamp = int(end_date.timestamp() * 1000)
 
             async def fetch_symbol_klines(symbol: str):
                 try:
@@ -46,16 +47,11 @@ class PositionService:
                         self._client.api.binance_api.klines,
                         symbol,
                         "1d",
-                        startTime=timestamp_sec
+                        startTime=start_timestamp,
+                        endTime=end_timestamp
                     )
 
                     klines = [BinanceKlineDTO.from_array(kline) for kline in raw_klines]
-
-                    if start_date:
-                        klines = [
-                            k for k in klines
-                            if datetime.fromtimestamp(k.Close_Time / 1000, tz=timezone.utc) >= start_date
-                        ]
 
                     return {
                         "symbol": symbol,
@@ -96,7 +92,7 @@ class PositionService:
         if end_date is None:
             end_date = datetime.today()
 
-        limit = max(7, min(30, limit))
+        limit = max(7, min(365, limit))
         cache_key = f"historical_quantities:{end_date.date()}:{limit}"
 
         async def fetch():
@@ -167,8 +163,16 @@ class PositionService:
                 use_cache=use_cache
             )
 
+            # Calculate limit based on date range (1 snapshot per day)
+            if start_date and end_date:
+                days_diff = (end_date - start_date).days + 1
+                calculated_limit = min(days_diff, 365)
+            else:
+                calculated_limit = 30
+
             quantities_data = await self.get_historical_quantities(
                 end_date=end_date,
+                limit=calculated_limit,
                 use_cache=use_cache
             )
 
