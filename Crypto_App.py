@@ -24,7 +24,7 @@ from plotly.subplots import make_subplots
 from io import BytesIO
 import base64
 from Binance_API import BinanceAPI
-from RiskMetrics import RiskAnalysis, rolling_var,kupiec_test, performance,variance_decomposition_ex_post,diversification_constraint,create_constraint
+from RiskMetrics import *
 from PnL_Computation import PnL
 from Stock_Data import get_close
 from Rebalancing import *
@@ -910,7 +910,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     rebalancing_frequency = widgets.Dropdown(description='Frequency', options=['Monthly', 'Quarterly', 'Yearly'], value='Monthly')
     strat = widgets.Dropdown(description='Strategy', options=options_strat, value='Minimum Variance')
     window_vol=widgets.IntText(
-    value=30,
+    value=252,
     description='Vol Window:',
     disabled=False
     )    
@@ -1720,7 +1720,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     button_corr = widgets.Button(description="Show Correlation", button_style="success")
     
     window_corr=widgets.IntText(
-    value=30,
+    value=252,
     description='Rolling Correlation:',
     disabled=False,style={'description_width': '150px'}
     )
@@ -1756,8 +1756,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 print("⚠️ Error with date range.")
                 return
    
-        
         range_returns=returns_to_use.loc[start_ts:end_ts]
+        pca_over_time=first_pca_over_time(returns=range_returns,window=window_corr.value)
 
         with asset_output_corr:
             asset_output_corr.clear_output(wait=True)
@@ -1777,6 +1777,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             fig2.update_traces(xgap=2, ygap=2)
             fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
             fig2.show()
+            
+            fig3=px.line(pca_over_time,title='First principal component (Variance Explained in %)')
+            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+            fig3.update_layout(xaxis_title=None, yaxis_title=None)
+            fig3.show()
     
     selected_components=widgets.Dropdown(options=['PC1'],description='Select PCA',style={'description_width': '150px'})
     num_components=widgets.BoundedIntText(min=1,max=5,value=5,description='PCA Components',style={'description_width': '150px'})
