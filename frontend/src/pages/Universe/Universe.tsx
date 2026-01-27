@@ -41,10 +41,13 @@ function Universe() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-foreground">
                   ${(row.marketCap / 1e9).toFixed(1)}B
                 </td>
-                <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
-                  row.change24h >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {row.change24h >= 0 ? '+' : ''}{row.change24h}%
+                <td
+                  className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
+                    row.change24h >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}
+                >
+                  {row.change24h >= 0 ? '+' : ''}
+                  {row.change24h}%
                 </td>
               </tr>
             ))}

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/layout';
+import { ErrorBoundary, RouteErrorBoundary } from '@/components/common';
 
 // Pages
 import Dashboard from '@/pages/Dashboard/Dashboard';
@@ -12,19 +13,70 @@ import MarketRisk from '@/pages/MarketRisk/MarketRisk';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="universe" element={<Universe />} />
-          <Route path="strategy" element={<Strategy />} />
-          <Route path="positioning" element={<Positioning />} />
-          <Route path="performance" element={<Performance />} />
-          <Route path="risk-metrics" element={<RiskMetrics />} />
-          <Route path="market-risk" element={<MarketRisk />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route
+              index
+              element={
+                <RouteErrorBoundary>
+                  <Dashboard />
+                </RouteErrorBoundary>
+              }
+            />
+            <Route
+              path="universe"
+              element={
+                <RouteErrorBoundary>
+                  <Universe />
+                </RouteErrorBoundary>
+              }
+            />
+            <Route
+              path="strategy"
+              element={
+                <RouteErrorBoundary>
+                  <Strategy />
+                </RouteErrorBoundary>
+              }
+            />
+            <Route
+              path="positioning"
+              element={
+                <RouteErrorBoundary>
+                  <Positioning />
+                </RouteErrorBoundary>
+              }
+            />
+            <Route
+              path="performance"
+              element={
+                <RouteErrorBoundary>
+                  <Performance />
+                </RouteErrorBoundary>
+              }
+            />
+            <Route
+              path="risk-metrics"
+              element={
+                <RouteErrorBoundary>
+                  <RiskMetrics />
+                </RouteErrorBoundary>
+              }
+            />
+            <Route
+              path="market-risk"
+              element={
+                <RouteErrorBoundary>
+                  <MarketRisk />
+                </RouteErrorBoundary>
+              }
+            />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

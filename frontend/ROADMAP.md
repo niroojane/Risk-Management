@@ -12,8 +12,8 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 - [x] Structure types par feature (types/common.ts, types/universe.ts)
 - [x] Composants communs (Loading, ErrorMessage, Button)
 - [x] Routing de base (React Router + Layout)
-- [ ] Gestion globale des erreurs (Error boundaries)
-- [ ] Configuration ESLint + Prettier
+- [x] Gestion globale des erreurs (Error boundaries)
+- [x] Configuration ESLint + Prettier
 
 ## ⏳ Phase 2 : Investment Universe
 
@@ -165,6 +165,6 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 
 ---
 
-**Status actuel** : Phase 1 en cours ⏳
+**Status actuel** : Phase 1 terminée ✅ | Phase 2 prête à démarrer ⏳
 
 **Note** : Chaque phase dépend de la phase backend correspondante. Le développement peut être fait en parallèle mais le testing nécessite les endpoints backend disponibles.

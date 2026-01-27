@@ -24,17 +24,11 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = ({
       <Alert variant="destructive" className="max-w-md">
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>{title}</AlertTitle>
-        <AlertDescription className="mt-2">
-          {message}
-        </AlertDescription>
+        <AlertDescription className="mt-2">{message}</AlertDescription>
       </Alert>
 
       {onRetry && (
-        <Button
-          onClick={onRetry}
-          className="mt-4"
-          variant="outline"
-        >
+        <Button onClick={onRetry} className="mt-4" variant="outline">
           Retry
         </Button>
       )}

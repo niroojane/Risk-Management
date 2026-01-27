@@ -1,4 +1,4 @@
-import { ComingSoon } from "@/components/common"
+import { ComingSoon } from '@/components/common';
 
 const Dashboard = () => {
   return (

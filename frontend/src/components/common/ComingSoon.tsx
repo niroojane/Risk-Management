@@ -8,12 +8,7 @@ export interface ComingSoonProps {
   className?: string;
 }
 
-export const ComingSoon: React.FC<ComingSoonProps> = ({
-  title,
-  description,
-  phase,
-  className,
-}) => {
+export const ComingSoon: React.FC<ComingSoonProps> = ({ title, description, phase, className }) => {
   return (
     <div className={cn('flex items-center justify-center min-h-[60vh]', className)}>
       <div className="text-center">
@@ -23,9 +18,7 @@ export const ComingSoon: React.FC<ComingSoonProps> = ({
 
         <h1 className="text-3xl font-bold text-foreground mb-3">{title}</h1>
 
-        {description && (
-          <p className="text-muted-foreground mb-2">{description}</p>
-        )}
+        {description && <p className="text-muted-foreground mb-2">{description}</p>}
 
         {phase && (
           <p className="text-sm text-muted-foreground/70">
