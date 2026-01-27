@@ -323,6 +323,7 @@ def get_monthly_metrics(portfolio_returns, fund='Fund', bench='Bitcoin'):
     
 def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Year'):
 
+    dico_fig={}
     if freq=='Year':
         metrics = get_yearly_metrics(performance_fund,fund=fund,bench=benchmark)
     else:
@@ -360,8 +361,6 @@ def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Ye
                 hovertemplate="Year: %{x}<br>%{y:.3f}<extra></extra>")
 
             
-            fig.show()
-
         else:
             
             df = metrics[i]
@@ -382,7 +381,10 @@ def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Ye
             fig.update_traces(
                 textfont=dict(family="Arial Narrow", size=15),
                 hovertemplate="Year: %{x}<br>%{y:.3f}<extra></extra>")
-            fig.show()
+            
+        dico_fig[title]=fig
+        
+    return dico_fig
             
 def get_frontier(returns,dataframe):
     portfolio=RiskAnalysis(returns)
