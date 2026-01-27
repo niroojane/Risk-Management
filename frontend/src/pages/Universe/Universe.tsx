@@ -8,50 +8,48 @@ function Universe() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-6">Risk Management - Market Cap</h1>
+    <div>
+      <h1 className="text-3xl font-bold text-foreground mb-6">Investment Universe</h1>
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Symbol
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Price (USD)
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Market Cap
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  24h Change
-                </th>
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Symbol
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Price (USD)
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Market Cap
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                24h Change
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-card divide-y divide-border">
+            {data.map((row) => (
+              <tr key={row.symbol} className="hover:bg-muted/50">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                  {row.symbol}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-foreground">
+                  ${row.price.toLocaleString()}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-foreground">
+                  ${(row.marketCap / 1e9).toFixed(1)}B
+                </td>
+                <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
+                  row.change24h >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {row.change24h >= 0 ? '+' : ''}{row.change24h}%
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {data.map((row) => (
-                <tr key={row.symbol} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {row.symbol}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    ${row.price.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    ${(row.marketCap / 1e9).toFixed(1)}B
-                  </td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
-                    row.change24h >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {row.change24h >= 0 ? '+' : ''}{row.change24h}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

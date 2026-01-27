@@ -10,8 +10,8 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 - [x] Configuration des variables d'environnement (.env, config/env.ts)
 - [x] Client API HTTP (services/api.ts, universeService.ts)
 - [x] Structure types par feature (types/common.ts, types/universe.ts)
-- [ ] Composants communs (Loading, ErrorMessage, Button)
-- [ ] Routing de base (React Router + Layout)
+- [x] Composants communs (Loading, ErrorMessage, Button)
+- [x] Routing de base (React Router + Layout)
 - [ ] Gestion globale des erreurs (Error boundaries)
 - [ ] Configuration ESLint + Prettier
 
