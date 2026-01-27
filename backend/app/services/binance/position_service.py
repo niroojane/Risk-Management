@@ -88,6 +88,7 @@ class PositionService:
         limit: int = 30,
         use_cache: bool = True,
     ) -> Dict[str, Any]:
+        #TODO Retrieve quantities data from database.
         """Get historical account quantities from Binance snapshots"""
         if end_date is None:
             end_date = datetime.today()
