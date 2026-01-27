@@ -7,12 +7,13 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 - [x] Initialisation du projet (Vite + React + TypeScript)
 - [x] Création architecture du projet (Voir README)
 - [x] Configuration Tailwind CSS
-- [ ] Routing de base (React Router)
+- [x] Configuration des variables d'environnement (.env, config/env.ts)
+- [x] Client API HTTP (services/api.ts, universeService.ts)
+- [x] Structure types par feature (types/common.ts, types/universe.ts)
+- [ ] Composants communs (Loading, ErrorMessage, Button)
+- [ ] Routing de base (React Router + Layout)
+- [ ] Gestion globale des erreurs (Error boundaries)
 - [ ] Configuration ESLint + Prettier
-- [ ] Configuration des variables d'environnement
-- [ ] Client API HTTP (axios/fetch wrapper)
-- [ ] Gestion globale des erreurs
-- [ ] Loading states et spinners réutilisables
 
 ## ⏳ Phase 2 : Investment Universe
 

@@ -26,17 +26,10 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb_checkpoints/
-
-# Data files (Excel, CSV)
-*.xlsx
-*.xls
-*.csv
+.pytest_cache/
 
 # Logs
+logs/
 *.log
 
 # OS
