@@ -38,6 +38,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         'Sharpe Ratio': 'sharpe_ratio',
         'Maximum Diversification':'maximum_diversification'}
     
+    
     options_strat = list(dico_strategies.keys())
 
     # --- globals ---
@@ -473,14 +474,15 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if fund.value==benchmark.value:
                 print("⚠️ Benchmark and Fund must be different.")
                 return
-
             
-            get_calendar_graph(cumulative_results, 
+            graphs=get_calendar_graph(cumulative_results, 
                                freq=frequency_graph.value, 
                                benchmark=benchmark.value, 
                                fund=fund.value)
+            
+            for name, fig in graphs.items():
+                fig.show()
                 
-                    
     graph_button=widgets.Button(description='Update Perf',button_style='info')
     graph_button.on_click(show_graph)
 
@@ -555,7 +557,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 'Risk Parity': rp.tolist(),
                 'Constrained RP': rp_c.tolist() if rp_c is not None else rp.tolist(),
                 'Equal Weighted':equal_weights.tolist()}
-
 
             allocation_df = pd.DataFrame(allocation, index=dataframe.columns).T.round(4)
             if set(current_weights.index).issubset(dataframe.columns):
@@ -795,8 +796,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     pnl['Total P&L %'] = 0
         
                 display(display_scrollable_df(pnl.sort_values(by='Weights', ascending=False).round(4)))                
-                display(display_scrollable_df(trades))
-                
+                display(display_scrollable_df(trades))          
     
     def get_pnl_on_click(_):
         global book_cost,realized_pnl,profit_and_loss,trades
@@ -1327,7 +1327,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
             fig3.update_layout(xaxis_title=None, yaxis_title=None)
             fig3.show()
-    
+
     selected_components=widgets.Dropdown(options=['PC1'],description='Select PCA',style={'description_width': '150px'})
     num_components=widgets.BoundedIntText(min=1,max=5,value=5,description='PCA Components',style={'description_width': '150px'})
     num_closest_to_pca=widgets.BoundedIntText(min=1,max=20,value=5,description='PCA Closest',style={'description_width': '150px'})
@@ -1351,7 +1351,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     performance_ex_post=pd.DataFrame()
     positions=pd.DataFrame()
     quantities_holding=pd.DataFrame()
-    
+        
     def check_connection(_):
         global quantities_holding,positions
         url_positions='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Positions.xlsx'
@@ -1390,7 +1390,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             quantities_holding=quantities_holding.sort_index()
 
             start_date_perf_ex_post.value=positions.index[0].date()
-
+            
     start_date_perf_ex_post = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
     end_date_perf_ex_post = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
     ex_post_perf=widgets.Output()
@@ -1402,7 +1402,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     calendar_button_ex_post=widgets.Button(description='Update', button_style='info')
     
     def show_graph_ex_post(_):
-
+        
         try:
             start_ts = pd.to_datetime(start_date_perf_ex_post.value)
             end_ts = pd.to_datetime(end_date_perf_ex_post.value)
@@ -1453,10 +1453,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             cumulative_performance_ex_post.iloc[0]=0
             cumulative_performance_ex_post=(1+cumulative_performance_ex_post).cumprod()*100   
             
-            get_calendar_graph(cumulative_performance_ex_post, 
+            graphs=get_calendar_graph(cumulative_performance_ex_post, 
                                freq=frequency_graph_ex_post.value, 
                                benchmark=benchmark_ex_post.value, 
                                fund=fund_ex_post.value)
+            
+            for name, fig in graphs.items():
+                fig.show()
+                
             update_ex_post_chart(None)
 
     calendar_button_ex_post.on_click(show_graph_ex_post)
@@ -1484,7 +1488,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if pnl_history.empty:
                 print("⚠️ P&L not computed.")
                 return
-                
+
         selected_cumulative_pnl=daily_pnl.loc[start_ts:end_ts,'Total'].copy()
         selected_cumulative_pnl.iloc[0]=0
         
@@ -1560,7 +1564,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     def get_ex_post_returns(_):
         
         global daily_pnl,pnl_history,historical_ptf,performance_ex_post
-    
     
         if book_cost.empty:
             get_pnl_on_click(None)
@@ -1663,7 +1666,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     ex_post_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button]),ex_post_perf])    
     calendar_ui_ex_post=widgets.VBox([widgets.HBox([frequency_graph_ex_post,fund_ex_post,benchmark_ex_post,calendar_button_ex_post]),ex_post_calendar])
     
-    
+
     tab = widgets.Tab()
     tab.children = [universe_ui, constraint_ui,positions_ui,calendar_perf,ex_post_ui,calendar_ui_ex_post,ex_ante_ui,var_ui,market_ui,correlation_ui]
     tab.set_title(0, 'Investment Universe')
