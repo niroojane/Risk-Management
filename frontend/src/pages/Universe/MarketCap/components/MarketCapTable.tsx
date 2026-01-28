@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -18,12 +18,34 @@ interface MarketCapTableProps {
   topN: number;
 }
 
+const NUMERIC_COLUMNS = ['price', 'supply', 'market_cap'] as const;
+
+// Helper functions
+const isNumericColumn = (columnId: string): boolean => {
+  return NUMERIC_COLUMNS.includes(columnId as typeof NUMERIC_COLUMNS[number]);
+};
+
+const getAriaSortValue = (isSorted: false | 'asc' | 'desc'): 'ascending' | 'descending' | 'none' => {
+  if (isSorted === 'asc') return 'ascending';
+  if (isSorted === 'desc') return 'descending';
+  return 'none';
+};
+
 const columnHelper = createColumnHelper<MarketCapData>();
 
 export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [searchValue, setSearchValue] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setGlobalFilter(searchValue);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchValue]);
 
   const columns = useMemo(
     () => [
@@ -101,11 +123,11 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
       {/* Search Bar */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input
             placeholder="Search by assets or symbols"
-            value={globalFilter ?? ''}
-            onChange={(e) => setGlobalFilter(e.target.value)}
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
             className="pl-9"
           />
         </div>
@@ -125,12 +147,10 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
+                    scope="col"
+                    aria-sort={header.column.getCanSort() ? getAriaSortValue(header.column.getIsSorted()) : undefined}
                     className={`px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider ${
-                      header.id === 'price' ||
-                      header.id === 'supply' ||
-                      header.id === 'market_cap'
-                        ? 'text-right'
-                        : 'text-left'
+                      isNumericColumn(header.id) ? 'text-right' : 'text-left'
                     }`}
                   >
                     {header.isPlaceholder ? null : (
@@ -139,13 +159,7 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
                           header.column.getCanSort()
                             ? 'cursor-pointer select-none hover:text-foreground transition-colors'
                             : ''
-                        } ${
-                          header.id === 'price' ||
-                          header.id === 'supply' ||
-                          header.id === 'market_cap'
-                            ? 'justify-end'
-                            : ''
-                        }`}
+                        } ${isNumericColumn(header.id) ? 'justify-end' : ''}`}
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {flexRender(
@@ -153,7 +167,7 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
                           header.getContext()
                         )}
                         {header.column.getCanSort() && (
-                          <span className="text-muted-foreground">
+                          <span className="text-muted-foreground" aria-hidden="true">
                             {{
                               asc: <ChevronUp className="h-4 w-4" />,
                               desc: <ChevronDown className="h-4 w-4" />,
@@ -189,11 +203,7 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
                     <td
                       key={cell.id}
                       className={`px-6 py-4 whitespace-nowrap text-sm text-foreground ${
-                        cell.column.id === 'price' ||
-                        cell.column.id === 'supply' ||
-                        cell.column.id === 'market_cap'
-                          ? 'text-right'
-                          : ''
+                        isNumericColumn(cell.column.id) ? 'text-right' : ''
                       } ${
                         cell.column.id === 'rank' ? 'text-muted-foreground' : ''
                       } ${
