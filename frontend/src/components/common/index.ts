@@ -17,5 +17,8 @@ export type { SearchBarProps } from './SearchBar';
 export { SortIcon } from './SortIcon';
 export type { SortIconProps } from './SortIcon';
 
+export { Pagination } from './Pagination';
+export type { PaginationProps } from './Pagination';
+
 export { LazyRoute } from './LazyRoute';
 export type { LazyRouteProps } from './LazyRoute';

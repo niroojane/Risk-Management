@@ -1,15 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
+  getPaginationRowModel,
   flexRender,
   createColumnHelper,
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { SearchBar, SortIcon } from '../../../../components/common';
+import { SearchBar, SortIcon, Pagination } from '../../../../components/common';
 import type { MarketCapData } from '../../../../types/universe';
 
 interface MarketCapTableProps {
@@ -18,6 +19,7 @@ interface MarketCapTableProps {
 }
 
 const NUMERIC_COLUMNS = ['price', 'supply', 'market_cap'] as const;
+const ITEMS_PER_PAGE = 50;
 
 const isNumericColumn = (columnId: string): boolean => {
   return NUMERIC_COLUMNS.includes(columnId as (typeof NUMERIC_COLUMNS)[number]);
@@ -43,7 +45,11 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
       columnHelper.display({
         id: 'rank',
         header: 'Rank',
-        cell: (info) => info.row.index + 1,
+        cell: (info) => {
+          const pageIndex = info.table.getState().pagination.pageIndex;
+          const pageSize = info.table.getState().pagination.pageSize;
+          return pageIndex * pageSize + info.row.index + 1;
+        },
         enableSorting: false,
       }),
       columnHelper.accessor('long_name', {
@@ -94,14 +100,31 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
       columnFilters,
       globalFilter,
     },
+    initialState: {
+      pagination: {
+        pageIndex: 0,
+        pageSize: ITEMS_PER_PAGE,
+      },
+    },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
+    onGlobalFilterChange: (value) => {
+      setGlobalFilter(value);
+      table.setPageIndex(0);
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     globalFilterFn: 'includesString',
   });
+
+  useEffect(() => {
+    table.setPageIndex(0);
+  }, [topN, table]);
+
+  const totalFilteredItems = table.getFilteredRowModel().rows.length;
+  const currentPage = table.getState().pagination.pageIndex + 1;
 
   return (
     <div className="space-y-4">
@@ -110,7 +133,7 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
         onChange={setGlobalFilter}
         placeholder="Search by assets or symbols"
         showResultCount={true}
-        resultCount={table.getFilteredRowModel().rows.length}
+        resultCount={totalFilteredItems}
       />
 
       {/* Table */}
@@ -183,6 +206,14 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        totalItems={totalFilteredItems}
+        itemsPerPage={ITEMS_PER_PAGE}
+        currentPage={currentPage}
+        onPageChange={(page) => table.setPageIndex(page - 1)}
+        isShowingItem={false}
+      />
     </div>
   );
 };
