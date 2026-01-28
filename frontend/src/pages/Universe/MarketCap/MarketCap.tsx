@@ -7,7 +7,7 @@ import { ErrorMessage } from '../../../components/common/ErrorMessage';
 import { Loading } from '../../../components/common/Loading';
 
 function MarketCap() {
-  const [topN, setTopN] = useState(50);
+  const [topN, setTopN] = useState(100);
 
   const {
     data = [],
