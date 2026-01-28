@@ -20,10 +20,12 @@ interface MarketCapTableProps {
 const NUMERIC_COLUMNS = ['price', 'supply', 'market_cap'] as const;
 
 const isNumericColumn = (columnId: string): boolean => {
-  return NUMERIC_COLUMNS.includes(columnId as typeof NUMERIC_COLUMNS[number]);
+  return NUMERIC_COLUMNS.includes(columnId as (typeof NUMERIC_COLUMNS)[number]);
 };
 
-const getAriaSortValue = (isSorted: false | 'asc' | 'desc'): 'ascending' | 'descending' | 'none' => {
+const getAriaSortValue = (
+  isSorted: false | 'asc' | 'desc'
+): 'ascending' | 'descending' | 'none' => {
   if (isSorted === 'asc') return 'ascending';
   if (isSorted === 'desc') return 'descending';
   return 'none';
@@ -48,21 +50,15 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
         header: 'Asset',
         cell: (info) => (
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-foreground">
-              {info.getValue()}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {info.row.original.base_asset}
-            </span>
+            <span className="text-sm font-medium text-foreground">{info.getValue()}</span>
+            <span className="text-xs text-muted-foreground">{info.row.original.base_asset}</span>
           </div>
         ),
         filterFn: 'includesString',
       }),
       columnHelper.accessor('symbol', {
         header: 'Symbol',
-        cell: (info) => (
-          <span className="font-mono">{info.getValue()}</span>
-        ),
+        cell: (info) => <span className="font-mono">{info.getValue()}</span>,
         filterFn: 'includesString',
       }),
       columnHelper.accessor('price', {
@@ -90,6 +86,7 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
 
   const filteredData = useMemo(() => data.slice(0, topN), [data, topN]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: filteredData,
     columns,
@@ -127,7 +124,11 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
                   <th
                     key={header.id}
                     scope="col"
-                    aria-sort={header.column.getCanSort() ? getAriaSortValue(header.column.getIsSorted()) : undefined}
+                    aria-sort={
+                      header.column.getCanSort()
+                        ? getAriaSortValue(header.column.getIsSorted())
+                        : undefined
+                    }
                     className={`px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider ${
                       isNumericColumn(header.id) ? 'text-right' : 'text-left'
                     }`}
@@ -141,10 +142,7 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
                         } ${isNumericColumn(header.id) ? 'justify-end' : ''}`}
                         onClick={header.column.getToggleSortingHandler()}
                       >
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                        {flexRender(header.column.columnDef.header, header.getContext())}
                         {header.column.getCanSort() && (
                           <SortIcon sortDirection={header.column.getIsSorted()} />
                         )}
@@ -167,18 +165,13 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
               </tr>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="hover:bg-muted/50 transition-colors"
-                >
+                <tr key={row.id} className="hover:bg-muted/50 transition-colors">
                   {row.getVisibleCells().map((cell) => (
                     <td
                       key={cell.id}
                       className={`px-6 py-4 whitespace-nowrap text-sm text-foreground ${
                         isNumericColumn(cell.column.id) ? 'text-right' : ''
-                      } ${
-                        cell.column.id === 'rank' ? 'text-muted-foreground' : ''
-                      } ${
+                      } ${cell.column.id === 'rank' ? 'text-muted-foreground' : ''} ${
                         cell.column.id === 'market_cap' ? 'font-medium' : ''
                       }`}
                     >

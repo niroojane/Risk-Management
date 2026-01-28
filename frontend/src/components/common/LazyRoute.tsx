@@ -10,9 +10,7 @@ export interface LazyRouteProps {
 export const LazyRoute = ({ children, loadingText }: LazyRouteProps) => {
   return (
     <RouteErrorBoundary>
-      <Suspense fallback={<Loading text={loadingText} fullScreen />}>
-        {children}
-      </Suspense>
+      <Suspense fallback={<Loading text={loadingText} fullScreen />}>{children}</Suspense>
     </RouteErrorBoundary>
   );
 };

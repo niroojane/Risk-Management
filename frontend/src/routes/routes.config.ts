@@ -1,8 +1,9 @@
 import { lazy } from 'react';
+import type { LazyExoticComponent, ComponentType } from 'react';
 
 export interface RouteConfig {
   path: string;
-  component: React.LazyExoticComponent<() => JSX.Element>;
+  component: LazyExoticComponent<ComponentType>;
   title: string;
   children?: RouteConfig[];
 }
