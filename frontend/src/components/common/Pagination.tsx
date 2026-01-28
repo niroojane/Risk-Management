@@ -7,7 +7,7 @@ export interface PaginationProps {
   currentPage: number;
   onPageChange: (page: number) => void;
   className?: string;
-  isShowingItem?: boolean
+  isShowingItem?: boolean;
 }
 
 export const Pagination = ({
@@ -16,7 +16,7 @@ export const Pagination = ({
   currentPage,
   onPageChange,
   className = '',
-  isShowingItem = true
+  isShowingItem = true,
 }: PaginationProps) => {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
@@ -65,7 +65,7 @@ export const Pagination = ({
 
   return (
     <div className={`flex items-center justify-between ${className}`}>
-      <div className={`text-sm text-muted-foreground ${isShowingItem ? "visible" : "invisible"}`}>
+      <div className={`text-sm text-muted-foreground ${isShowingItem ? 'visible' : 'invisible'}`}>
         Showing <span className="font-medium text-foreground">{startItem}</span> to{' '}
         <span className="font-medium text-foreground">{endItem}</span> of{' '}
         <span className="font-medium text-foreground">{totalItems}</span> results

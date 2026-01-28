@@ -80,6 +80,50 @@ Page component responsibilities:
 - Pass data to child components
 - Handle user actions (button clicks)
 
+### Table Component Pattern
+
+For complex tables (TanStack Table), use this modular architecture:
+
+```
+pages/FeatureName/
+├── FeatureName.tsx
+├── components/
+│   ├── FeatureTable.tsx           # Main table (orchestration)
+│   ├── FeatureTableHeader.tsx     # Header rendering
+│   └── FeatureTableBody.tsx       # Body rendering
+├── hooks/
+│   ├── useFeatureColumns.tsx      # Column definitions
+│   └── useFeatureTable.ts         # Table logic (state, filters, pagination)
+└── constants/
+    └── table.ts                   # Headers, messages, config
+```
+
+**Global Utils** (reusable across all pages):
+- `src/utils/formatters.ts` - Number/currency formatting
+- `src/utils/table.ts` - Table helpers (numeric columns, aria sort)
+
+**Example** (MarketCapTable):
+```typescript
+// MarketCapTable.tsx (45 lines - orchestration only)
+const { table, globalFilter, setGlobalFilter } = useMarketCapTable({ data, topN });
+return (
+  <div>
+    <SearchBar />
+    <table>
+      <MarketCapTableHeader table={table} />
+      <MarketCapTableBody table={table} />
+    </table>
+    <Pagination />
+  </div>
+);
+```
+
+**Benefits**:
+- Each file has one responsibility
+- Hooks are testable independently
+- Formatters/helpers reusable across all tables
+- Easy to maintain and extend
+
 ### Mapping Backend/Frontend
 
 | Route Frontend | Endpoints Backend | Fonctionnalité |
