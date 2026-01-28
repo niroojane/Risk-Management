@@ -48,7 +48,8 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
         cell: (info) => {
           const pageIndex = info.table.getState().pagination.pageIndex;
           const pageSize = info.table.getState().pagination.pageSize;
-          return pageIndex * pageSize + info.row.index + 1;
+          const rowIndexInPage = info.table.getRowModel().rows.indexOf(info.row);
+          return pageIndex * pageSize + rowIndexInPage + 1;
         },
         enableSorting: false,
       }),
