@@ -46,7 +46,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     global rolling_optimization, performance_pct, performance_fund, dates_end,quantities,cumulative_results,global_returns
     global book_cost,realized_pnl,profit_and_loss,holding_tickers,current_weights,fund_names,grid,trades
     
-    tickers_dataframe = pd.DataFrame()
+    tickers_dataframe = Binance.get_market_cap().set_index('Ticker')
     tickers = []
     holding_tickers=[]
     dataframe = pd.DataFrame()
@@ -86,7 +86,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         style={'description_width': '200px'},
         layout=widgets.Layout(width='500px')
     )
-
+    
+    loading_bar = widgets.IntProgress(description='Loading prices...',min=0, max=100,style={'description_width': '150px'})
+    
     data_button = widgets.Button(description='Get Prices', button_style='info')
     scope_output = widgets.Output()
     strategy_output = widgets.Output()
@@ -95,14 +97,15 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     constraint_output = widgets.Output()
     
     dropdown_asset1 = widgets.Dropdown(description='Asset 1',style={'description_width': '150px'})
-    dropdown_asset2 = widgets.Dropdown(description='Asset 2',style={'description_width': '150px'} ) 
+    dropdown_asset2 = widgets.Dropdown(description='Asset 2',style={'description_width': '150px'} )
+
     # --- helper: update crypto scope ---
     def scope_update(n):
         nonlocal scope_output
         global tickers_dataframe, tickers
         try:
-            tickers_dataframe = Binance.get_market_cap().iloc[:n].set_index('Ticker')
-            tickers = list(tickers_dataframe.index)
+            selected_tickers=tickers_dataframe.iloc[:n]
+            tickers = list(selected_tickers.index)
         except Exception as e:
             with scope_output:
                 scope_output.clear_output(wait=True)
@@ -110,13 +113,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             return
         with scope_output:
             scope_output.clear_output(wait=True)
-            display(display_scrollable_df(tickers_dataframe))
+            display(display_scrollable_df(selected_tickers))
 
     scope_update(n_crypto.value)
     n_crypto.observe(lambda ch: scope_update(ch['new']) if ch['name'] == 'value' else None, names='value')
     
     price_output=widgets.Output()
     # --- price fetching ---
+    
     def get_prices(_=None):
         global prices, dataframe, returns_to_use, dates_end,valid_cols_model
         
@@ -144,17 +148,20 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             numbers_of_table = days_total // 500
             temp_end = datetime.datetime.combine(start, datetime.time())
             scope_prices = pd.DataFrame()
-
+            loading_bar.value=0
+            display(loading_bar)
+            loading_bar.max=numbers_of_table+3
+            loading_bar.value += 1 
             try:
                 for _ in range(numbers_of_table + 1):
                     data = Binance.get_price(combined_tickers, temp_end)
                     temp_end += datetime.timedelta(days=500)
                     scope_prices = scope_prices.combine_first(data)
+                    loading_bar.value += 1 
 
                 temp_end = datetime.datetime.combine(today - datetime.timedelta(days=remaining), datetime.time())
                 data = Binance.get_price(combined_tickers, temp_end)
                 scope_prices = scope_prices.combine_first(data)
-
                 scope_prices = scope_prices.sort_index()
                 scope_prices = scope_prices[~scope_prices.index.duplicated(keep='first')]
                 scope_prices.index = pd.to_datetime(scope_prices.index)
@@ -168,7 +175,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 dataframe = prices[valid_cols].sort_index().dropna()
                 dataframe.index = pd.to_datetime(dataframe.index)
                 returns_to_use = returns_to_use[~returns_to_use.index.duplicated(keep='first')]
-
+                loading_bar.value += 1 
+                loading_bar.value=0
+                
+                main_output.clear_output()
+                
                 dropdown_asset.options = list(dataframe.columns) + ['All']
                 
                 dropdown_asset1.options=dataframe.columns
@@ -257,11 +268,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         grid.data = updated_df
         
         benchmark_tracking_error.options=grid.data.index
-        
         selected_fund.options=grid.data.index
-
         selected_bench.options=grid.data.index
-
         
         selected_fund_var.options=grid.data.index
 
@@ -689,7 +697,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     positions_output=widgets.Output()
     holding_output=widgets.Output()
-    
+    loading_bar_pnl = widgets.IntProgress(description='Loading P&L...',min=0, max=100,style={'description_width': '150px'})
     def get_holdings(_):
 
         global holding_tickers,current_weights,pnl
@@ -805,13 +813,23 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         trade_history = read_excel_from_url(url)
         
         if trade_history is None:
-            raise FileNotFoundError("Trade history could not be loaded. Execution stopped.")        
+            raise FileNotFoundError("Trade history could not be loaded. Execution stopped.")  
+        loading_bar_pnl.value=0
         
+        with holding_output:
+            display(loading_bar_pnl)
+            
         trades=Pnl_calculation.get_trade_in_usdt(trade_history)
+        loading_bar_pnl.value+=100/3
         book_cost=Pnl_calculation.get_book_cost(trades)
+        loading_bar_pnl.value+=100/3
         realized_pnl,profit_and_loss=Pnl_calculation.get_pnl(book_cost,trades)
+        loading_bar_pnl.value+=100/3
+        with holding_output:
+            holding_output.clear_output()
+            
         get_holdings(None)
-        
+
     pnl_button=widgets.Button(description='Get P&L',button_style='info')
     pnl_button.on_click(get_pnl_on_click)
             
@@ -904,10 +922,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         portfolio = RiskAnalysis(range_returns)
      
         selected_weights = grid.data.loc[selected_fund.value]
-
         
         decomposition = pd.DataFrame(portfolio.var_contrib_pct(selected_weights))*100
-        
         quantities_rebalanced = rebalanced_portfolio(range_prices, selected_weights) / range_prices
         quantities_buy_hold = buy_and_hold(range_prices, selected_weights) / range_prices
         
@@ -1033,6 +1049,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     iterations = widgets.BoundedIntText(value=10000, min=1000, max=100000, step=1, description='Iterations')
     num_scenarios = widgets.BoundedIntText(value=100, min=1, max=1000, step=1, description='Scenarios')
     var_centile = widgets.BoundedFloatText(value=0.05, min=0, max=1, step=0.01, description='VaR Centile')
+    loading_bar_var = widgets.IntProgress(description='Loading scenarios...',min=0, max=100,style={'description_width': '150px'})
 
     def get_var_metrics(_):
         global var_scenarios, cvar_scenarios, fund_results
@@ -1058,59 +1075,68 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 print("⚠️ Please compute optimization results first.")
                 return
 
-        horizon = 1 / 250
-        spot = dataframe.iloc[-1]
-        theta = 2
-
-        distrib_functions = {
-            'multivariate_distribution': (iterations.value, stress_factor.value),
-            'gaussian_copula': (iterations.value, stress_factor.value),
-            't_copula': (iterations.value, stress_factor.value),
-            'gumbel_copula': (iterations.value, theta),
-            'monte_carlo': (spot, horizon, iterations.value, stress_factor.value)
-        }
-
-        
-        range_prices=dataframe.loc[start_ts:end_ts]
-        range_returns=range_prices.pct_change()
-        
-        portfolio = RiskAnalysis(range_returns)
-        
-        var_scenarios, cvar_scenarios, fund_results = {}, {}, {}
-
-        for index in grid.data.index:
-            var_scenarios[index], cvar_scenarios[index] = {}, {}
-            for func_name, args in distrib_functions.items():
-                func = getattr(portfolio, func_name)
-                scenarios = {}
-
-                for i in range(num_scenarios.value):
-                    if func_name == 'monte_carlo':
-                        distrib = pd.DataFrame(func(*args)[1], columns=portfolio.returns.columns)
-                    else:
-                        distrib = pd.DataFrame(func(*args), columns=portfolio.returns.columns)
-
-                    distrib = distrib * grid.data.loc[index]
-                    distrib = distrib[distrib.columns[grid.data.loc[index] > 0]]
-                    distrib['Portfolio'] = distrib.sum(axis=1)
-
-                    results = distrib.sort_values(by='Portfolio').iloc[int(distrib.shape[0] * var_centile.value)]
-                    scenarios[i] = results
-
-                scenario = pd.DataFrame(scenarios).T
-                mean_scenario = scenario.mean()
-                index_cvar = scenario['Portfolio'] < mean_scenario['Portfolio']
-                cvar = scenario.loc[index_cvar].mean()
-
-                var_scenarios[index][func_name] = mean_scenario
-                cvar_scenarios[index][func_name] = cvar
-
-            fund_results[index] = {
-                'Value At Risk': mean_scenario.loc['Portfolio'],
-                'CVaR': cvar.loc['Portfolio']
+            horizon = 1 / 250
+            spot = dataframe.iloc[-1]
+            theta = 2
+    
+            distrib_functions = {
+                'multivariate_distribution': (iterations.value, stress_factor.value),
+                'gaussian_copula': (iterations.value, stress_factor.value),
+                't_copula': (iterations.value, stress_factor.value),
+                'gumbel_copula': (iterations.value, theta),
+                'monte_carlo': (spot, horizon, iterations.value, stress_factor.value)
             }
+    
+            
+            range_prices=dataframe.loc[start_ts:end_ts]
+            range_returns=range_prices.pct_change()
+            
+            portfolio = RiskAnalysis(range_returns)
+            
+            var_scenarios, cvar_scenarios, fund_results = {}, {}, {}
 
+            display(loading_bar_var)
+            
+            for index in grid.data.index:
+                var_scenarios[index], cvar_scenarios[index] = {}, {}
+                for func_name, args in distrib_functions.items():
+                    func = getattr(portfolio, func_name)
+                    scenarios = {}
+        
+                    for i in range(num_scenarios.value):
+                        if func_name == 'monte_carlo':
+                            distrib = pd.DataFrame(func(*args)[1], columns=portfolio.returns.columns)
+                        else:
+                            distrib = pd.DataFrame(func(*args), columns=portfolio.returns.columns)
+        
+                        distrib = distrib * grid.data.loc[index]
+                        distrib = distrib[distrib.columns[grid.data.loc[index] > 0]]
+                        distrib['Portfolio'] = distrib.sum(axis=1)
+        
+                        results = distrib.sort_values(by='Portfolio').iloc[int(distrib.shape[0] * var_centile.value)]
+                        scenarios[i] = results
+                    
+        
+                    scenario = pd.DataFrame(scenarios).T
+                    mean_scenario = scenario.mean()
+                    index_cvar = scenario['Portfolio'] < mean_scenario['Portfolio']
+                    cvar = scenario.loc[index_cvar].mean()
+        
+                    var_scenarios[index][func_name] = mean_scenario
+                    cvar_scenarios[index][func_name] = cvar
+        
+                fund_results[index] = {
+                    'Value At Risk': mean_scenario.loc['Portfolio'],
+                    'CVaR': cvar.loc['Portfolio']
+                }
+                
+                loading_bar_var.value+=100/(len(grid.data.index))
+            
+            loading_bar_var.value+=100/(len(grid.data.index))
+            var_output.clear_output()
+            
         display_var_results(selected_fund_var.value)
+        loading_bar_var.value=0
 
     def display_var_results(fund_name):
         if fund_name not in var_scenarios:
@@ -1205,8 +1231,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
         range_returns=returns_to_use.loc[start_ts:end_ts,market_tickers]
         portfolio=RiskAnalysis(range_returns)
-        
-
+    
 
         eigval,eigvec,portfolio_components=portfolio.pca(num_components=num_components.value)
         selected_components.options=portfolio_components.columns
@@ -1560,15 +1585,22 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             display(push_button)
             display(git_output)
         
+    loading_bar_ex_post = widgets.IntProgress(description='Loading Mark to Market...',min=0, max=100,style={'description_width': '150px'})
 
     def get_ex_post_returns(_):
         
         global daily_pnl,pnl_history,historical_ptf,performance_ex_post
-    
+ 
+        
+        with ex_post_perf:
+            ex_post_perf.clear_output()
+            display(loading_bar_pnl)
+            display(loading_bar_ex_post)
+
         if book_cost.empty:
-            get_pnl_on_click(None)
-    
-                            
+            get_pnl_on_click(None)  
+            loading_bar_ex_post.value+=20
+          
         quantities_tickers=list(quantities_holding.columns)
         daily_book_cost=book_cost.resample("D").last().dropna().sort_index()
         book_cost_history=pd.DataFrame()
@@ -1580,7 +1612,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         for col in cols:
             
             book_cost_history[col]=daily_book_cost[col]
-        
+            
         book_cost_history=book_cost_history.ffill()
         book_cost_history=book_cost_history.loc[quantities_holding.index] 
         
@@ -1601,18 +1633,20 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         remaining
         temp_end=weights_ex_post.index[0]
         prices=pd.DataFrame()
+        
         for i in range(numbers_of_table+1):
             temp_data=Binance.get_price(weights_ex_post.columns,temp_end)
             temp_end=temp_end+datetime.timedelta(500)
             prices=prices.combine_first(temp_data)
-            
+            loading_bar_ex_post.value+=100/(numbers_of_table+2)
+
         temp_end=temp_end+datetime.timedelta(500)
         last_data=Binance.get_price(weights_ex_post.columns,temp_end)
         binance_data=prices.combine_first(last_data)
         binance_data=binance_data.sort_index()
         binance_data = binance_data[~binance_data.index.duplicated(keep='first')]
         binance_data.index=pd.to_datetime(binance_data.index)
-    
+
         pnl_history=pd.DataFrame()
         pnl_history.index=quantities_holding.index
         pnl_history=pnl_history.sort_index()
@@ -1655,9 +1689,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             fund_ex_post.value = 'Historical Portfolio'
             benchmark_ex_post.value ='Fund'
         
+        loading_bar_ex_post.value+=100/(numbers_of_table+2)
+
         update_ex_post_chart(None)
         show_graph_ex_post(None)
-        
+        loading_bar_ex_post.value=0
+
     ex_post_button=widgets.Button(description='Get P&L',button_style='info')
     ex_post_button.on_click(get_ex_post_returns)
     start_date_perf_ex_post.observe(update_ex_post_chart)
