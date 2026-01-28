@@ -86,7 +86,6 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
 
   const filteredData = useMemo(() => data.slice(0, topN), [data, topN]);
 
-  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: filteredData,
     columns,
