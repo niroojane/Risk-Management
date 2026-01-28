@@ -18,6 +18,7 @@ class MarketCapController:
             quote=request.quote.value, use_cache=True
         )
         
+        #TODO gérer la limite dans le frontend
         market_cap_items = MarketCapMapper.to_entities(
             raw_data=result["data"], limit=request.top_n
         )

@@ -3,13 +3,18 @@ Dependency injection for FastAPI endpoints
 Provides singleton instances of services and clients
 """
 from functools import lru_cache
-from typing import Annotated, Optional
+from typing import Annotated, Optional, TYPE_CHECKING
 from fastapi import Depends
 import logging
 
 # Import root modules
 from .config import BINANCE_API_KEY, BINANCE_API_SECRET, CACHE_DEFAULT_TTL
 from Binance_API import BinanceAPI
+
+# Type-only imports to avoid circular dependencies
+if TYPE_CHECKING:
+    from ..services.binance import BinanceClient, MarketDataService, PositionService
+    from ..services.infrastructure.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
