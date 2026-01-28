@@ -1702,23 +1702,125 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     ex_post_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button]),ex_post_perf])    
     calendar_ui_ex_post=widgets.VBox([widgets.HBox([frequency_graph_ex_post,fund_ex_post,benchmark_ex_post,calendar_button_ex_post]),ex_post_calendar])
-    
-
-    tab = widgets.Tab()
-    tab.children = [universe_ui, constraint_ui,positions_ui,calendar_perf,ex_post_ui,calendar_ui_ex_post,ex_ante_ui,var_ui,market_ui,correlation_ui]
-    tab.set_title(0, 'Investment Universe')
-    tab.set_title(1, 'Strategy')
-    tab.set_title(2,'Positioning')
-    tab.set_title(3, 'Strategy Return')
-    tab.set_title(4, 'P&L')
-    tab.set_title(5, 'Calendar Metrics')
-    tab.set_title(6, 'Risk Contribution')
-    tab.set_title(7, 'Value at Risk')
-    tab.set_title(8, 'Market Risk')
-    tab.set_title(9, 'Correlation')
-
-    dropdown_asset.options = list(dataframe.columns) + ['All']
-    
     check_connection(None)
 
-    display(tab)
+    investment_universe_tab = widgets.Output()
+    strategy_tab = widgets.Output()
+    positioning_tab = widgets.Output()
+    ex_post_tab = widgets.Output()
+    risk_analysis_tab = widgets.Output()
+    market_risk_tab = widgets.Output() 
+
+    main_tabs = widgets.Tab(children=[
+        investment_universe_tab,
+        strategy_tab,
+        ex_post_tab,
+        risk_analysis_tab,
+        market_risk_tab
+    ])
+    
+    main_tabs.set_title(0, 'Investment Universe')
+    main_tabs.set_title(1, 'Strategy')
+    main_tabs.set_title(2, 'Current Portfolio')
+    main_tabs.set_title(3, 'Risk Analysis')
+    main_tabs.set_title(4, 'Market Risk')
+    
+    with investment_universe_tab:
+        display(universe_ui)
+    
+    strategy_constraints_tab = widgets.Output()
+    strategy_positions_tab = widgets.Output()
+    strategy_returns_tab = widgets.Output()
+    
+    strategy_subtabs = widgets.Tab(children=[
+        strategy_constraints_tab,
+        strategy_positions_tab,
+        strategy_returns_tab
+    ])
+    
+    strategy_subtabs.set_title(0, 'Strategy')
+    strategy_subtabs.set_title(1, 'Positioning')
+    strategy_subtabs.set_title(2, 'Strategy Return')
+    
+    with strategy_tab:
+        display(strategy_subtabs)
+    
+    with strategy_constraints_tab:
+        display(constraint_ui)
+    
+    with strategy_positions_tab:
+        display(positions_ui)
+    
+    with strategy_returns_tab:
+        display(calendar_perf)
+
+
+    pnl_sub_tab = widgets.Output()
+    positions_subtab = widgets.Output()
+    calendar_ex_post_subtab = widgets.Output()
+
+    
+    ex_post_subtabs = widgets.Tab(children=[
+        pnl_sub_tab,
+        positions_subtab,
+        calendar_ex_post_subtab
+    ])
+    
+    ex_post_subtabs.set_title(0, 'P&L')
+    ex_post_subtabs.set_title(1, 'Positioning')
+    ex_post_subtabs.set_title(2, 'Calendar Return')
+    
+    with ex_post_tab:
+        display(ex_post_subtabs)
+
+    with pnl_sub_tab:
+        display(ex_post_ui)
+        
+    with positions_subtab:
+        display(positions_ui)
+
+    with calendar_ex_post_subtab:
+        display(calendar_ui_ex_post)
+
+
+    risk_contribution_tab = widgets.Output()
+    var_tab = widgets.Output()
+    
+    risk_subtabs = widgets.Tab(children=[
+        risk_contribution_tab,
+        var_tab
+    ])
+    
+    risk_subtabs.set_title(0, 'Risk Contribution')
+    risk_subtabs.set_title(1, 'Value at Risk')
+    
+    with risk_analysis_tab:
+        display(risk_subtabs)
+    
+    with risk_contribution_tab:
+        display(ex_ante_ui)
+    
+    with var_tab:
+        display(var_ui)
+    
+    market_risk_detail_tab = widgets.Output()
+    correlation_tab = widgets.Output()
+    
+    market_risk_subtabs = widgets.Tab(children=[
+        market_risk_detail_tab,
+        correlation_tab
+    ])
+    
+    market_risk_subtabs.set_title(0, 'Market Risk')
+    market_risk_subtabs.set_title(1, 'Correlation')
+    
+    with market_risk_tab:
+        display(market_risk_subtabs)
+    
+    with market_risk_detail_tab:
+        display(market_ui)
+    
+    with correlation_tab:
+        display(correlation_ui)
+
+    display(main_tabs)
