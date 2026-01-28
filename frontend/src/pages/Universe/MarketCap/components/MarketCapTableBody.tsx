@@ -1,6 +1,6 @@
 import { flexRender, type Table } from '@tanstack/react-table';
-import type { MarketCapData } from '../../../../types/universe';
-import { isNumericColumn } from '../../../../utils/table';
+import type { MarketCapData } from '@/types/universe';
+import { isNumericColumn } from '@/utils';
 import { NO_RESULTS_MESSAGE } from '../constants/table';
 
 interface MarketCapTableBodyProps {

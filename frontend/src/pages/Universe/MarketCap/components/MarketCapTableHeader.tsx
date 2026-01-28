@@ -1,7 +1,7 @@
 import { flexRender, type Table } from '@tanstack/react-table';
-import { SortIcon } from '../../../../components/common';
-import type { MarketCapData } from '../../../../types/universe';
-import { isNumericColumn, getAriaSortValue } from '../../../../utils/table';
+import { SortIcon } from '@/components/common';
+import type { MarketCapData } from '@/types/universe';
+import { isNumericColumn, getAriaSortValue } from '@/utils';
 
 interface MarketCapTableHeaderProps {
   table: Table<MarketCapData>;

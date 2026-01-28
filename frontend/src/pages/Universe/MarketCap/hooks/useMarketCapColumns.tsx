@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { createColumnHelper } from '@tanstack/react-table';
-import type { MarketCapData } from '../../../../types/universe';
-import { formatUSD, formatLargeNumber, formatMarketCap } from '../../../../utils/formatters';
+import type { MarketCapData } from '@/types/universe';
+import { formatUSD, formatLargeNumber, formatMarketCap } from '@/utils';
 import { COLUMN_HEADERS } from '../constants/table';
 
 const columnHelper = createColumnHelper<MarketCapData>();

@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { universeService } from '../../../services/universeService';
+import { universeService } from '@/services/universeService';
 import { MarketCapTable } from './components/MarketCapTable';
 import { MarketCapFilter } from './components/MarketCapFilter';
-import { ErrorMessage } from '../../../components/common/ErrorMessage';
-import { Loading } from '../../../components/common/Loading';
+import { ErrorMessage, Loading } from '@/components/common';
 
 function MarketCap() {
   const [topN, setTopN] = useState(100);

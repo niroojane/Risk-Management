@@ -1,5 +1,5 @@
-import { SearchBar, Pagination } from '../../../../components/common';
-import type { MarketCapData } from '../../../../types/universe';
+import { SearchBar, Pagination } from '@/components/common';
+import type { MarketCapData } from '@/types/universe';
 import { useMarketCapTable } from '../hooks/useMarketCapTable';
 import { MarketCapTableHeader } from './MarketCapTableHeader';
 import { MarketCapTableBody } from './MarketCapTableBody';

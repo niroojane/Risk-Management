@@ -8,7 +8,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import type { MarketCapData } from '../../../../types/universe';
+import type { MarketCapData } from '@/types/universe';
 import { useMarketCapColumns } from './useMarketCapColumns';
 import { ITEMS_PER_PAGE } from '../constants/table';
 
