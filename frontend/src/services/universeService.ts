@@ -6,7 +6,6 @@ export const universeService = {
     const response = await apiClient.post('/api/v1/investment-universe/market-cap', {
       quote: "USDT"
     });
-    console.log('API Response:', response.data);
     return response.data.data;
   },
 

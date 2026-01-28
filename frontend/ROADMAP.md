@@ -15,23 +15,23 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 - [x] Gestion globale des erreurs (Error boundaries)
 - [x] Configuration ESLint + Prettier
 
-## ⏳ Phase 2 : Investment Universe
+## ✅ Phase 2 : Investment Universe
 
 **Backend prérequis** : Phase 3 du backend
 
-- [ ] Page Universe (`pages/Universe/Universe.tsx`)
-- [ ] Composants:
-  - [ ] `MarketCapTable.tsx` - Top N crypto table (symbol, price, market cap, 24h change)
-  - [ ] `DateRangePicker.tsx` - Date range selection
-  - [ ] `PriceChart.tsx` - Historical price chart
-- [ ] Features:
-  - [ ] Slider pour sélection nombre de cryptos
-  - [ ] Bouton "Fetch Market Data"
-  - [ ] Tri et filtrage du tableau
-- [ ] Services:
-  - [ ] `universeService.fetchMarketCap()`
-  - [ ] `universeService.fetchPositions()`
-- [ ] Cache local des données (TanStack Query)
+- [x] Page Universe (`pages/Universe/Universe.tsx`)
+- [x] Service `universeService.fetchMarketCap()` avec filtrage client-side
+- [x] Slider shadcn/ui pour sélection nombre de cryptos
+- [x] Tableau market cap (rank, symbol, price, supply, market cap)
+- [x] Refactoring `Universe.tsx` (composants `MarketCapTable.tsx`, `UniverseFilters.tsx`)
+- [x] TanStack Table avec patterns shadcn/ui Data Table
+- [x] Search bar globale (assets, symbols)
+- [x] Tri par colonne cliquable avec icônes
+- [x] État vide ("No results found")
+- [x] Transitions et hover effects
+- [x] Migration vers TanStack Query (useQuery, QueryClientProvider)
+- [ ] Refacto MarketCapTable
+- [ ] Service `universeService.fetchPositions()` - À implémenter quand backend disponible
 
 ## ⏳ Phase 3 : Strategy & Portfolio Optimization
 
@@ -165,6 +165,6 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 
 ---
 
-**Status actuel** : Phase 1 terminée ✅ | Phase 2 prête à démarrer ⏳
+**Status actuel** : Phase 1 terminée ✅ | Phase 2 en cours 🚧
 
 **Note** : Chaque phase dépend de la phase backend correspondante. Le développement peut être fait en parallèle mais le testing nécessite les endpoints backend disponibles.

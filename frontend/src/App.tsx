@@ -1,6 +1,18 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
 import { ErrorBoundary, RouteErrorBoundary } from '@/components/common';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // Pages
 import Dashboard from '@/pages/Dashboard/Dashboard';
@@ -14,7 +26,8 @@ import MarketRisk from '@/pages/MarketRisk/MarketRisk';
 function App() {
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route
@@ -76,6 +89,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }
