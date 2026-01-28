@@ -16,7 +16,8 @@ const queryClient = new QueryClient({
 
 // Pages
 import Dashboard from '@/pages/Dashboard/Dashboard';
-import Universe from '@/pages/Universe/Universe';
+import MarketCap from '@/pages/Universe/MarketCap/MarketCap';
+import Prices from '@/pages/Universe/Prices/Prices';
 import Strategy from '@/pages/Strategy/Strategy';
 import Positioning from '@/pages/Positioning/Positioning';
 import Performance from '@/pages/Performance/Performance';
@@ -39,10 +40,18 @@ function App() {
               }
             />
             <Route
-              path="universe"
+              path="market-cap"
               element={
                 <RouteErrorBoundary>
-                  <Universe />
+                  <MarketCap />
+                </RouteErrorBoundary>
+              }
+            />
+            <Route
+              path="prices"
+              element={
+                <RouteErrorBoundary>
+                  <Prices />
                 </RouteErrorBoundary>
               }
             />

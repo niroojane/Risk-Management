@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { universeService } from '../../services/universeService';
+import { universeService } from '../../../services/universeService';
 import { MarketCapTable } from './components/MarketCapTable';
-import { UniverseFilters } from './components/UniverseFilters';
+import { MarketCapFilter } from './components/MarketCapFilter';
 
-function Universe() {
+function MarketCap() {
   const [topN, setTopN] = useState(50);
 
   const {
@@ -23,8 +23,8 @@ function Universe() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-foreground">Investment Universe</h1>
-        <UniverseFilters topN={topN} maxValue={data.length} onChange={handleTopNChange} />
+        <h1 className="text-3xl font-bold text-foreground">Market Cap</h1>
+        <MarketCapFilter topN={topN} maxValue={data.length} onChange={handleTopNChange} />
       </div>
 
       {isLoading && (
@@ -44,4 +44,4 @@ function Universe() {
   );
 }
 
-export default Universe;
+export default MarketCap;

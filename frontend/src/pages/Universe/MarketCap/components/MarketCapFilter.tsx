@@ -1,12 +1,12 @@
-import { Slider } from '../../../components/ui/slider';
+import { Slider } from '../../../../components/ui/slider';
 
-interface UniverseFiltersProps {
+interface MarketCapFilterProps {
   topN: number;
   maxValue: number;
   onChange: (value: number[]) => void;
 }
 
-export const UniverseFilters = ({ topN, maxValue, onChange }: UniverseFiltersProps) => {
+export const MarketCapFilter = ({ topN, maxValue, onChange }: MarketCapFilterProps) => {
   return (
     <div className="flex items-center gap-4 pr-4">
       <label className="text-sm text-muted-foreground">

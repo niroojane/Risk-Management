@@ -10,8 +10,8 @@ import {
   type ColumnFiltersState,
 } from '@tanstack/react-table';
 import { ChevronUp, ChevronDown, ChevronsUpDown, Search } from 'lucide-react';
-import { Input } from '../../../components/ui/input';
-import type { MarketCapData } from '../../../types/universe';
+import { Input } from '../../../../components/ui/input';
+import type { MarketCapData } from '../../../../types/universe';
 
 interface MarketCapTableProps {
   data: MarketCapData[];
