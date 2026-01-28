@@ -19,7 +19,6 @@ interface MarketCapTableProps {
 
 const NUMERIC_COLUMNS = ['price', 'supply', 'market_cap'] as const;
 
-// Helper functions
 const isNumericColumn = (columnId: string): boolean => {
   return NUMERIC_COLUMNS.includes(columnId as typeof NUMERIC_COLUMNS[number]);
 };

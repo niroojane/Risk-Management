@@ -5,7 +5,6 @@ export interface SortIconProps {
   className?: string;
 }
 
-//Reusable sort icon component for table columns
 export const SortIcon = ({ sortDirection, className = '' }: SortIconProps) => {
   const iconClass = 'h-4 w-4';
   const unsortedClass = `${iconClass} opacity-50`;

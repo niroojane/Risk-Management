@@ -23,7 +23,6 @@ export const SearchBar = ({
 }: SearchBarProps) => {
   const [localValue, setLocalValue] = useState(value);
 
-  // Debounce effect
   useEffect(() => {
     const timer = setTimeout(() => {
       onChange(localValue);
@@ -32,7 +31,6 @@ export const SearchBar = ({
     return () => clearTimeout(timer);
   }, [localValue, debounceMs, onChange]);
 
-  // Sync with external value changes
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
