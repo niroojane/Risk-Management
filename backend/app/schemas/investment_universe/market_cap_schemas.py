@@ -8,13 +8,11 @@ from ...models.investment_universe import MarketCapItem
 
 class MarketCapRequest(BaseModel):
     """Request parameters for market cap endpoint"""
-    top_n: int = Field(50, description="Number of top assets to return", ge=1, le=500)
     quote: QuoteAsset = Field(QuoteAsset.USDT, description="Quote asset")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "top_n": 50,
                 "quote": "USDT"
             }
         }

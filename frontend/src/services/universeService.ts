@@ -2,9 +2,9 @@ import { apiClient } from './api';
 import type { MarketCapData, PositionData } from '../types/universe';
 
 export const universeService = {
-  fetchMarketCap: async (topN: number): Promise<MarketCapData[]> => {
+  fetchMarketCap: async (): Promise<MarketCapData[]> => {
     const response = await apiClient.post('/api/v1/investment-universe/market-cap', {
-      top_n: topN,
+      quote: "USDT"
     });
     console.log('API Response:', response.data);
     return response.data.data;

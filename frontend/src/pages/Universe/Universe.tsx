@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { universeService } from '../../services/universeService';
 import type { MarketCapData } from '../../types/universe';
+import { Slider } from '../../components/ui/slider';
 
 function Universe() {
   const [data, setData] = useState<MarketCapData[]>([]);
@@ -13,7 +14,7 @@ function Universe() {
       try {
         setLoading(true);
         setError(null);
-        const marketCapData = await universeService.fetchMarketCap(topN);
+        const marketCapData = await universeService.fetchMarketCap();
         setData(marketCapData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load market cap data');
@@ -24,13 +25,10 @@ function Universe() {
     };
 
     loadMarketCap();
-  }, [topN]);
+  }, []);
 
-  const handleTopNChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (value > 0 && value <= 500) {
-      setTopN(value);
-    }
+  const handleTopNChange = (value: number[]) => {
+    setTopN(value[0]);
   };
 
   return (
@@ -38,18 +36,17 @@ function Universe() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-foreground">Investment Universe</h1>
 
-        <div className="flex items-center gap-2">
-          <label htmlFor="topN" className="text-sm text-muted-foreground">
-            Top:
+        <div className="flex items-center gap-4 pr-4">
+          <label className="text-sm text-muted-foreground">
+            Top {topN} / {data.length}
           </label>
-          <input
-            id="topN"
-            type="number"
-            min="1"
-            max="500"
-            value={topN}
-            onChange={handleTopNChange}
-            className="w-20 px-2 py-1 border border-border rounded bg-card text-foreground"
+          <Slider
+            min={1}
+            max={data.length}
+            step={1}
+            value={[topN]}
+            onValueChange={handleTopNChange}
+            className="w-58"
           />
         </div>
       </div>
@@ -92,7 +89,7 @@ function Universe() {
               </tr>
             </thead>
             <tbody className="bg-card divide-y divide-border">
-              {data.map((row, index) => (
+              {data.slice(0, topN).map((row, index) => (
                 <tr key={row.symbol} className="hover:bg-muted/50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {index + 1}

@@ -33,7 +33,6 @@ class MarketCapMapper:
             
 
     @staticmethod
-    def to_entities(raw_data: List[dict], limit: int = None) -> List[MarketCapItem]:
+    def to_entities(raw_data: List[dict]) -> List[MarketCapItem]:
         """Transform a list of raw Binance items to MarketCapItem entities"""
-        data_to_transform = raw_data[:limit] if limit else raw_data
-        return [MarketCapMapper.to_entity(item) for item in data_to_transform]
+        return [MarketCapMapper.to_entity(item) for item in raw_data]

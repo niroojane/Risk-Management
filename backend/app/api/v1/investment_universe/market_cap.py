@@ -13,7 +13,7 @@ router = APIRouter()
 async def get_market_cap(
     request: MarketCapRequest, market_data_service: MarketDataServiceDep
 ) -> MarketCapResponse:
-    """Get top N cryptocurrencies by market capitalization"""
+    """Get all cryptocurrencies by market capitalization (sorted by market cap DESC)"""
     if market_data_service is None:
         raise ServiceUnavailableError(
             message="Binance service not configured",

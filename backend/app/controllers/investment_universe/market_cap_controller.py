@@ -1,5 +1,5 @@
 """Market Cap Controller - Business logic for market capitalization operations"""
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ...services.binance import MarketDataService
 from ...schemas.investment_universe import MarketCapRequest, MarketCapResponse
@@ -13,19 +13,16 @@ class MarketCapController:
         self._service = market_data_service
 
     async def get_market_cap(self, request: MarketCapRequest) -> MarketCapResponse:
-        """Get top N cryptocurrencies by market cap"""
+        """Get all cryptocurrencies by market cap (filtering handled by frontend)"""
         result = await self._service.get_market_cap(
             quote=request.quote.value, use_cache=True
         )
-        
-        #TODO gérer la limite dans le frontend
-        market_cap_items = MarketCapMapper.to_entities(
-            raw_data=result["data"], limit=request.top_n
-        )
+
+        market_cap_items = MarketCapMapper.to_entities(raw_data=result["data"])
 
         return MarketCapResponse(
             success=True,
             data=market_cap_items,
-            message=f"Top {request.top_n} cryptocurrencies by market cap",
-            timestamp=datetime.utcnow(),
+            message=f"Retrieved {len(market_cap_items)} cryptocurrencies by market cap",
+            timestamp=datetime.now(timezone.utc),
         )
