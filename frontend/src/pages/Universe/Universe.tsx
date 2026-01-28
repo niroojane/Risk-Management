@@ -1,59 +1,135 @@
+import { useState, useEffect } from 'react';
+import { universeService } from '../../services/universeService';
+import type { MarketCapData } from '../../types/universe';
+
 function Universe() {
-  const data = [
-    { symbol: 'BTC', price: 45230, marketCap: 885000000000, change24h: 2.5 },
-    { symbol: 'ETH', price: 2340, marketCap: 281000000000, change24h: -1.2 },
-    { symbol: 'BNB', price: 320, marketCap: 49000000000, change24h: 0.8 },
-    { symbol: 'SOL', price: 98, marketCap: 42000000000, change24h: 5.3 },
-    { symbol: 'XRP', price: 0.62, marketCap: 33000000000, change24h: -0.5 },
-  ];
+  const [data, setData] = useState<MarketCapData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [topN, setTopN] = useState(50);
+
+  useEffect(() => {
+    const loadMarketCap = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const marketCapData = await universeService.fetchMarketCap(topN);
+        setData(marketCapData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load market cap data');
+        console.error('Error loading market cap:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMarketCap();
+  }, [topN]);
+
+  const handleTopNChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    if (value > 0 && value <= 500) {
+      setTopN(value);
+    }
+  };
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-foreground mb-6">Investment Universe</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-foreground">Investment Universe</h1>
 
-      <div className="bg-card rounded-lg border border-border overflow-hidden">
-        <table className="min-w-full divide-y divide-border">
-          <thead className="bg-muted">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Symbol
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Price (USD)
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Market Cap
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                24h Change
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-card divide-y divide-border">
-            {data.map((row) => (
-              <tr key={row.symbol} className="hover:bg-muted/50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-                  {row.symbol}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-foreground">
-                  ${row.price.toLocaleString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-foreground">
-                  ${(row.marketCap / 1e9).toFixed(1)}B
-                </td>
-                <td
-                  className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
-                    row.change24h >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}
-                >
-                  {row.change24h >= 0 ? '+' : ''}
-                  {row.change24h}%
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="flex items-center gap-2">
+          <label htmlFor="topN" className="text-sm text-muted-foreground">
+            Top:
+          </label>
+          <input
+            id="topN"
+            type="number"
+            min="1"
+            max="500"
+            value={topN}
+            onChange={handleTopNChange}
+            className="w-20 px-2 py-1 border border-border rounded bg-card text-foreground"
+          />
+        </div>
       </div>
+
+      {loading && (
+        <div className="text-center py-8 text-muted-foreground">
+          Loading market cap data...
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Rank
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Asset
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Symbol
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Price (USD)
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Supply
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Market Cap
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-card divide-y divide-border">
+              {data.map((row, index) => (
+                <tr key={row.symbol} className="hover:bg-muted/50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                    {index + 1}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-foreground">
+                        {row.long_name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {row.base_asset}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-foreground">
+                    {row.symbol}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-foreground">
+                    ${row.price.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-foreground">
+                    {row.supply.toLocaleString(undefined, {
+                      maximumFractionDigits: 0
+                    })}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-foreground">
+                    ${(row.market_cap / 1e9).toFixed(2)}B
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

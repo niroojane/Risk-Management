@@ -6,7 +6,8 @@ export const universeService = {
     const response = await apiClient.post('/api/v1/investment-universe/market-cap', {
       top_n: topN,
     });
-    return response.data;
+    console.log('API Response:', response.data);
+    return response.data.data;
   },
 
   fetchPositions: async (
