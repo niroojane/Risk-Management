@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,8 +9,7 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from '@tanstack/react-table';
-import { ChevronUp, ChevronDown, ChevronsUpDown, Search } from 'lucide-react';
-import { Input } from '../../../../components/ui/input';
+import { SearchBar, SortIcon } from '../../../../components/common';
 import type { MarketCapData } from '../../../../types/universe';
 
 interface MarketCapTableProps {
@@ -37,15 +36,6 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
-  const [searchValue, setSearchValue] = useState('');
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setGlobalFilter(searchValue);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchValue]);
 
   const columns = useMemo(
     () => [
@@ -120,23 +110,13 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input
-            placeholder="Search by assets or symbols"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        {globalFilter && (
-          <span className="text-sm text-muted-foreground">
-            {table.getFilteredRowModel().rows.length} result(s)
-          </span>
-        )}
-      </div>
+      <SearchBar
+        value={globalFilter}
+        onChange={setGlobalFilter}
+        placeholder="Search by assets or symbols"
+        showResultCount={true}
+        resultCount={table.getFilteredRowModel().rows.length}
+      />
 
       {/* Table */}
       <div className="bg-card rounded-lg border border-border overflow-hidden">
@@ -167,14 +147,7 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
                           header.getContext()
                         )}
                         {header.column.getCanSort() && (
-                          <span className="text-muted-foreground" aria-hidden="true">
-                            {{
-                              asc: <ChevronUp className="h-4 w-4" />,
-                              desc: <ChevronDown className="h-4 w-4" />,
-                            }[header.column.getIsSorted() as string] ?? (
-                              <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                            )}
-                          </span>
+                          <SortIcon sortDirection={header.column.getIsSorted()} />
                         )}
                       </div>
                     )}

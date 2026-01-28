@@ -10,3 +10,9 @@ export type { ComingSoonProps } from './ComingSoon';
 
 export { ErrorBoundary } from './ErrorBoundary';
 export { RouteErrorBoundary } from './RouteErrorBoundary';
+
+export { SearchBar } from './SearchBar';
+export type { SearchBarProps } from './SearchBar';
+
+export { SortIcon } from './SortIcon';
+export type { SortIconProps } from './SortIcon';
