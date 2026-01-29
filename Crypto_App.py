@@ -862,7 +862,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     calendar_perf=widgets.VBox([widgets.HBox([frequency_graph,fund,benchmark,graph_button]),calendar_output])
     positions_ui=widgets.VBox([widgets.HBox([position_button,pnl_button]),positions_output,holding_output])
-    
+    rebalancing_frequency_pnl=widgets.Dropdown(description='Frequency:', options=['Yearly','Quarterly','Monthly'], value='Quarterly')
 
     #------------Rik Tab------------#
     global var_scenarios, cvar_scenarios, fund_results
@@ -924,7 +924,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         selected_weights = grid.data.loc[selected_fund.value]
         
         decomposition = pd.DataFrame(portfolio.var_contrib_pct(selected_weights))*100
-        quantities_rebalanced = rebalanced_portfolio(range_prices, selected_weights) / range_prices
+        quantities_rebalanced = rebalanced_portfolio(range_prices, selected_weights,frequency=rebalancing_frequency_pnl.value) / range_prices
         quantities_buy_hold = buy_and_hold(range_prices, selected_weights) / range_prices
         
         cost_rebalanced = rebalanced_book_cost(range_prices, quantities_rebalanced)
@@ -955,7 +955,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             update_fund_display(change['new'])
 
     selected_fund.observe(on_fund_change)
-
+    
+    def on_freq_change(change):
+        if change['name'] == 'value' and change['new'] in rebalancing_frequency_pnl.options:
+            update_fund_display(change['new'])
+    
+    rebalancing_frequency_pnl.observe(on_freq_change,names='value')
+         
     # ---------- Ex-Ante Metrics ----------
     ex_ante_output = widgets.Output()
 
@@ -1029,7 +1035,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     def on_bench_change(change):
         if change['name'] == 'value' and change['new'] in grid.data.index:
             ex_ante_metrics(change['new'])
-
+            
     def update_contrib_and_ex_ante(_):
         update_fund_display(None)
         ex_ante_metrics(selected_bench.value)
@@ -1037,7 +1043,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
     ex_ante_metrics(selected_bench.value)
     selected_bench.observe(on_bench_change, names='value')
-    
+
     end_date_perf_risk.observe(update_contrib_and_ex_ante)
     start_date_perf_risk.observe(update_contrib_and_ex_ante)
 
@@ -1179,7 +1185,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     # ---------- Layout ----------
     ex_ante_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk]),
-        widgets.VBox([selected_fund, selected_bench]),
+        widgets.VBox([selected_fund, selected_bench,rebalancing_frequency_pnl]),
         risk_output,
         ex_ante_output
     ])
@@ -1695,6 +1701,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         show_graph_ex_post(None)
         loading_bar_ex_post.value=0
 
+    
     ex_post_button=widgets.Button(description='Get P&L',button_style='info')
     ex_post_button.on_click(get_ex_post_returns)
     start_date_perf_ex_post.observe(update_ex_post_chart)
@@ -1702,6 +1709,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     ex_post_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button]),ex_post_perf])    
     calendar_ui_ex_post=widgets.VBox([widgets.HBox([frequency_graph_ex_post,fund_ex_post,benchmark_ex_post,calendar_button_ex_post]),ex_post_calendar])
+    
     check_connection(None)
 
     investment_universe_tab = widgets.Output()
@@ -1709,7 +1717,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     positioning_tab = widgets.Output()
     ex_post_tab = widgets.Output()
     risk_analysis_tab = widgets.Output()
-    market_risk_tab = widgets.Output() 
+    market_risk_tab = widgets.Output()
+    
 
     main_tabs = widgets.Tab(children=[
         investment_universe_tab,
@@ -1727,7 +1736,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     with investment_universe_tab:
         display(universe_ui)
-    
+
     strategy_constraints_tab = widgets.Output()
     strategy_positions_tab = widgets.Output()
     strategy_returns_tab = widgets.Output()
