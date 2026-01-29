@@ -14,16 +14,16 @@ import { ITEMS_PER_PAGE } from '../constants/table';
 
 interface UseMarketCapTableProps {
   data: MarketCapData[];
-  topN: number;
+  displayCount: number;
 }
 
-export const useMarketCapTable = ({ data, topN }: UseMarketCapTableProps) => {
+export const useMarketCapTable = ({ data, displayCount }: UseMarketCapTableProps) => {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
 
   const columns = useMarketCapColumns();
-  const filteredData = useMemo(() => data.slice(0, topN), [data, topN]);
+  const filteredData = useMemo(() => data.slice(0, displayCount), [data, displayCount]);
 
   const table = useReactTable({
     data: filteredData,
@@ -54,7 +54,7 @@ export const useMarketCapTable = ({ data, topN }: UseMarketCapTableProps) => {
 
   useEffect(() => {
     table.setPageIndex(0);
-  }, [topN, table]);
+  }, [displayCount, table]);
 
   return {
     table,

@@ -7,7 +7,8 @@ export interface PaginationProps {
   currentPage: number;
   onPageChange: (page: number) => void;
   className?: string;
-  isShowingItem?: boolean;
+  showItemRange?: boolean;
+  showNavigationArrows?: boolean;
 }
 
 export const Pagination = ({
@@ -16,7 +17,8 @@ export const Pagination = ({
   currentPage,
   onPageChange,
   className = '',
-  isShowingItem = true,
+  showItemRange = true,
+  showNavigationArrows = true,
 }: PaginationProps) => {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
@@ -65,32 +67,36 @@ export const Pagination = ({
 
   return (
     <div className={`flex items-center justify-between ${className}`}>
-      <div className={`text-sm text-muted-foreground ${isShowingItem ? 'visible' : 'invisible'}`}>
+      <div className={`text-sm text-muted-foreground ${showItemRange ? 'visible' : 'invisible'}`}>
         Showing <span className="font-medium text-foreground">{startItem}</span> to{' '}
         <span className="font-medium text-foreground">{endItem}</span> of{' '}
         <span className="font-medium text-foreground">{totalItems}</span> results
       </div>
 
       <div className="flex items-center gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => onPageChange(1)}
-          disabled={currentPage === 1}
-          aria-label="First page"
-        >
-          <ChevronsLeft className="h-4 w-4" />
-        </Button>
+        {showNavigationArrows && (
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onPageChange(1)}
+              disabled={currentPage === 1}
+              aria-label="First page"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          </>
+        )}
 
         <div className="flex items-center gap-1">
           {pageNumbers.map((page, index) => {
@@ -122,25 +128,29 @@ export const Pagination = ({
           })}
         </div>
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          aria-label="Next page"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        {showNavigationArrows && (
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              aria-label="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
 
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => onPageChange(totalPages)}
-          disabled={currentPage === totalPages}
-          aria-label="Last page"
-        >
-          <ChevronsRight className="h-4 w-4" />
-        </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => onPageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              aria-label="Last page"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

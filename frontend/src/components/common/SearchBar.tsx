@@ -10,6 +10,8 @@ export interface SearchBarProps {
   showResultCount?: boolean;
   resultCount?: number;
   className?: string;
+  id?: string;
+  name?: string;
 }
 
 export const SearchBar = ({
@@ -20,6 +22,8 @@ export const SearchBar = ({
   showResultCount = false,
   resultCount = 0,
   className = '',
+  id = 'search-input',
+  name = 'search',
 }: SearchBarProps) => {
   const [localValue, setLocalValue] = useState(value);
 
@@ -47,10 +51,13 @@ export const SearchBar = ({
           aria-hidden="true"
         />
         <Input
+          id={id}
+          name={name}
           placeholder={placeholder}
           value={localValue}
           onChange={handleChange}
           className="pl-9"
+          aria-label={placeholder}
         />
       </div>
       {showResultCount && localValue && (

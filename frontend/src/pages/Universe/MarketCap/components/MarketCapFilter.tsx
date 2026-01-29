@@ -1,28 +1,31 @@
 import { Slider } from '@/components/ui/slider';
 
+// TODO: Implements props: showTotal (boolean) for visibility and totalPosition ('left' | 'right') for placement
 interface MarketCapFilterProps {
-  topN: number;
+  displayCount: number;
   maxValue: number;
   onChange: (value: number) => void;
 }
 
-export const MarketCapFilter = ({ topN, maxValue, onChange }: MarketCapFilterProps) => {
+// TODO: Make this filter component reusable/common across the app
+export const MarketCapFilter = ({ displayCount, maxValue, onChange }: MarketCapFilterProps) => {
   const handleSliderChange = (values: number[]) => {
     onChange(values[0]);
   };
 
   return (
     <div className="flex items-center gap-4 pr-4">
-      <label className="text-sm text-muted-foreground">
-        Top {topN} / {maxValue}
-      </label>
+      <span className="text-sm text-muted-foreground" aria-label="Asset count display">
+        {displayCount} / {maxValue}
+      </span>
       <Slider
         min={1}
         max={maxValue}
         step={1}
-        value={[topN]}
+        value={[displayCount]}
         onValueChange={handleSliderChange}
         className="w-58"
+        aria-label="Select number of assets to display"
       />
     </div>
   );

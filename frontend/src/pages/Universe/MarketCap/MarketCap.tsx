@@ -6,7 +6,7 @@ import { MarketCapFilter } from './components/MarketCapFilter';
 import { ErrorMessage, Loading } from '@/components/common';
 
 function MarketCap() {
-  const [topN, setTopN] = useState(100);
+  const [displayCount, setDisplayCount] = useState(100);
 
   const {
     data = [],
@@ -21,7 +21,7 @@ function MarketCap() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-foreground">Market Cap</h1>
-        <MarketCapFilter topN={topN} maxValue={data.length} onChange={setTopN} />
+        <MarketCapFilter displayCount={displayCount} maxValue={data.length} onChange={setDisplayCount} />
       </div>
 
       {isLoading && <Loading text="Loading market cap data..." className="py-8" />}
@@ -33,7 +33,7 @@ function MarketCap() {
         />
       )}
 
-      {!isLoading && !error && <MarketCapTable data={data} topN={topN} />}
+      {!isLoading && !error && <MarketCapTable data={data} displayCount={displayCount} />}
     </div>
   );
 }

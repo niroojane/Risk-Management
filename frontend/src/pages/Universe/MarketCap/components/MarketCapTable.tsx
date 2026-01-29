@@ -7,11 +7,11 @@ import { ITEMS_PER_PAGE, SEARCH_PLACEHOLDER } from '../constants/table';
 
 interface MarketCapTableProps {
   data: MarketCapData[];
-  topN: number;
+  displayCount: number;
 }
 
-export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
-  const { table, globalFilter, setGlobalFilter } = useMarketCapTable({ data, topN });
+export const MarketCapTable = ({ data, displayCount }: MarketCapTableProps) => {
+  const { table, globalFilter, setGlobalFilter } = useMarketCapTable({ data, displayCount });
 
   const totalFilteredItems = table.getFilteredRowModel().rows.length;
   const currentPage = table.getState().pagination.pageIndex + 1;
@@ -20,6 +20,8 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
   return (
     <div className="space-y-4">
       <SearchBar
+        id="market-cap-search"
+        name="marketCapSearch"
         value={globalFilter}
         onChange={setGlobalFilter}
         placeholder={SEARCH_PLACEHOLDER}
@@ -39,7 +41,8 @@ export const MarketCapTable = ({ data, topN }: MarketCapTableProps) => {
         itemsPerPage={ITEMS_PER_PAGE}
         currentPage={currentPage}
         onPageChange={(page) => table.setPageIndex(page - 1)}
-        isShowingItem={false}
+        showItemRange={false}
+        showNavigationArrows={false}
       />
     </div>
   );
