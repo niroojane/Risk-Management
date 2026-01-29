@@ -27,13 +27,14 @@ Feuille de route pour le développement du backend FastAPI.
 - [x] PositionService avec parallélisation (`services/binance/position_service.py`)
 - [x] PositionsController (`controllers/investment_universe/positions_controller.py`)
 - [x] POST `/api/v1/investment-universe/market-cap`
-- [x] POST `/api/v1/investment-universe/positions` (quantities × prices)
 - [x] Tests unitaires PositionService (5/5)
+- [x] GET `/api/v1/investment-universe/prices`
 - [ ] GET `/api/v1/investment-universe/returns`
 - [ ] GET `/api/v1/investment-universe/asset-metrics`
 
 ## ⏳ Phase 4 : Strategy & Portfolio Optimization
 
+- [x] POST `/api/v1/investment-universe/positions` (quantities × prices)
 - [ ] Pydantic models (`models/strategy/`, `schemas/strategy/`)
 - [ ] POST `/api/v1/strategy/optimize` (`api/v1/strategy/optimization.py`)
 - [ ] GET/POST `/api/v1/strategy/constraints` (`api/v1/strategy/constraints.py`)

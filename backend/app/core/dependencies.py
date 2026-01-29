@@ -13,7 +13,7 @@ from Binance_API import BinanceAPI
 
 # Type-only imports to avoid circular dependencies
 if TYPE_CHECKING:
-    from ..services.binance import BinanceClient, MarketDataService, PositionService
+    from ..services.binance import BinanceClient, UniverseDataService, PositionService
     from ..services.infrastructure.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
@@ -65,15 +65,15 @@ def get_binance_service():
 
 @lru_cache()
 def get_market_data_service():
-    """Get singleton MarketDataService instance"""
-    from ..services.binance import MarketDataService
+    """Get singleton UniverseDataService instance"""
+    from ..services.binance import UniverseDataService
 
     client = get_binance_service()
     if client is None:
         return None
 
-    logger.info("Creating MarketDataService instance")
-    return MarketDataService(client)
+    logger.info("Creating UniverseDataService instance")
+    return UniverseDataService(client)
 
 
 @lru_cache()
@@ -92,6 +92,6 @@ def get_position_service():
 # Type aliases for dependency injection
 BinanceClientDep = Annotated[Optional[BinanceAPI], Depends(get_binance_client)]
 BinanceServiceDep = Annotated[Optional["BinanceClient"], Depends(get_binance_service)]
-MarketDataServiceDep = Annotated[Optional["MarketDataService"], Depends(get_market_data_service)]
+UniverseDataServiceDep = Annotated[Optional["UniverseDataService"], Depends(get_market_data_service)]
 PositionServiceDep = Annotated[Optional["PositionService"], Depends(get_position_service)]
 CacheServiceDep = Annotated["CacheService", Depends(get_cache_service)]

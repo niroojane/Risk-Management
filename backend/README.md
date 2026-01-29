@@ -115,7 +115,7 @@ backend/
 │   ├── api/v1/                 # REST routes
 │   ├── controllers/            # Business logic
 │   ├── services/
-│   │   ├── binance/           # BinanceClient, MarketDataService, PositionService
+│   │   ├── binance/           # BinanceClient, UniverseDataService, PositionService
 │   │   └── infrastructure/    # Cache
 │   ├── models/
 │   │   └── investment_universe/
