@@ -32,7 +32,7 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 - [x] Migration vers TanStack Query (useQuery, QueryClientProvider)
 - [x] Refacto MarketCapTable
 - [ ] Implémentation partie prices dans le frontend
-  - [ ] Sélection des symbols / dates
+  - [x] Sélection des symbols / dates
   - [ ] Affichage du tableau des prix
 - [ ] Service `universeService.fetchPositions()` - À implémenter quand backend disponible
 
