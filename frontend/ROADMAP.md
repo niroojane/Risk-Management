@@ -30,7 +30,10 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 - [x] État vide ("No results found")
 - [x] Transitions et hover effects
 - [x] Migration vers TanStack Query (useQuery, QueryClientProvider)
-- [ ] Refacto MarketCapTable
+- [x] Refacto MarketCapTable
+- [ ] Implémentation partie prices dans le frontend
+  - [ ] Sélection des symbols / dates
+  - [ ] Affichage du tableau des prix
 - [ ] Service `universeService.fetchPositions()` - À implémenter quand backend disponible
 
 ## ⏳ Phase 3 : Strategy & Portfolio Optimization

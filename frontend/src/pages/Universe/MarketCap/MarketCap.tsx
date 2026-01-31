@@ -21,7 +21,11 @@ function MarketCap() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-foreground">Market Cap</h1>
-        <MarketCapFilter displayCount={displayCount} maxValue={data.length} onChange={setDisplayCount} />
+        <MarketCapFilter
+          displayCount={displayCount}
+          maxValue={data.length}
+          onChange={setDisplayCount}
+        />
       </div>
 
       {isLoading && <Loading text="Loading market cap data..." className="py-8" />}
