@@ -1252,11 +1252,16 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         historical_PCA=pd.DataFrame(np.array(list(pca_weight.values())).dot(np.transpose(portfolio.returns)),index=portfolio.returns.index,columns=['PCA'])
         historical_PCA=historical_PCA.dropna()
-    
+        historical_PCA.iloc[0]=0
+        
         comparison=portfolio.returns.copy()
         comparison['PCA']=historical_PCA
         distances=np.sqrt(np.sum(comparison.apply(lambda y:(y-historical_PCA['PCA'])**2),axis=0)).sort_values()
-        pca_similarity=(1+comparison[distances.index[:num_closest_to_pca.value]]).cumprod()
+        
+        pca_similarity=comparison[distances.index[:num_closest_to_pca.value]]
+        pca_similarity.iloc[0]=0
+        pca_similarity=(1+pca_similarity).cumprod()*100
+
     
         with pca_components:
             
@@ -1276,7 +1281,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         with pca_output:
             pca_output.clear_output(wait=True)
             
-            fig3=px.line((1+historical_PCA).cumprod(),title='Eigen Index')
+            fig3=px.line((1+historical_PCA).cumprod()*100,title='Eigen Index')
             fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
             fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
 
