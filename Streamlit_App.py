@@ -1518,53 +1518,56 @@ with main_tabs[2]:
                     st.success('Quantities Updated',icon="✅")
     
     with sub_tabs_ex_post[2]:
-        
-        ex_post_portfolios=st.session_state.ex_post_portfolios
-                
-        if 'results' in st.session_state and  st.session_state.results is not None:
-            res=st.session_state.results
-            global_returns=res['cumulative_results']
-                
-        else:
-            global_returns=pd.DataFrame()
-    
-        if not global_returns.empty:
-            ex_post_portfolios=pd.concat([ex_post_portfolios,global_returns],axis=1).sort_index()
-            
-        rebalancing_frequency=['Month', 'Year']
 
-        selmind,selmaxd=st.session_state['ex_post_tab']
+        if 'ex_post_portfolios' in st.session_state:
         
-        mask = (ex_post_portfolios.index >= selmind) & (ex_post_portfolios.index <= selmaxd)
-        cumulative_performance=ex_post_portfolios.loc[mask].pct_change()
-        cumulative_performance.iloc[0] = 0
-        cumulative_performance_ex_post = (1 + cumulative_performance).cumprod() * 100
+            ex_post_portfolios=st.session_state.ex_post_portfolios
         
-        col1, col2, col3 = st.columns([1, 1, 1])
-    
-        with col1:
-            selected_frequency_calendar_historical = st.selectbox("Frequency:", rebalancing_frequency,index=1,key='selected_frequency_calendar_historical')
-
-        with col2:
-            fund_calendar_historical=st.selectbox("Fund:", list(cumulative_performance_ex_post.columns),index=0,key='fund_calendar_historical')
+            if 'results' in st.session_state and  st.session_state.results is not None:
+                res=st.session_state.results
+                global_returns=res['cumulative_results']
                     
-        with col3:
-            benchmark_calendar_historical=st.selectbox("Benchmark:", list(cumulative_performance_ex_post.columns),index=1,key='benchmark_calendar_historical')
-
-        if fund_calendar_historical==benchmark_calendar_historical:
-            st.info("Benchmark and Fund must be different ⬅️")
-        else:
-            graphs_historical=get_calendar_graph(cumulative_performance_ex_post, 
-                               freq=selected_frequency_calendar_historical, 
-                               benchmark=benchmark_calendar_historical, 
-                               fund=fund_calendar_historical)
-
-        col1, col2 = st.columns([1, 1])
-        keys=list(graphs_historical.keys())
-        with col1:
-            st.plotly_chart(graphs_historical[keys[0]], width='content')
-            st.plotly_chart(graphs_historical[keys[1]], width='content')
-        with col2:
-            st.plotly_chart(graphs_historical[keys[2]], width='content')
-            st.plotly_chart(graphs_historical[keys[3]], width='content')           
+            else:
+                global_returns=pd.DataFrame()
         
+            if not global_returns.empty:
+                ex_post_portfolios=pd.concat([ex_post_portfolios,global_returns],axis=1).sort_index()
+                
+            rebalancing_frequency=['Month', 'Year']
+    
+            selmind,selmaxd=st.session_state['ex_post_tab']
+            
+            mask = (ex_post_portfolios.index >= selmind) & (ex_post_portfolios.index <= selmaxd)
+            cumulative_performance=ex_post_portfolios.loc[mask].pct_change()
+            cumulative_performance.iloc[0] = 0
+            cumulative_performance_ex_post = (1 + cumulative_performance).cumprod() * 100
+            
+            col1, col2, col3 = st.columns([1, 1, 1])
+        
+            with col1:
+                selected_frequency_calendar_historical = st.selectbox("Frequency:", rebalancing_frequency,index=1,key='selected_frequency_calendar_historical')
+    
+            with col2:
+                fund_calendar_historical=st.selectbox("Fund:", list(cumulative_performance_ex_post.columns),index=0,key='fund_calendar_historical')
+                        
+            with col3:
+                benchmark_calendar_historical=st.selectbox("Benchmark:", list(cumulative_performance_ex_post.columns),index=1,key='benchmark_calendar_historical')
+    
+            if fund_calendar_historical==benchmark_calendar_historical:
+                st.info("Benchmark and Fund must be different ⬅️")
+            else:
+                graphs_historical=get_calendar_graph(cumulative_performance_ex_post, 
+                                   freq=selected_frequency_calendar_historical, 
+                                   benchmark=benchmark_calendar_historical, 
+                                   fund=fund_calendar_historical)
+    
+            col1, col2 = st.columns([1, 1])
+            keys=list(graphs_historical.keys())
+            with col1:
+                st.plotly_chart(graphs_historical[keys[0]], width='content')
+                st.plotly_chart(graphs_historical[keys[1]], width='content')
+            with col2:
+                st.plotly_chart(graphs_historical[keys[2]], width='content')
+                st.plotly_chart(graphs_historical[keys[3]], width='content')           
+        else:
+            st.error("Load Historical Portfolio")
