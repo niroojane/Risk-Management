@@ -28,6 +28,7 @@ interface NavItem {
   children?: SubNavItem[];
 }
 
+//TODO Onhover, see click for Investment Universe
 const navItems: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   {

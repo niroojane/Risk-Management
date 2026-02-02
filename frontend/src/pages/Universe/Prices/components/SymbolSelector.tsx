@@ -1,27 +1,31 @@
-import { useState } from 'react';
 import { SelectableItem } from '@/components/ui/SelectableItem';
 import { Button } from '@/components/ui/button';
 
 const SYMBOLS = [
-  'AAVEUSDT',
-  'ACEUSDT',
-  'ADAUSDT',
-  'ALGOUSDT',
-  'ANKRUSDT',
-  'APEUSDT',
-  'APTUSDT',
-  'ARBUSDT',
-  'ATOMUSDT',
-  'AVAXUSDT',
-  'AXSUSDT',
-  'BALUSDT',
-  'BATUSDT',
-  'BLZUSDT',
+  'BTCUSDT',
+  'ETHUSDT',
   'BNBUSDT',
+  'TRXUSDT',
+  'WLFIUSDT',
+  'XLMUSDT',
+  'TONUSDT',
+  'UNIUSDT',
+  'TAOUSDT',
+  'POLUSDT',
+  'GUNUSDT',
+  'GNOUSDT',
+  'IOTAUSDT'
 ];
 
-export const SymbolSelector = () => {
-  const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(new Set(SYMBOLS));
+export const getDefaultSymbols = (): string[] => SYMBOLS;
+
+interface SymbolSelectorProps {
+  value?: string[];
+  onChange?: (symbols: string[]) => void;
+}
+
+export const SymbolSelector = ({ value = SYMBOLS, onChange }: SymbolSelectorProps) => {
+  const selectedSymbols = new Set(value);
 
   const handleToggle = (symbol: string, checked: boolean) => {
     const newSelected = new Set(selectedSymbols);
@@ -30,15 +34,15 @@ export const SymbolSelector = () => {
     } else {
       newSelected.delete(symbol);
     }
-    setSelectedSymbols(newSelected);
+    onChange?.(Array.from(newSelected));
   };
 
   const handleSelectAll = () => {
-    setSelectedSymbols(new Set(SYMBOLS));
+    onChange?.(SYMBOLS);
   };
 
   const handleClearAll = () => {
-    setSelectedSymbols(new Set());
+    onChange?.([]);
   };
 
   return (
@@ -59,7 +63,7 @@ export const SymbolSelector = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
         {SYMBOLS.map((symbol) => (
           <SelectableItem
             key={symbol}

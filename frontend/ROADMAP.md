@@ -33,7 +33,7 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 - [x] Refacto MarketCapTable
 - [ ] Implémentation partie prices dans le frontend
   - [x] Sélection des symbols / dates
-  - [ ] Affichage du tableau des prix
+  - [x] Affichage du tableau des prix
 - [ ] Service `universeService.fetchPositions()` - À implémenter quand backend disponible
 
 ## ⏳ Phase 3 : Strategy & Portfolio Optimization

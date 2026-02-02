@@ -1,5 +1,17 @@
 export const isNumericColumn = (columnId: string): boolean => {
-  const numericColumns = ['price', 'supply', 'market_cap', 'quantity', 'value', 'weight'];
+  const numericColumns = [
+    'price',
+    'supply',
+    'market_cap',
+    'quantity',
+    'value',
+    'weight',
+    'open',
+    'high',
+    'low',
+    'close',
+    'volume',
+  ];
   return numericColumns.includes(columnId);
 };
 

@@ -22,3 +22,5 @@ export type { PaginationProps } from './Pagination';
 
 export { LazyRoute } from './LazyRoute';
 export type { LazyRouteProps } from './LazyRoute';
+
+export { GenericTableHeader, GenericTableBody } from './table';

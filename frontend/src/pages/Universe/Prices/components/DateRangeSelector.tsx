@@ -1,17 +1,12 @@
-import { useState } from 'react';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { DateRange } from '../types/filters';
 
-type DateRange = {
-  from: Date | undefined;
-  to?: Date | undefined;
-};
-
-const getDefaultDateRange = (): DateRange => {
+export const getDefaultDateRange = (): DateRange => {
   const today = new Date();
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(today.getFullYear() - 1);
@@ -29,15 +24,20 @@ const QUICK_SELECTS = [
   { label: '1 year', days: 365 },
 ];
 
-export const DateRangeSelector = () => {
-  const [date, setDate] = useState<DateRange | undefined>(getDefaultDateRange());
+interface DateRangeSelectorProps {
+  value?: DateRange;
+  onChange?: (date: DateRange | undefined) => void;
+}
+
+export const DateRangeSelector = ({ value, onChange }: DateRangeSelectorProps) => {
+  const date = value;
 
   const handleQuickSelect = (days: number) => {
     const today = new Date();
     const pastDate = new Date();
     pastDate.setDate(today.getDate() - days);
 
-    setDate({
+    onChange?.({
       from: pastDate,
       to: today,
     });
@@ -63,7 +63,7 @@ export const DateRangeSelector = () => {
             <Button
               variant="outline"
               className={cn(
-                'w-[300px] justify-start text-left font-normal',
+                'w-[300px] justify-start text-left font-normal cursor-pointer',
                 !date && 'text-muted-foreground'
               )}
             >
@@ -76,7 +76,7 @@ export const DateRangeSelector = () => {
               mode="range"
               defaultMonth={date?.from}
               selected={date}
-              onSelect={setDate}
+              onSelect={onChange}
               numberOfMonths={2}
               disabled={(date) => date > new Date()}
             />
@@ -91,7 +91,7 @@ export const DateRangeSelector = () => {
             variant="outline"
             size="sm"
             onClick={() => handleQuickSelect(preset.days)}
-            className="text-xs"
+            className="text-xs cursor-pointer"
           >
             {preset.label}
           </Button>

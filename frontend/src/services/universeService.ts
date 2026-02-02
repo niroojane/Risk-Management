@@ -1,5 +1,6 @@
 import { apiClient } from './api';
 import type { MarketCapData, PositionData } from '../types/universe';
+import type { PricesResponse } from '../types/prices';
 
 export const universeService = {
   fetchMarketCap: async (): Promise<MarketCapData[]> => {
@@ -15,6 +16,19 @@ export const universeService = {
     endDate: string
   ): Promise<PositionData[]> => {
     const response = await apiClient.post('/api/v1/investment-universe/positions', {
+      symbols,
+      start_date: startDate,
+      end_date: endDate,
+    });
+    return response.data;
+  },
+
+  fetchPrices: async (
+    symbols: string[],
+    startDate: string,
+    endDate: string
+  ): Promise<PricesResponse> => {
+    const response = await apiClient.post('/api/v1/investment-universe/prices', {
       symbols,
       start_date: startDate,
       end_date: endDate,

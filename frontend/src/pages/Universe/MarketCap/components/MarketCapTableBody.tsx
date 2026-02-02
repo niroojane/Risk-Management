@@ -1,6 +1,6 @@
-import { flexRender, type Table } from '@tanstack/react-table';
+import type { Table, Cell } from '@tanstack/react-table';
+import { GenericTableBody } from '@/components/common';
 import type { MarketCapData } from '@/types/universe';
-import { isNumericColumn } from '@/utils';
 import { NO_RESULTS_MESSAGE } from '../constants/table';
 
 interface MarketCapTableBodyProps {
@@ -9,45 +9,20 @@ interface MarketCapTableBodyProps {
 }
 
 export const MarketCapTableBody = ({ table, columnsLength }: MarketCapTableBodyProps) => {
-  const rows = table.getRowModel().rows;
+  const getCellClassName = (cell: Cell<MarketCapData, unknown>): string => {
+    const columnId = cell.column.id;
+    const isRank = columnId === 'rank';
+    const isMarketCap = columnId === 'market_cap';
 
-  if (rows.length === 0) {
-    return (
-      <tbody className="bg-card divide-y divide-border">
-        <tr>
-          <td
-            colSpan={columnsLength}
-            className="px-6 py-8 text-center text-sm text-muted-foreground"
-          >
-            {NO_RESULTS_MESSAGE}
-          </td>
-        </tr>
-      </tbody>
-    );
-  }
+    return `${isRank ? 'text-muted-foreground' : ''} ${isMarketCap ? 'font-medium' : ''}`;
+  };
 
   return (
-    <tbody className="bg-card divide-y divide-border">
-      {rows.map((row) => (
-        <tr key={row.id} className="hover:bg-muted/50 transition-colors">
-          {row.getVisibleCells().map((cell) => {
-            const isNumeric = isNumericColumn(cell.column.id);
-            const isRank = cell.column.id === 'rank';
-            const isMarketCap = cell.column.id === 'market_cap';
-
-            return (
-              <td
-                key={cell.id}
-                className={`px-6 py-4 whitespace-nowrap text-sm text-foreground ${
-                  isNumeric ? 'text-right' : ''
-                } ${isRank ? 'text-muted-foreground' : ''} ${isMarketCap ? 'font-medium' : ''}`}
-              >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </td>
-            );
-          })}
-        </tr>
-      ))}
-    </tbody>
+    <GenericTableBody
+      table={table}
+      columnsLength={columnsLength}
+      noResultsMessage={NO_RESULTS_MESSAGE}
+      getCellClassName={getCellClassName}
+    />
   );
 };
