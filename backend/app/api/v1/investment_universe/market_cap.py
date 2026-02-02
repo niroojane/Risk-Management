@@ -3,7 +3,7 @@ from fastapi import APIRouter
 
 from ....schemas.investment_universe import MarketCapRequest, MarketCapResponse
 from ....controllers.investment_universe import MarketCapController
-from ....core.dependencies import UniverseDataServiceDep
+from ....core.dependencies import MarketDataServiceDep
 from ....core.exceptions import ServiceUnavailableError
 
 router = APIRouter()
@@ -11,7 +11,7 @@ router = APIRouter()
 
 @router.post("/market-cap", response_model=MarketCapResponse)
 async def get_market_cap(
-    request: MarketCapRequest, market_data_service: UniverseDataServiceDep
+    request: MarketCapRequest, market_data_service: MarketDataServiceDep
 ) -> MarketCapResponse:
     """Get all cryptocurrencies by market capitalization (sorted by market cap DESC)"""
     if market_data_service is None:

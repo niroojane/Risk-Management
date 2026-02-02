@@ -17,7 +17,7 @@ async def test_binance_service_initialization(mock_binance_credentials, cache_se
 
     assert client._cache is not None
     assert client._rate_limiter is not None
-    assert client.api is not None
+    assert client.spot is not None
 
     client_no_limit = BinanceClient(
         api_key=mock_binance_credentials["api_key"],

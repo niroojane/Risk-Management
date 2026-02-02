@@ -1,148 +1,21 @@
-"""Position operations (prices, quantities, and positions calculation)"""
-import asyncio
+"""Position calculations (orchestrates price and quantity services)"""
 import logging
 from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from .binance_service import BinanceClient
-from ...core.config import CACHE_PRICES_TTL
-from ...schemas.external.binance import BinanceKlineDTO, BinanceAccountSnapshotDTO
+from .price_service import PriceService
+from .quantity_service import QuantityService
+from .transformers import KlineTransformer, BalanceTransformer
 
 logger = logging.getLogger(__name__)
 
 
 class PositionService:
-    """Handles position-related operations (prices, quantities, positions)"""
+    """Orchestrates position calculations using price and quantity data"""
 
-    def __init__(self, client: BinanceClient):
-        self._client = client
-
-    async def get_historical_prices(
-        self,
-        symbols: List[str],
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        use_cache: bool = True,
-    ) -> Dict[str, Any]:
-        """Get historical kline/price data for symbols"""
-        if end_date is None:
-            end_date = datetime.today()
-        if start_date is None:
-            start_date = end_date - timedelta(days=30)
-
-        cache_key = f"historical_prices:{','.join(sorted(symbols))}:{start_date.date()}:{end_date.date()}"
-
-        async def fetch():
-            logger.info(
-                f"Fetching historical prices for {len(symbols)} symbols "
-                f"({start_date.date()} to {end_date.date()})"
-            )
-
-            start_timestamp = int(start_date.timestamp() * 1000)
-            end_timestamp = int(end_date.timestamp() * 1000)
-
-            async def fetch_symbol_klines(symbol: str):
-                try:
-                    raw_klines = await self._client._run_in_executor(
-                        self._client.api.binance_api.klines,
-                        symbol,
-                        "1d",
-                        startTime=start_timestamp,
-                        endTime=end_timestamp
-                    )
-
-                    klines = [BinanceKlineDTO.from_array(kline) for kline in raw_klines]
-
-                    return {
-                        "symbol": symbol,
-                        "klines": [k.model_dump() for k in klines]
-                    }
-
-                except Exception as e:
-                    logger.warning(f"Failed to fetch prices for {symbol}: {e}")
-                    return None
-
-            results = await asyncio.gather(*[fetch_symbol_klines(symbol) for symbol in symbols])
-            all_prices = [result for result in results if result is not None]
-
-            return {
-                "symbols": symbols,
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
-                "data": all_prices,
-                "count": len(all_prices),
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-
-        return await self._client.fetch_with_cache(
-            cache_key=cache_key,
-            api_call=fetch,
-            weight=len(symbols),
-            ttl=CACHE_PRICES_TTL,
-            use_cache=use_cache,
-        )
-
-    async def get_historical_quantities(
-        self,
-        end_date: Optional[datetime] = None,
-        limit: int = 30,
-        use_cache: bool = True,
-    ) -> Dict[str, Any]:
-        #TODO Retrieve quantities data from database.
-        """Get historical account quantities from Binance snapshots"""
-        if end_date is None:
-            end_date = datetime.today()
-
-        limit = max(7, min(365, limit))
-        cache_key = f"historical_quantities:{end_date.date()}:{limit}"
-
-        async def fetch():
-            logger.info(f"Fetching historical quantities (end_date={end_date.date()}, limit={limit})")
-
-            timestamp_end = int(end_date.timestamp() * 1000)
-
-            raw_snapshot = await self._client._run_in_executor(
-                self._client.api.binance_api.account_snapshot,
-                type='SPOT',
-                limit=limit,
-                endTime=timestamp_end
-            )
-
-            snapshot_dto = BinanceAccountSnapshotDTO(**raw_snapshot)
-
-            snapshots_data = []
-            for snapshot_vo in snapshot_dto.snapshotVos:
-                date = datetime.fromtimestamp(snapshot_vo.updateTime / 1000)
-                balances = [
-                    {
-                        "asset": balance.asset,
-                        "free": balance.free,
-                        "locked": balance.locked,
-                        "total": float(balance.free) + float(balance.locked)
-                    }
-                    for balance in snapshot_vo.data.balances
-                ]
-
-                snapshots_data.append({
-                    "date": date.isoformat(),
-                    "balances": balances
-                })
-
-            return {
-                "end_date": end_date.isoformat(),
-                "limit": limit,
-                "data": snapshots_data,
-                "count": len(snapshots_data),
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-
-        return await self._client.fetch_with_cache(
-            cache_key=cache_key,
-            api_call=fetch,
-            weight=2,
-            ttl=CACHE_PRICES_TTL,
-            use_cache=use_cache,
-        )
+    def __init__(self, price_service: PriceService, quantity_service: QuantityService):
+        self._price_service = price_service
+        self._quantity_service = quantity_service
 
     async def get_historical_positions(
         self,
@@ -152,77 +25,62 @@ class PositionService:
         use_cache: bool = True,
     ) -> Dict[str, Any]:
         """Calculate historical positions by multiplying quantities by prices"""
-        cache_key = f"historical_positions:{','.join(sorted(symbols))}:{start_date}:{end_date}"
+        logger.info(f"Calculating historical positions for {len(symbols)} symbols")
 
-        async def fetch():
-            logger.info(f"Calculating historical positions for {len(symbols)} symbols")
-
-            prices_data = await self.get_historical_prices(
-                symbols=symbols,
-                start_date=start_date,
-                end_date=end_date,
-                use_cache=use_cache
-            )
-
-            # Calculate limit based on date range (1 snapshot per day)
-            if start_date and end_date:
-                days_diff = (end_date - start_date).days + 1
-                calculated_limit = min(days_diff, 365)
-            else:
-                calculated_limit = 30
-
-            quantities_data = await self.get_historical_quantities(
-                end_date=end_date,
-                limit=calculated_limit,
-                use_cache=use_cache
-            )
-
-            # Build prices dict: {symbol: {date: price}}
-            prices_dict = {}
-            for symbol_data in prices_data["data"]:
-                symbol = symbol_data["symbol"]
-                prices_dict[symbol] = {
-                    datetime.fromtimestamp(k["Close_Time"] / 1000).date(): float(k["Close"])
-                    for k in symbol_data["klines"]
-                }
-
-            # Build quantities dict: {symbol: {date: quantity}}
-            quantities_dict = {}
-            for snapshot in quantities_data["data"]:
-                date = datetime.fromisoformat(snapshot["date"]).date()
-                for balance in snapshot["balances"]:
-                    symbol = balance["asset"] + "USDT"
-                    if symbol not in quantities_dict:
-                        quantities_dict[symbol] = {}
-                    quantities_dict[symbol][date] = balance["total"]
-
-            # Calculate positions: quantity × price
-            positions = []
-            for symbol in symbols:
-                if symbol not in prices_dict or symbol not in quantities_dict:
-                    continue
-
-                for date in sorted(set(prices_dict[symbol].keys()) & set(quantities_dict[symbol].keys())):
-                    position_value = quantities_dict[symbol][date] * prices_dict[symbol][date]
-                    positions.append({
-                        "date": datetime.combine(date, datetime.min.time()).isoformat(),
-                        "symbol": symbol,
-                        "position": round(position_value, 2)
-                    })
-
-            return {
-                "symbols": symbols,
-                "start_date": start_date.isoformat() if start_date else None,
-                "end_date": end_date.isoformat() if end_date else None,
-                "data": positions,
-                "count": len(positions),
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-
-        return await self._client.fetch_with_cache(
-            cache_key=cache_key,
-            api_call=fetch,
-            weight=len(symbols) + 2,
-            ttl=CACHE_PRICES_TTL,
-            use_cache=use_cache,
+        # Fetch prices and quantities in parallel
+        prices_data = await self._price_service.get_historical_prices(
+            symbols=symbols,
+            start_date=start_date,
+            end_date=end_date,
+            use_cache=use_cache
         )
+
+        # Calculate limit based on date range
+        if start_date and end_date:
+            days_diff = (end_date - start_date).days + 1
+            calculated_limit = min(days_diff, 365)
+        else:
+            calculated_limit = 30
+
+        quantities_data = await self._quantity_service.get_historical_quantities(
+            end_date=end_date,
+            limit=calculated_limit,
+            use_cache=use_cache
+        )
+
+        # Transform prices to dict: {symbol: {date: price}}
+        prices_dict = {}
+        for symbol_data in prices_data["data"]:
+            symbol = symbol_data["symbol"]
+            prices_dict[symbol] = KlineTransformer.dict_to_dict_by_date(symbol_data["klines"])
+
+        # Transform quantities to dict: {symbol: {date: quantity}}
+        quantities_dict = BalanceTransformer.snapshots_to_quantities_dict(
+            quantities_data["data"]
+        )
+
+        # Calculate positions: position = quantity * price
+        positions = []
+        for symbol in symbols:
+            if symbol not in prices_dict or symbol not in quantities_dict:
+                continue
+
+            # Find common dates between prices and quantities
+            common_dates = set(prices_dict[symbol].keys()) & set(quantities_dict[symbol].keys())
+
+            for date in sorted(common_dates):
+                position_value = quantities_dict[symbol][date] * prices_dict[symbol][date]
+                positions.append({
+                    "date": datetime.combine(date, datetime.min.time()).isoformat(),
+                    "symbol": symbol,
+                    "position": round(position_value, 2)
+                })
+
+        return {
+            "symbols": symbols,
+            "start_date": start_date.isoformat() if start_date else None,
+            "end_date": end_date.isoformat() if end_date else None,
+            "data": positions,
+            "count": len(positions),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }

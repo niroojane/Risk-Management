@@ -1,15 +1,15 @@
 """Prices Controller - Business logic for historical price operations"""
 from datetime import datetime, timezone
 
-from ...services.binance import UniverseDataService
+from ...services.binance import PriceService
 from ...schemas.investment_universe import PricesRequest, PricesResponse, PricesData
 
 
 class PricesController:
     """Controller orchestrating price data operations"""
 
-    def __init__(self, universe_data_service: UniverseDataService):
-        self._service = universe_data_service
+    def __init__(self, price_service: PriceService):
+        self._service = price_service
 
     async def get_prices(self, request: PricesRequest) -> PricesResponse:
         """Get historical prices for a list of symbols within date range"""

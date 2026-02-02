@@ -1,16 +1,10 @@
-"""Low-level async wrapper around legacy BinanceAPI"""
-import sys
-from pathlib import Path
+"""Low-level async wrapper around Binance Spot API"""
 import logging
 import asyncio
 from typing import Dict, Any, Optional, Callable
-from datetime import datetime
 import pandas as pd
 
-root_dir = Path(__file__).parent.parent.parent.parent.parent
-sys.path.insert(0, str(root_dir))
-
-from Binance_API import BinanceAPI
+from binance.spot import Spot
 from ...core.rate_limiter import BinanceRateLimiter, RateLimitExceeded
 from ...core.exceptions import ExternalAPIError
 from ..infrastructure.cache_service import CacheService
@@ -20,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class BinanceClient:
-    """Async wrapper for legacy BinanceAPI with rate limiting and caching"""
+    """Async wrapper for Binance Spot API with rate limiting and caching"""
 
     def __init__(
         self,
@@ -29,7 +23,7 @@ class BinanceClient:
         cache: Optional[CacheService] = None,
         enable_rate_limiting: bool = True,
     ):
-        self._api = BinanceAPI(api_key, api_secret)
+        self._spot = Spot(api_key=api_key, api_secret=api_secret)
         self._cache = cache
 
         self._rate_limiter = None
@@ -39,7 +33,7 @@ class BinanceClient:
                 period=BINANCE_RATE_LIMIT_PERIOD,
             )
 
-        logger.info("BinanceClient initialized")
+        logger.info("BinanceClient initialized with Spot API")
 
     async def _run_in_executor(self, func: Callable, *args, **kwargs):
         """Run synchronous function in thread pool"""
@@ -98,6 +92,6 @@ class BinanceClient:
         return {"rate_limiting": "disabled"}
 
     @property
-    def api(self) -> BinanceAPI:
-        """Access to legacy API"""
-        return self._api
+    def spot(self) -> Spot:
+        """Access to Binance Spot API client"""
+        return self._spot
