@@ -721,9 +721,9 @@ with main_tabs[1]:
                 keys=list(graphs.keys())
                 with col1:
                     st.plotly_chart(graphs[keys[0]], width='content', key=f"plot_{keys[0]}")
-                    st.plotly_chart(graphs[keys[1]], width='content', key=f"plot_{keys[1]}")
+                    st.plotly_chart(graphs[keys[2]], width='content', key=f"plot_{keys[1]}")
                 with col2:
-                    st.plotly_chart(graphs[keys[2]], width='content', key=f"plot_{keys[2]}")
+                    st.plotly_chart(graphs[keys[1]], width='content', key=f"plot_{keys[2]}")
                     st.plotly_chart(graphs[keys[3]], width='content', key=f"plot_{keys[3]}")           
 
         
@@ -1565,9 +1565,9 @@ with main_tabs[2]:
             keys=list(graphs_historical.keys())
             with col1:
                 st.plotly_chart(graphs_historical[keys[0]], width='content')
-                st.plotly_chart(graphs_historical[keys[1]], width='content')
-            with col2:
                 st.plotly_chart(graphs_historical[keys[2]], width='content')
+            with col2:
+                st.plotly_chart(graphs_historical[keys[1]], width='content')
                 st.plotly_chart(graphs_historical[keys[3]], width='content')           
         else:
             st.error("Load Historical Portfolio")
