@@ -17,6 +17,8 @@ const SYMBOLS = [
   'IOTAUSDT'
 ];
 
+
+//TODO Trier Symbols ordre alphabétiques
 export const getDefaultSymbols = (): string[] => SYMBOLS;
 
 interface SymbolSelectorProps {

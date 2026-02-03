@@ -26,32 +26,34 @@ class PricesRequest(BaseModel):
         True,
         description="Use cached data if available"
     )
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
                 "symbols": ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
                 "start_date": "2024-01-01T00:00:00Z",
                 "end_date": "2024-01-31T23:59:59Z",
                 "use_cache": True
-            }
+            }]
         }
-        
-class PricesData(BaseModel): 
+    }
+
+
+class PricesData(BaseModel):
     """Prices data payload"""
     symbols: List[str] = Field(..., description="List of requested symbols")
     start_date: str = Field(..., description="Start date (ISO format)")
     end_date: str = Field(..., description="End date (ISO format)")
     data: Dict[str, Any] = Field(..., description="Price data indexed by date")
     count: int = Field(..., description="Number of data points")
-    
+
 class PricesResponse(APIResponse):
     """Response for prices endpoint"""
     data: PricesData = Field(..., description="Price history data")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
                 "success": True,
                 "data": {
                     "symbols": ["BTCUSDT", "ETHUSDT"],
@@ -71,5 +73,6 @@ class PricesResponse(APIResponse):
                 },
                 "message": "Price data retrieved successfully",
                 "timestamp": "2024-01-01T12:00:00Z"
-            }
-        } 
+            }]
+        }
+    }

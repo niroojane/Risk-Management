@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 
 from ...services.binance import MarketDataService
 from ...schemas.investment_universe import MarketCapRequest, MarketCapResponse
-from ...mappers.investment_universe import MarketCapMapper
 
 
 class MarketCapController:
@@ -14,11 +13,9 @@ class MarketCapController:
 
     async def get_market_cap(self, request: MarketCapRequest) -> MarketCapResponse:
         """Get all cryptocurrencies by market cap (filtering handled by frontend)"""
-        result = await self._service.get_market_cap(
+        market_cap_items = await self._service.get_market_cap(
             quote=request.quote.value, use_cache=True
         )
-
-        market_cap_items = MarketCapMapper.to_entities(raw_data=result["data"])
 
         return MarketCapResponse(
             success=True,

@@ -4,6 +4,7 @@ from typing import List
 from pydantic import BaseModel, Field, field_validator
 
 from app.common import APIResponse
+from ....models.investment_universe import Position
 
 
 class PositionsRequest(BaseModel):
@@ -28,39 +29,24 @@ class PositionsRequest(BaseModel):
             raise ValueError("end_date must be after start_date")
         return v
 
-    class Config:
-        json_schema_extra = {
-            "example": {
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
                 "symbols": ["BTCUSDT", "ETHUSDT"],
                 "start_date": "2024-01-01T00:00:00Z",
                 "end_date": "2024-12-31T23:59:59Z"
-            }
+            }]
         }
-
-
-class PositionDataPoint(BaseModel):
-    """Single position data point"""
-    date: datetime = Field(..., description="Position timestamp")
-    symbol: str = Field(..., description="Trading symbol")
-    position: float = Field(..., description="Position value in quote asset (USDT)", ge=0)
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "date": "2024-01-01T00:00:00Z",
-                "symbol": "BTCUSDT",
-                "position": 5000.00
-            }
-        }
+    }
 
 
 class PositionsResponse(APIResponse):
     """Response for positions endpoint"""
-    data: List[PositionDataPoint] = Field(..., description="Position data for requested assets")
+    data: List[Position] = Field(..., description="Position data for requested assets")
 
-    class Config:
-        json_schema_extra = {
-            "example": {
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
                 "success": True,
                 "data": [
                     {
@@ -86,5 +72,6 @@ class PositionsResponse(APIResponse):
                 ],
                 "message": "Position data retrieved successfully",
                 "timestamp": "2024-01-01T12:00:00Z"
-            }
+            }]
         }
+    }

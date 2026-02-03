@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from .binance_client import BinanceClient
 from .transformers import KlineTransformer
 from ...core.config import CACHE_PRICES_TTL
+from ...models.investment_universe import AssetPrices, PriceDataPoint
 
 logger = logging.getLogger(__name__)
 

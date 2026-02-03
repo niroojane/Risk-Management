@@ -1,11 +1,12 @@
 """Position calculations (orchestrates price and quantity services)"""
 import logging
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timezone
+from typing import List, Optional
+from datetime import datetime
 
 from .price_service import PriceService
 from .quantity_service import QuantityService
 from .transformers import KlineTransformer, BalanceTransformer
+from ...models.investment_universe import Position
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ class PositionService:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         use_cache: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> List[Position]:
         """Calculate historical positions by multiplying quantities by prices"""
         logger.info(f"Calculating historical positions for {len(symbols)} symbols")
 
@@ -70,17 +71,10 @@ class PositionService:
 
             for date in sorted(common_dates):
                 position_value = quantities_dict[symbol][date] * prices_dict[symbol][date]
-                positions.append({
-                    "date": datetime.combine(date, datetime.min.time()).isoformat(),
-                    "symbol": symbol,
-                    "position": round(position_value, 2)
-                })
+                positions.append(Position(
+                    date=datetime.combine(date, datetime.min.time()),
+                    symbol=symbol,
+                    position=round(position_value, 2)
+                ))
 
-        return {
-            "symbols": symbols,
-            "start_date": start_date.isoformat() if start_date else None,
-            "end_date": end_date.isoformat() if end_date else None,
-            "data": positions,
-            "count": len(positions),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
+        return positions

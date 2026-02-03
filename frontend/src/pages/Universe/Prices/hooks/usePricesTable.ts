@@ -34,13 +34,7 @@ export const usePricesTable = ({ data, symbols }: UsePricesTableProps) => {
     initialState: {
       pagination: {
         pageSize: ITEMS_PER_PAGE,
-      },
-      sorting: [
-        {
-          id: 'date',
-          desc: true,
-        },
-      ],
+      }
     },
   });
 

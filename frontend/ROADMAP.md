@@ -165,6 +165,7 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 - [ ] Error boundaries React
 - [ ] Logging client-side
 - [ ] Build optimization
+- [ ] Find way to not use stable coin
 
 ---
 
