@@ -928,10 +928,12 @@ with main_tabs[3]:
                     
                     fund_results[index] = {'Value At Risk': mean_scenario.loc['Portfolio'],'CVaR': cvar.loc['Portfolio']}
         
-                st.session_state.var_scenarios=var_scenarios
-                st.session_state.cvar_scenarios=cvar_scenarios
-                st.session_state.fund_results=fund_results
-    
+                st.subheader('Value at Risk')
+                st.dataframe(var_dataframe,width='stretch')
+                st.subheader('Conditional Value at Risk')
+                st.dataframe(cvar_dataframe,width='stretch')
+                st.subheader('VaR Contribution')
+                st.dataframe(fund_results_dataframe,width='stretch')
         
             if st.session_state.fund_results is not None:
                 
