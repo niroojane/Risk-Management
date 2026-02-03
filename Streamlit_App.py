@@ -928,12 +928,7 @@ with main_tabs[3]:
                     
                     fund_results[index] = {'Value At Risk': mean_scenario.loc['Portfolio'],'CVaR': cvar.loc['Portfolio']}
         
-                st.subheader('Value at Risk')
-                st.dataframe(var_dataframe,width='stretch')
-                st.subheader('Conditional Value at Risk')
-                st.dataframe(cvar_dataframe,width='stretch')
-                st.subheader('VaR Contribution')
-                st.dataframe(fund_results_dataframe,width='stretch')
+
         
             if st.session_state.fund_results is not None:
                 
@@ -951,10 +946,13 @@ with main_tabs[3]:
             
                 fund_results_dataframe = pd.DataFrame(fund_results).T
                 
+                st.subheader('Value at Risk')
                 st.dataframe(var_dataframe,width='stretch')
+                st.subheader('Conditional Value at Risk')
                 st.dataframe(cvar_dataframe,width='stretch')
+                st.subheader('Results')
                 st.dataframe(fund_results_dataframe,width='stretch')
-
+                
 with main_tabs[4]:
     
     
