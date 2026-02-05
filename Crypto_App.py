@@ -105,15 +105,47 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         global tickers_dataframe, tickers
         try:
             selected_tickers=tickers_dataframe.iloc[:n]
-            tickers = list(selected_tickers.index)
+            selected_tickers_list = list(set(selected_tickers.index))
+            
         except Exception as e:
             with scope_output:
                 scope_output.clear_output(wait=True)
                 print("Error fetching market caps:", e)
             return
+            
         with scope_output:
             scope_output.clear_output(wait=True)
             display(display_scrollable_df(selected_tickers))
+    
+            checkboxes = {
+                t: widgets.Checkbox(description=t, value=True)
+                for t in selected_tickers_list
+            }
+    
+            rows = [
+                widgets.HBox(list(checkboxes.values())[i:i+5])
+                for i in range(0, len(checkboxes), 5)
+            ]
+    
+            ui = widgets.VBox(rows)
+    
+            def on_change(change=None):
+                selected = [k for k, cb in checkboxes.items() if cb.value]
+                # update global tickers
+                global tickers
+                tickers = selected
+    
+                df = pd.DataFrame(selected, columns=["Selected Tickers"]).set_index("Selected Tickers")
+    
+            for cb in checkboxes.values():
+                cb.observe(on_change, names="value")
+    
+            on_change()  # initial display
+
+            display(Markdown("### Selected Tickers"))
+
+            display(ui)
+            
 
     scope_update(n_crypto.value)
     n_crypto.observe(lambda ch: scope_update(ch['new']) if ch['name'] == 'value' else None, names='value')
@@ -126,7 +158,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         get_holdings(None)
         combined_tickers=sorted(list(set(tickers+holding_tickers)))
-        
+
         with main_output:
             main_output.clear_output(wait=True)
             if not tickers:
