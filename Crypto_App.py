@@ -13,6 +13,7 @@ import datetime
 import seaborn as sns
 import requests
 from scipy.stats import norm, chi2,gumbel_l
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import ipywidgets as widgets
 from ipydatagrid import DataGrid, TextRenderer
@@ -154,102 +155,142 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     # --- price fetching ---
     
     def get_prices(_=None):
-        global prices, dataframe, returns_to_use, dates_end,valid_cols_model
         
+        global prices, dataframe, returns_to_use, dates_end, valid_cols_model
+    
         get_holdings(None)
-        combined_tickers=sorted(list(set(tickers+holding_tickers)))
-
+        combined_tickers = sorted(list(set(tickers + holding_tickers)))
+    
         with main_output:
             main_output.clear_output(wait=True)
+    
             if not tickers:
                 print("No tickers available. Please fetch tickers first.")
                 return
-
+    
             start = start_date.value
             if not isinstance(start, datetime.date):
                 print("Please select a valid start date.")
                 return
-
+    
             today = datetime.date.today()
             days_total = (today - start).days
             if days_total <= 0:
                 print("Start date must be in the past.")
                 return
-
+    
             remaining = days_total % 500
             numbers_of_table = days_total // 500
-            temp_end = datetime.datetime.combine(start, datetime.time())
-            scope_prices = pd.DataFrame()
-            loading_bar.value=0
+    
+            loading_bar.value = 0
             display(loading_bar)
-            loading_bar.max=numbers_of_table+3
-            loading_bar.value += 1 
+            loading_bar.max = numbers_of_table + 3
+            loading_bar.value += 1
+    
+            start_dt = datetime.datetime.combine(start, datetime.time())
+            
+            end_dates = [
+                start_dt + datetime.timedelta(days=500 * i)
+                for i in range(numbers_of_table + 1)
+            ]
+    
+            end_dates.append(
+                datetime.datetime.combine(
+                    today - datetime.timedelta(days=remaining),
+                    datetime.time()
+                )
+            )
+    
+            def fetch_prices(end_date):
+                return Binance.get_price(combined_tickers, end_date)
+    
+            scope_prices = None
+    
             try:
-                for _ in range(numbers_of_table + 1):
-                    data = Binance.get_price(combined_tickers, temp_end)
-                    temp_end += datetime.timedelta(days=500)
-                    scope_prices = scope_prices.combine_first(data)
-                    loading_bar.value += 1 
-
-                temp_end = datetime.datetime.combine(today - datetime.timedelta(days=remaining), datetime.time())
-                data = Binance.get_price(combined_tickers, temp_end)
-                scope_prices = scope_prices.combine_first(data)
-                scope_prices = scope_prices.sort_index()
-                scope_prices = scope_prices[~scope_prices.index.duplicated(keep='first')]
-                scope_prices.index = pd.to_datetime(scope_prices.index)
-                prices = scope_prices.loc[:, scope_prices.columns != 'USDCUSDT']
-
-                returns = np.log(1 + prices.pct_change(fill_method=None))
-                returns.index = pd.to_datetime(returns.index)
-                valid_cols = returns.columns[returns.isna().sum() < 30]
-
-                returns_to_use = returns[valid_cols].sort_index()
-                dataframe = prices[valid_cols].sort_index().dropna()
-                dataframe.index = pd.to_datetime(dataframe.index)
-                returns_to_use = returns_to_use[~returns_to_use.index.duplicated(keep='first')]
-                loading_bar.value += 1 
-                loading_bar.value=0
-                
-                main_output.clear_output()
-                
-                dropdown_asset.options = list(dataframe.columns) + ['All']
-                
-                dropdown_asset1.options=dataframe.columns
-                dropdown_asset1.value=dataframe.columns[0]
-        
-                dropdown_asset2.options=dataframe.columns
-                dropdown_asset2.value=dataframe.columns[1]
-                
-                print(f"✅ Loaded prices for {len(dataframe.columns)} assets from {dataframe.index[0].date()} to {dataframe.index[-1].date()}")
-                
-                asset_risk=get_asset_risk(dataframe)
-                asset_returns=get_asset_returns(dataframe)
-                display(display_scrollable_df(asset_returns))
-                display(display_scrollable_df(asset_risk))
-
+                with ThreadPoolExecutor(max_workers=8) as executor:
+                    futures = [executor.submit(fetch_prices, d) for d in end_dates]
+    
+                    for future in as_completed(futures):
+                        data = future.result()
+    
+                        if scope_prices is None:
+                            scope_prices = data
+                        else:
+                            scope_prices = scope_prices.combine_first(data)
+    
+                        loading_bar.value += 1
+    
             except Exception as e:
-                print("Error fetching prices:", e)
-                
-            with price_output:
-                price_output.clear_output(wait=True)
-                fig = px.line(dataframe.loc[start_date_perf.value:end_date_perf.value], title='Price', width=800, height=400)
-                fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
-
-                fig.show()
-
-                cumulative_returns=returns_to_use.loc[start_date_perf.value:end_date_perf.value].copy()
-                cumulative_returns.iloc[0]=0
-                cumulative_returns=(1+cumulative_returns).cumprod()*100
-                
-                fig2 = px.line(cumulative_returns, title='Cumulative Performance', width=800, height=400)
-                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
-
-                fig2.show()
-                display(display_scrollable_df(dataframe))
+                print("❌ Error while fetching prices:", e)
+                return
+    
+            scope_prices = scope_prices.sort_index()
+            scope_prices = scope_prices[~scope_prices.index.duplicated(keep="first")]
+            scope_prices.index = pd.to_datetime(scope_prices.index)
+    
+            prices = scope_prices.loc[:, scope_prices.columns != "USDCUSDT"]
+    
+            returns = np.log(1 + prices.pct_change(fill_method=None))
+            returns.index = pd.to_datetime(returns.index)
+    
+            valid_cols = returns.columns[returns.isna().sum() < 30]
+            returns_to_use = returns[valid_cols].sort_index()
+    
+            dataframe = prices[valid_cols].sort_index().dropna()
+            dataframe.index = pd.to_datetime(dataframe.index)
+            returns_to_use = returns_to_use[~returns_to_use.index.duplicated(keep="first")]
+    
+            loading_bar.value = loading_bar.max
+    
+            main_output.clear_output()
+    
+            dropdown_asset.options = list(dataframe.columns) + ["All"]
+    
+            dropdown_asset1.options = dataframe.columns
+            dropdown_asset1.value = dataframe.columns[0]
+    
+            dropdown_asset2.options = dataframe.columns
+            dropdown_asset2.value = dataframe.columns[1]
+    
+            print(
+                f"✅ Loaded prices for {len(dataframe.columns)} assets "
+                f"from {dataframe.index[0].date()} to {dataframe.index[-1].date()}"
+            )
+    
+            asset_risk = get_asset_risk(dataframe)
+            asset_returns = get_asset_returns(dataframe)
+    
+            display(display_scrollable_df(asset_returns))
+            display(display_scrollable_df(asset_risk))
+    
+        with price_output:
+            price_output.clear_output(wait=True)
+    
+            fig = px.line(
+                dataframe.loc[start_date_perf.value:end_date_perf.value],
+                title="Price",
+                width=800,
+                height=400
+            )
+            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+            fig.update_traces(visible="legendonly", selector=lambda t: t.name != "BTCUSDT")
+            fig.show()
+    
+            cumulative_returns = returns_to_use.loc[start_date_perf.value:end_date_perf.value].copy()
+            cumulative_returns.iloc[0] = 0
+            cumulative_returns = (1 + cumulative_returns).cumprod() * 100
+    
+            fig2 = px.line(
+                cumulative_returns,
+                title="Cumulative Performance",
+                width=800,
+                height=400
+            )
+            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+            fig2.update_traces(visible="legendonly", selector=lambda t: t.name != "BTCUSDT")
+            fig2.show()
+    
+            display(display_scrollable_df(dataframe))
 
     data_button.on_click(get_prices)
     start_date.observe(lambda ch: get_prices() if ch['name'] == 'value' and ch['new'] else None, names='value')
