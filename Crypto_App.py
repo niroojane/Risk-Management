@@ -48,6 +48,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     global book_cost,realized_pnl,profit_and_loss,holding_tickers,current_weights,fund_names,grid,trades
     
     tickers_dataframe = Binance.get_market_cap().set_index('Ticker')
+
     tickers = []
     holding_tickers=[]
     dataframe = pd.DataFrame()
@@ -100,10 +101,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     dropdown_asset1 = widgets.Dropdown(description='Asset 1',style={'description_width': '150px'})
     dropdown_asset2 = widgets.Dropdown(description='Asset 2',style={'description_width': '150px'} )
 
-    # --- helper: update crypto scope ---
+    
     def scope_update(n):
         nonlocal scope_output
         global tickers_dataframe, tickers
+
         try:
             selected_tickers=tickers_dataframe.iloc[:n]
             selected_tickers_list = list(set(selected_tickers.index))
@@ -113,7 +115,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 scope_output.clear_output(wait=True)
                 print("Error fetching market caps:", e)
             return
-            
+  
+              
         with scope_output:
             scope_output.clear_output(wait=True)
             display(display_scrollable_df(selected_tickers))
@@ -141,19 +144,78 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             for cb in checkboxes.values():
                 cb.observe(on_change, names="value")
     
-            on_change()  # initial display
+            on_change()
 
             display(Markdown("### Selected Tickers"))
 
             display(ui)
             
-
     scope_update(n_crypto.value)
+    
     n_crypto.observe(lambda ch: scope_update(ch['new']) if ch['name'] == 'value' else None, names='value')
     
     price_output=widgets.Output()
-    # --- price fetching ---
+
+    def get_price_threading(tickers,start_date):
+            
+        today = datetime.date.today()
+        days_total = (today - start_date).days
+        if days_total <= 0:
+            print("Start date must be in the past.")
+            return
+
+        remaining = days_total % 500
+        numbers_of_table = days_total // 500
+
+        loading_bar.value = 0
+        display(loading_bar)
+        loading_bar.max = numbers_of_table + 1
+        
+        start_dt= datetime.datetime.combine(start_date, datetime.time())
+        end_dates = [
+                start_dt + datetime.timedelta(days=500 * i)
+                for i in range(numbers_of_table + 1)
+            ]
     
+        end_dates.append(
+            datetime.datetime.combine(
+                today - datetime.timedelta(days=remaining),
+                datetime.time()
+            )
+        )
+
+        def fetch_prices(end_date):
+            return Binance.get_price(tickers, end_date)
+
+        price = None
+
+        try:
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                futures = [executor.submit(fetch_prices, d) for d in end_dates]
+
+                for future in as_completed(futures):
+                    data = future.result()
+
+                    if price is None:
+                        price = data
+                    else:
+                        price = price.combine_first(data)
+
+                    loading_bar.value += 1
+
+        except Exception as e:
+            print("❌ Error while fetching prices:", e)
+            return
+
+        price = price.sort_index()
+        price = price[~price.index.duplicated(keep="first")]
+        price.index = pd.to_datetime(price.index)
+        
+        loading_bar.value = loading_bar.max
+
+        return price
+
+        
     def get_prices(_=None):
         
         global prices, dataframe, returns_to_use, dates_end, valid_cols_model
@@ -172,61 +234,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if not isinstance(start, datetime.date):
                 print("Please select a valid start date.")
                 return
-    
-            today = datetime.date.today()
-            days_total = (today - start).days
-            if days_total <= 0:
-                print("Start date must be in the past.")
-                return
-    
-            remaining = days_total % 500
-            numbers_of_table = days_total // 500
-    
-            loading_bar.value = 0
-            display(loading_bar)
-            loading_bar.max = numbers_of_table + 3
-            loading_bar.value += 1
-    
-            start_dt = datetime.datetime.combine(start, datetime.time())
+
             
-            end_dates = [
-                start_dt + datetime.timedelta(days=500 * i)
-                for i in range(numbers_of_table + 1)
-            ]
-    
-            end_dates.append(
-                datetime.datetime.combine(
-                    today - datetime.timedelta(days=remaining),
-                    datetime.time()
-                )
-            )
-    
-            def fetch_prices(end_date):
-                return Binance.get_price(combined_tickers, end_date)
-    
-            scope_prices = None
-    
-            try:
-                with ThreadPoolExecutor(max_workers=8) as executor:
-                    futures = [executor.submit(fetch_prices, d) for d in end_dates]
-    
-                    for future in as_completed(futures):
-                        data = future.result()
-    
-                        if scope_prices is None:
-                            scope_prices = data
-                        else:
-                            scope_prices = scope_prices.combine_first(data)
-    
-                        loading_bar.value += 1
-    
-            except Exception as e:
-                print("❌ Error while fetching prices:", e)
-                return
-    
-            scope_prices = scope_prices.sort_index()
-            scope_prices = scope_prices[~scope_prices.index.duplicated(keep="first")]
-            scope_prices.index = pd.to_datetime(scope_prices.index)
+            scope_prices=get_price_threading(combined_tickers,start)
     
             prices = scope_prices.loc[:, scope_prices.columns != "USDCUSDT"]
     
@@ -239,9 +249,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             dataframe = prices[valid_cols].sort_index().dropna()
             dataframe.index = pd.to_datetime(dataframe.index)
             returns_to_use = returns_to_use[~returns_to_use.index.duplicated(keep="first")]
-    
-            loading_bar.value = loading_bar.max
-    
+        
             main_output.clear_output()
     
             dropdown_asset.options = list(dataframe.columns) + ["All"]
@@ -804,11 +812,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
             if dataframe.empty or returns_to_use.empty:
                 print("⚠️ Load Prices.")
-                # display(display_scrollable_df(current_positions))
         
             elif quantities.empty:
                 print("⚠️ Load Model.")
-                # display(display_scrollable_df(current_positions))
         
             else:
                 last_prices = Binance.get_price(list(quantities.iloc[-1].keys()))
@@ -843,7 +849,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
                 display(display_scrollable_df(portfolio))
         
-        # --- Now, this block will always run ---
         with holding_output:
             holding_output.clear_output(wait=True)
         
@@ -1668,22 +1673,19 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
             display(push_button)
             display(git_output)
-        
-    loading_bar_ex_post = widgets.IntProgress(description='Loading Mark to Market...',min=0, max=100,style={'description_width': '150px'})
-
+    
     def get_ex_post_returns(_):
         
         global daily_pnl,pnl_history,historical_ptf,performance_ex_post
  
-        
+        loading_bar.value=0
         with ex_post_perf:
             ex_post_perf.clear_output()
-            display(loading_bar_pnl)
-            display(loading_bar_ex_post)
 
+            display(loading_bar_pnl)
+            display(loading_bar)
         if book_cost.empty:
             get_pnl_on_click(None)  
-            loading_bar_ex_post.value+=20
           
         quantities_tickers=list(quantities_holding.columns)
         daily_book_cost=book_cost.resample("D").last().dropna().sort_index()
@@ -1709,48 +1711,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         weights_ex_post=weights_ex_post.apply(lambda x: x/weights_ex_post['Total'])
         
         start_date=weights_ex_post.index[0].date()
-        days=(today-start_date).days
 
-        remaining=days%500
-        numbers_of_table=days//500
-        start_dt = datetime.datetime.combine(start_date, datetime.time())
-        
-        end_dates = [
-            start_dt + datetime.timedelta(days=500 * i)
-            for i in range(numbers_of_table + 1)
-        ]
-    
-        end_dates.append(
-            datetime.datetime.combine(
-                today - datetime.timedelta(days=remaining),
-                datetime.time()
-            )
-        )
-    
-        def fetch_prices(end_date):
-            return Binance.get_price(quantities_tickers, end_date)
-    
-        binance_data = None
-    
-        try:
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                futures = [executor.submit(fetch_prices, d) for d in end_dates]
-    
-                for future in as_completed(futures):
-                    data = future.result()
-    
-                    if binance_data is None:
-                        binance_data = data
-                    else:
-                        binance_data = binance_data.combine_first(data)
-    
-        except Exception as e:
-            print("❌ Error while fetching prices:", e)
-
-        binance_data=binance_data.sort_index()
-        binance_data = binance_data[~binance_data.index.duplicated(keep='first')]
-        binance_data.index=pd.to_datetime(binance_data.index)
-
+        binance_data=get_price_threading(quantities_tickers,start_date)
         pnl_history=pd.DataFrame()
         pnl_history.index=quantities_holding.index
         pnl_history=pnl_history.sort_index()
@@ -1793,12 +1755,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             fund_ex_post.value = 'Historical Portfolio'
             benchmark_ex_post.value ='Fund'
         
-        loading_bar_ex_post.value+=100/(numbers_of_table+2)
 
         update_ex_post_chart(None)
         show_graph_ex_post(None)
-        loading_bar_ex_post.value=0
-
     
     ex_post_button=widgets.Button(description='Get P&L',button_style='info')
     ex_post_button.on_click(get_ex_post_returns)
@@ -1879,7 +1838,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     with ex_post_tab:
         display(ex_post_subtabs)
-
+        
     with pnl_sub_tab:
         display(ex_post_ui)
         
