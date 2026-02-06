@@ -1709,24 +1709,44 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         weights_ex_post=weights_ex_post.apply(lambda x: x/weights_ex_post['Total'])
         
         start_date=weights_ex_post.index[0].date()
-        
         days=(today-start_date).days
-        
+
         remaining=days%500
         numbers_of_table=days//500
-        remaining
-        temp_end=weights_ex_post.index[0]
-        prices=pd.DataFrame()
+        start_dt = datetime.datetime.combine(start_date, datetime.time())
         
-        for i in range(numbers_of_table+1):
-            temp_data=Binance.get_price(weights_ex_post.columns,temp_end)
-            temp_end=temp_end+datetime.timedelta(500)
-            prices=prices.combine_first(temp_data)
-            loading_bar_ex_post.value+=100/(numbers_of_table+2)
+        end_dates = [
+            start_dt + datetime.timedelta(days=500 * i)
+            for i in range(numbers_of_table + 1)
+        ]
+    
+        end_dates.append(
+            datetime.datetime.combine(
+                today - datetime.timedelta(days=remaining),
+                datetime.time()
+            )
+        )
+    
+        def fetch_prices(end_date):
+            return Binance.get_price(quantities_tickers, end_date)
+    
+        binance_data = None
+    
+        try:
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                futures = [executor.submit(fetch_prices, d) for d in end_dates]
+    
+                for future in as_completed(futures):
+                    data = future.result()
+    
+                    if binance_data is None:
+                        binance_data = data
+                    else:
+                        binance_data = binance_data.combine_first(data)
+    
+        except Exception as e:
+            print("❌ Error while fetching prices:", e)
 
-        temp_end=temp_end+datetime.timedelta(500)
-        last_data=Binance.get_price(weights_ex_post.columns,temp_end)
-        binance_data=prices.combine_first(last_data)
         binance_data=binance_data.sort_index()
         binance_data = binance_data[~binance_data.index.duplicated(keep='first')]
         binance_data.index=pd.to_datetime(binance_data.index)
