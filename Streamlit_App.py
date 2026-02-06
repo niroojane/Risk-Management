@@ -875,7 +875,7 @@ with main_tabs[3]:
             max_value=max_value,
             value=value,key='var_tab')
         
-            selmin, selmax = Model3
+            selmin, selmax = Model4
             selmind = selmin.strftime('%Y-%m-%d')  # datetime to str
             selmaxd = selmax.strftime('%Y-%m-%d')
             
@@ -952,7 +952,9 @@ with main_tabs[3]:
                     
                     fund_results[index] = {'Value At Risk': mean_scenario.loc['Portfolio'],'CVaR': cvar.loc['Portfolio']}
         
-
+                st.session_state.var_scenarios = var_scenarios
+                st.session_state.cvar_scenarios = cvar_scenarios
+                st.session_state.fund_results = fund_results
         
             if st.session_state.fund_results is not None:
                 
