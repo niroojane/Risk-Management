@@ -7,6 +7,7 @@ import pandas as pd
 import random
 import numpy as np
 import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -51,17 +52,40 @@ def load_data(tickers,start=datetime.datetime(2023,1,1),today=None):
 
     remaining = days_total % 500
     numbers_of_table = days_total // 500
-    temp_end = datetime.datetime.combine(start, datetime.time())
-    scope_prices = pd.DataFrame()
+    start_dt = datetime.datetime.combine(start, datetime.time())
+    
+    end_dates = [
+        start_dt + datetime.timedelta(days=500 * i)
+        for i in range(numbers_of_table + 1)
+    ]
 
-    for _ in range(numbers_of_table + 1):
-        data = Binance.get_price(tickers, temp_end)
-        temp_end += datetime.timedelta(days=500)
-        scope_prices = scope_prices.combine_first(data)
+    end_dates.append(
+        datetime.datetime.combine(
+            today - datetime.timedelta(days=remaining),
+            datetime.time()
+        )
+    )
 
-    temp_end = datetime.datetime.combine(today - datetime.timedelta(days=remaining), datetime.time())
-    data = Binance.get_price(tickers, temp_end)
-    scope_prices = scope_prices.combine_first(data)
+    def fetch_prices(end_date):
+        return Binance.get_price(combined_tickers, end_date)
+
+    scope_prices = None
+
+    try:
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(fetch_prices, d) for d in end_dates]
+
+            for future in as_completed(futures):
+                data = future.result()
+
+                if scope_prices is None:
+                    scope_prices = data
+                else:
+                    scope_prices = scope_prices.combine_first(data)
+
+    except Exception as e:
+        print("❌ Error while fetching prices:", e)
+        return
 
     scope_prices = scope_prices.sort_index()
     scope_prices = scope_prices[~scope_prices.index.duplicated(keep='first')]
@@ -1340,21 +1364,43 @@ with main_tabs[2]:
                     start_date=weights_ex_post.index[0].date()
                     
                     days=(today-start_date).days
+ 
+                    remaining = days_total % 500
+                    numbers_of_table = days_total // 500
+                    start_dt = datetime.datetime.combine(start_date, datetime.time())
                     
-                    remaining=days%500
-                    numbers_of_table=days//500
-                    remaining
-                    temp_end=weights_ex_post.index[0]
-                    prices=pd.DataFrame()
-                    
-                    for i in range(numbers_of_table+1):
-                        temp_data=Binance.get_price(weights_ex_post.columns,temp_end)
-                        temp_end=temp_end+datetime.timedelta(500)
-                        prices=prices.combine_first(temp_data)
-            
-                    temp_end=temp_end+datetime.timedelta(500)
-                    last_data=Binance.get_price(weights_ex_post.columns,temp_end)
-                    binance_data=prices.combine_first(last_data)
+                    end_dates = [
+                        start_dt + datetime.timedelta(days=500 * i)
+                        for i in range(numbers_of_table + 1)
+                    ]
+                
+                    end_dates.append(
+                        datetime.datetime.combine(
+                            today - datetime.timedelta(days=remaining),
+                            datetime.time()
+                        )
+                    )
+                
+                    def fetch_prices(end_date):
+                        return Binance.get_price(quantities_tickers, end_date)
+                
+                    binance_data = None
+                
+                    try:
+                        with ThreadPoolExecutor(max_workers=8) as executor:
+                            futures = [executor.submit(fetch_prices, d) for d in end_dates]
+                
+                            for future in as_completed(futures):
+                                data = future.result()
+                
+                                if binance_data is None:
+                                    binance_data = data
+                                else:
+                                    binance_data = binance_data.combine_first(data)
+                
+                    except Exception as e:
+                        print("❌ Error while fetching prices:", e)
+
                     binance_data=binance_data.sort_index()
                     binance_data = binance_data[~binance_data.index.duplicated(keep='first')]
                     binance_data.index=pd.to_datetime(binance_data.index)
