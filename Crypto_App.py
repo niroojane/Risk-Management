@@ -267,37 +267,45 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
             asset_risk = get_asset_risk(dataframe)
             asset_returns = get_asset_returns(dataframe)
-    
+            
             display(display_scrollable_df(asset_returns))
             display(display_scrollable_df(asset_risk))
-    
+                        
         with price_output:
+            
             price_output.clear_output(wait=True)
-    
-            fig = px.line(
-                dataframe.loc[start_date_perf.value:end_date_perf.value],
-                title="Price",
-                width=800,
-                height=400
-            )
-            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-            fig.update_traces(visible="legendonly", selector=lambda t: t.name != "BTCUSDT")
-            fig.show()
-    
-            cumulative_returns = returns_to_use.loc[start_date_perf.value:end_date_perf.value].copy()
-            cumulative_returns.iloc[0] = 0
-            cumulative_returns = (1 + cumulative_returns).cumprod() * 100
-    
-            fig2 = px.line(
-                cumulative_returns,
-                title="Cumulative Performance",
-                width=800,
-                height=400
-            )
-            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-            fig2.update_traces(visible="legendonly", selector=lambda t: t.name != "BTCUSDT")
-            fig2.show()
-    
+
+            price_output_graph=widgets.Output()
+            return_output_graph=widgets.Output()
+            
+            with price_output_graph:
+                fig = px.line(
+                    dataframe.loc[start_date_perf.value:end_date_perf.value],
+                    title="Price",
+                    width=800,
+                    height=400
+                )
+                fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig.update_traces(visible="legendonly", selector=lambda t: t.name != "BTCUSDT")
+                fig.show()
+
+            with return_output_graph:
+                
+                cumulative_returns = returns_to_use.loc[start_date_perf.value:end_date_perf.value].copy()
+                cumulative_returns.iloc[0] = 0
+                cumulative_returns = (1 + cumulative_returns).cumprod() * 100
+                fig2 = px.line(
+                    cumulative_returns,
+                    title="Cumulative Performance",
+                    width=800,
+                    height=400
+                )
+                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig2.update_traces(visible="legendonly", selector=lambda t: t.name != "BTCUSDT")
+                fig2.show()
+
+            ui=widgets.HBox([price_output_graph,return_output_graph])
+            display(ui)
             display(display_scrollable_df(dataframe))
 
     data_button.on_click(get_prices)
@@ -404,6 +412,47 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 main_output.clear_output(wait=True)
                 print("⚠️ Load Prices.")
                 return
+        else:
+
+            with main_output:
+                
+                main_output.clear_output(wait=True)
+                range_prices=dataframe.loc[start_ts:end_ts]
+                range_returns=range_prices.pct_change()
+                
+                asset_risk=get_asset_risk(range_prices)
+                asset_returns=get_asset_returns(range_prices)
+                display(display_scrollable_df(asset_returns))
+                display(display_scrollable_df(asset_risk))
+                
+            with price_output:
+                price_output.clear_output(wait=True)
+                price_output_graph=widgets.Output()
+                return_output_graph=widgets.Output()
+                
+                with price_output_graph:
+                    fig = px.line(dataframe.loc[start_date_perf.value:end_date_perf.value], title='Price', width=800, height=400)
+                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
+        
+                    fig.show()
+                with return_output_graph:
+                    
+                    cumulative_returns=returns_to_use.loc[start_date_perf.value:end_date_perf.value].copy()
+                    cumulative_returns.iloc[0]=0
+                    cumulative_returns=(1+cumulative_returns).cumprod()*100
+                    
+                    fig2 = px.line(cumulative_returns, title='Cumulative Performance', width=800, height=400)
+                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
+        
+                    fig2.show()
+    
+                ui=widgets.HBox([price_output_graph,return_output_graph])
+                display(ui)
+                display(display_scrollable_df(dataframe))
 
         if performance_pct is None or performance_pct.empty:
             with output_returns:
@@ -429,41 +478,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 frontier_output.clear_output()
                 
             return
-            
 
-        with main_output:
-            
-            main_output.clear_output(wait=True)
-            range_prices=dataframe.loc[start_ts:end_ts]
-            range_returns=range_prices.pct_change()
-            
-            asset_risk=get_asset_risk(range_prices)
-            asset_returns=get_asset_returns(range_prices)
-            display(display_scrollable_df(asset_returns))
-            display(display_scrollable_df(asset_risk))
-            
-        with price_output:
-            price_output.clear_output(wait=True)
-            
-            fig = px.line(dataframe.loc[start_date_perf.value:end_date_perf.value], title='Price', width=800, height=400)
-            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-            fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
-            fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
-
-            fig.show()
-
-            cumulative_returns=returns_to_use.loc[start_date_perf.value:end_date_perf.value].copy()
-            cumulative_returns.iloc[0]=0
-            cumulative_returns=(1+cumulative_returns).cumprod()*100
-            
-            fig2 = px.line(cumulative_returns, title='Cumulative Performance', width=800, height=400)
-            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-            fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
-            fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
-
-            fig2.show()
-            
-            display(display_scrollable_df(dataframe))
 
         performance_pct.index = pd.to_datetime(performance_pct.index)
 
@@ -539,8 +554,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             # display(display_scrollable_df(drawdown))
 
         
-    start_date_perf.observe(updated_cumulative_perf)
-    end_date_perf.observe(updated_cumulative_perf)
+    # start_date_perf.observe(updated_cumulative_perf)
+    # end_date_perf.observe(updated_cumulative_perf)
+    refresh_perf_button=widgets.Button(description='Refresh')
+    refresh_perf_button.on_click(updated_cumulative_perf)
+    
     # --- optimization ---
     rebalancing_frequency = widgets.Dropdown(description='Frequency', options=['Monthly', 'Quarterly', 'Yearly'], value='Monthly')
     strat = widgets.Dropdown(description='Strategy', options=options_strat, value='Minimum Variance')
@@ -569,9 +587,20 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                                benchmark=benchmark.value, 
                                fund=fund.value)
             
-            for name, fig in graphs.items():
-                fig.show()
-                
+            return_and_vol_graph=widgets.Output()
+            sharpe_and_te_graph=widgets.Output()
+            keys=list(graphs.keys())
+            
+            with return_and_vol_graph:
+                graphs[keys[0]].show()
+                graphs[keys[2]].show()
+            with sharpe_and_te_graph:
+                graphs[keys[1]].show()
+                graphs[keys[3]].show()   
+            
+            ui=widgets.HBox([return_and_vol_graph,sharpe_and_te_graph])
+            display(ui)
+            
     graph_button=widgets.Button(description='Update Perf',button_style='info')
     graph_button.on_click(show_graph)
 
@@ -923,7 +952,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         grid,
         widgets.HBox([button_add,button_clear,results_button])])
 
-    constraint_ui = widgets.VBox([widgets.HBox([start_date_perf, end_date_perf]),
+    constraint_ui = widgets.VBox([widgets.HBox([start_date_perf, end_date_perf,refresh_perf_button]),
                                                main_output,
         widgets.VBox([strat, rebalancing_frequency,benchmark_tracking_error,window_vol]),
         allocation_ui,strategy_output,
@@ -934,7 +963,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     universe_ui = widgets.VBox([
         widgets.HBox([n_crypto, start_date, data_button]),
         scope_output,
-        widgets.HBox([start_date_perf, end_date_perf]),
+        widgets.HBox([start_date_perf, end_date_perf,refresh_perf_button]),
         main_output,price_output
     ])
     
@@ -1418,30 +1447,39 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         range_returns=returns_to_use.loc[start_ts:end_ts]
         pca_over_time=first_pca_over_time(returns=range_returns,window=window_corr.value)
 
+        rolling_corr_output=widgets.Output()
+        correlation_matrix=widgets.Output()
+        pca_overtime_output=widgets.Output()
+        
         with asset_output_corr:
             asset_output_corr.clear_output(wait=True)
-
+            
             rolling_correlation = range_returns[dropdown_asset1.value].rolling(window_corr.value).corr(
                 range_returns[dropdown_asset2.value]
             ).dropna()
+
+            with rolling_corr_output:
+                fig = px.line(rolling_correlation, title=f"{dropdown_asset1.value}/{dropdown_asset2.value} Correlation")
+                fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
+                fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+    
+                fig.show()
+
+            with correlation_matrix:
+                fig2 = px.imshow(range_returns.corr().round(2), title='Correlation Matrix',color_continuous_scale='blues', text_auto=True, aspect="auto")
+                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig2.update_traces(xgap=2, ygap=2)
+                fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig2.show()
+            with pca_overtime_output:
+                fig3=px.line(pca_over_time,title='First principal component (Variance Explained in %)')
+                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig3.update_layout(xaxis_title=None, yaxis_title=None)
+                fig3.show()
+                
+            ui=widgets.HBox([rolling_corr_output,pca_overtime_output,correlation_matrix])
+            display(ui)
             
-            fig = px.line(rolling_correlation, title=f"{dropdown_asset1.value}/{dropdown_asset2.value} Correlation")
-            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
-            fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
-
-            fig.show()
-
-            fig2 = px.imshow(range_returns.corr().round(2), title='Correlation Matrix',color_continuous_scale='blues', text_auto=True, aspect="auto")
-            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-            fig2.update_traces(xgap=2, ygap=2)
-            fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
-            fig2.show()
-            
-            fig3=px.line(pca_over_time,title='First principal component (Variance Explained in %)')
-            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-            fig3.update_layout(xaxis_title=None, yaxis_title=None)
-            fig3.show()
-
     selected_components=widgets.Dropdown(options=['PC1'],description='Select PCA',style={'description_width': '150px'})
     num_components=widgets.BoundedIntText(min=1,max=5,value=5,description='PCA Components',style={'description_width': '150px'})
     num_closest_to_pca=widgets.BoundedIntText(min=1,max=20,value=5,description='PCA Closest',style={'description_width': '150px'})
@@ -1550,6 +1588,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             benchmark_ex_post.options = options
             
         with ex_post_calendar:
+            return_and_vol_graph=widgets.Output()
+            sharpe_and_te_graph=widgets.Output()
             
             ex_post_calendar.clear_output()
             
@@ -1572,9 +1612,20 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                                benchmark=benchmark_ex_post.value, 
                                fund=fund_ex_post.value)
             
-            for name, fig in graphs.items():
-                fig.show()
-                
+            # for name, fig in graphs.items():
+            #     fig.show()
+            keys=list(graphs.keys())
+            with return_and_vol_graph:
+                graphs[keys[0]].show()
+                graphs[keys[2]].show()
+            with sharpe_and_te_graph:
+                graphs[keys[1]].show()
+                graphs[keys[3]].show()   
+
+            ui=widgets.HBox([return_and_vol_graph,sharpe_and_te_graph])
+            
+            display(ui)
+            
             update_ex_post_chart(None)
 
     calendar_button_ex_post.on_click(show_graph_ex_post)
@@ -1641,36 +1692,45 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         push_button=widgets.Button(description='Upload Files',button_style='success')
         push_button.on_click(git_push)
 
+        expost_output=widgets.Output()
+        expost_output1=widgets.Output()
+
         with ex_post_perf:
             ex_post_perf.clear_output(wait=True)
-            
-            fig=px.line(selected_positions,title='Portfolio Value')
-            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-            fig.update_layout(xaxis_title=None, yaxis_title=None)
-            fig.show()
-            
-            fig2=px.line(selected_history,title='Cumulative P&L')
-            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-            fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
 
-            fig2.update_layout(xaxis_title=None, yaxis_title=None)
-            fig2.show()            
+            with expost_output:
+            
+                fig=px.line(selected_positions,title='Portfolio Value')
+                fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig.update_layout(xaxis_title=None, yaxis_title=None)
+                fig.show()
+                
+                fig2=px.line(selected_history,title='Cumulative P&L')
+                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
     
-            fig3=px.line(cumulative_performance_ex_post,title='Cumulative Return')
-            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-            fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio'])
-            fig3.update_layout(xaxis_title=None, yaxis_title=None)
-            fig3.show()
+                fig2.update_layout(xaxis_title=None, yaxis_title=None)
+                fig2.show()            
             
-            fig4 = px.bar(selected_daily_pnl, color=selected_daily_pnl['color'],
-                 color_discrete_map={'green': 'green', 'red': 'red'},
-                 title="Daily P&L")
-            fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-            fig4.update_layout(xaxis_title=None, yaxis_title=None,showlegend=False)
-            fig4.show()
+            with expost_output1:
+
+                fig3=px.line(cumulative_performance_ex_post,title='Cumulative Return')
+                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio'])
+                fig3.update_layout(xaxis_title=None, yaxis_title=None)
+                fig3.show()
+                
+                fig4 = px.bar(selected_daily_pnl, color=selected_daily_pnl['color'],
+                     color_discrete_map={'green': 'green', 'red': 'red'},
+                     title="Daily P&L")
+                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig4.update_layout(xaxis_title=None, yaxis_title=None,showlegend=False)
+                fig4.show()
+                
+            ui=widgets.HBox([expost_output,expost_output1])
             
+            display(ui)
             display(display_scrollable_df(pnl_contribution))
-            
             display(push_button)
             display(git_output)
     
@@ -1679,12 +1739,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         global daily_pnl,pnl_history,historical_ptf,performance_ex_post
  
         loading_bar.value=0
+
         with ex_post_perf:
             ex_post_perf.clear_output()
-
+            
             display(loading_bar_pnl)
             display(loading_bar)
         if book_cost.empty:
+
             get_pnl_on_click(None)  
           
         quantities_tickers=list(quantities_holding.columns)
