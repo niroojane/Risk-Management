@@ -21,17 +21,17 @@ Feuille de route pour le développement du backend FastAPI.
 
 ## ✅ Phase 3 : Investment Universe API
 
-- [x] Pydantic models restructurés (`models/investment_universe/positions/`)
-- [x] Schemas API positions (`schemas/investment_universe/positions/`)
-- [x] DTOs externes Binance (klines, account snapshots)
-- [x] PositionService avec parallélisation (`services/binance/position_service.py`)
-- [x] PositionsController (`controllers/investment_universe/positions_controller.py`)
-- [x] POST `/api/v1/investment-universe/market-cap`
-- [x] Tests unitaires PositionService (5/5)
-- [x] GET `/api/v1/investment-universe/prices`
-    - [x] Paralleliser la requete prices (3 months)
-- [ ] GET `/api/v1/investment-universe/returns`
-- [ ] GET `/api/v1/investment-universe/asset-metrics`
+**Refactorisation architecture :**
+- [x] Clean architecture (models aplatis, services séparés)
+- [x] Models : `market_cap`, `market_data`, `positions`, `quantities`
+- [x] Services : `MarketCapService`, `MarketDataService`, `PositionService`, `QuantityService`
+- [x] Controllers : `MarketCapController`, `MarketDataController`, `PositionsController`
+
+**Endpoints :**
+- [x] POST `/api/v1/investment-universe/market-cap` - Top N cryptos
+- [x] POST `/api/v1/investment-universe/market-data` - Prices + returns (parallélisé 3 mois)
+- [x] POST `/api/v1/investment-universe/positions` - Positions historiques
+- [ ] Ajouter asset risk metrics à market-data (volatility, sharpe, drawdown)
 
 ## ⏳ Phase 4 : Strategy & Portfolio Optimization
 
@@ -88,4 +88,4 @@ Feuille de route pour le développement du backend FastAPI.
 
 ---
 
-**Status actuel** : Phase 1 ✅ | Phase 2 ✅ | Phase 3 en cours ⏳
+**Status actuel** : Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ (asset risk à finaliser) | Phase 4 à démarrer

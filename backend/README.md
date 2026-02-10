@@ -83,6 +83,11 @@ curl -X POST http://localhost:8000/api/v1/investment-universe/market-cap \
   -H "Content-Type: application/json" \
   -d '{"quote":"USDT","top_n":10}'
 
+# Market data (prices + returns)
+curl -X POST http://localhost:8000/api/v1/investment-universe/market-data \
+  -H "Content-Type: application/json" \
+  -d '{"symbols":["BTCUSDT","ETHUSDT"],"start_date":"2024-01-01T00:00:00Z","end_date":"2024-01-31T00:00:00Z","use_cache":true}'
+
 # Positions historiques
 curl -X POST http://localhost:8000/api/v1/investment-universe/positions \
   -H "Content-Type: application/json" \
@@ -101,6 +106,7 @@ open http://localhost:8000/docs
 | GET | `/docs` | Documentation Swagger |
 | GET | `/redoc` | Documentation ReDoc |
 | POST | `/api/v1/investment-universe/market-cap` | Top N cryptos par market cap |
+| POST | `/api/v1/investment-universe/market-data` | Market data snapshot (prices + returns analytics) |
 | POST | `/api/v1/investment-universe/positions` | Positions historiques (quantities × prices) |
 
 > Autres endpoints de l'Investment Universe API en développement. Voir [ROADMAP.md](./ROADMAP.md)
@@ -115,18 +121,20 @@ backend/
 │   ├── api/v1/                 # REST routes
 │   ├── controllers/            # Business logic
 │   ├── services/
-│   │   ├── binance/           # BinanceClient, UniverseDataService, PositionService
-│   │   └── infrastructure/    # Cache
+│   │   ├── binance/           # MarketCapService, MarketDataService, PositionService, QuantityService
+│   │   └── infrastructure/    # CacheService, RateLimiter
 │   ├── models/
 │   │   └── investment_universe/
-│   │       └── positions/     # Prices, Positions, Quantities entities
+│   │       ├── market_cap_models.py      # MarketCapItem
+│   │       ├── market_data_models.py     # MarketDataSnapshot, AssetReturnMetrics
+│   │       ├── positions_models.py       # Position
+│   │       └── quantities_models.py      # Quantity
 │   ├── schemas/
-│   │   ├── investment_universe/
-│   │   │   └── positions/     # Prices, Positions, Quantities schemas
-│   │   └── external/binance/  # DTOs (KlineDTO, AccountSnapshotDTO)
-│   └── mappers/                # Data transformers
-├── logs/                       # Logs
-├── tests/                      # Tests (17 tests)
+│   │   ├── investment_universe/          # API contracts (Request/Response)
+│   │   └── external/binance/             # DTOs (KlineDTO, AccountSnapshotDTO)
+│   └── mappers/                          # Data transformers
+├── logs/                                 # Logs
+├── tests/                                # Tests (17 tests)
 └── requirements.txt
 ```
 
