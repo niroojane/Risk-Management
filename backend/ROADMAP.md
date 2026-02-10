@@ -29,7 +29,7 @@ Feuille de route pour le développement du backend FastAPI.
 - [x] POST `/api/v1/investment-universe/market-cap`
 - [x] Tests unitaires PositionService (5/5)
 - [x] GET `/api/v1/investment-universe/prices`
-    - [ ] Paralleliser la requete prices (3 months)
+    - [x] Paralleliser la requete prices (3 months)
 - [ ] GET `/api/v1/investment-universe/returns`
 - [ ] GET `/api/v1/investment-universe/asset-metrics`
 

@@ -8,7 +8,6 @@ import pandas as pd
 from .binance_client import BinanceClient
 from .transformers import KlineTransformer
 from ...core.config import CACHE_PRICES_TTL
-from ...models.investment_universe import AssetPrices, PriceDataPoint
 from ...common import split_date_range
 
 logger = logging.getLogger(__name__)
