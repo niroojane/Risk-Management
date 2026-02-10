@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 
 from ...services.binance import MarketDataService
-from ...schemas.investment_universe import PricesRequest, PricesResponse
+from ...schemas.investment_universe import MarketDataRequest, MarketDataResponse
 
 
 class MarketDataController:
@@ -11,7 +11,7 @@ class MarketDataController:
     def __init__(self, market_data_service: MarketDataService):
         self._service = market_data_service
 
-    async def get_market_data(self, request: PricesRequest) -> PricesResponse:
+    async def get_market_data(self, request: MarketDataRequest) -> MarketDataResponse:
         """Get market data snapshot (prices + returns) for symbols within date range"""
         # Service returns MarketDataSnapshot
         snapshot = await self._service.get_market_data(
@@ -21,7 +21,7 @@ class MarketDataController:
             use_cache=request.use_cache,
         )
 
-        return PricesResponse(
+        return MarketDataResponse(
             success=True,
             data=snapshot,
             message=f"Retrieved {snapshot.count} price data points for {len(snapshot.symbols)} symbols",

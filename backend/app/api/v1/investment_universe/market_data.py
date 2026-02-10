@@ -1,7 +1,7 @@
 """Investment Universe - Market Data API endpoints"""
 from fastapi import APIRouter
 
-from ....schemas.investment_universe import PricesRequest, PricesResponse
+from ....schemas.investment_universe import MarketDataRequest, MarketDataResponse
 from ....controllers.investment_universe import MarketDataController
 from ....core.dependencies import MarketDataServiceDep
 from ....core.exceptions import ServiceUnavailableError
@@ -9,10 +9,10 @@ from ....core.exceptions import ServiceUnavailableError
 router = APIRouter()
 
 
-@router.post("/market-data", response_model=PricesResponse)
+@router.post("/market-data", response_model=MarketDataResponse)
 async def get_market_data(
-    request: PricesRequest, market_data_service: MarketDataServiceDep
-) -> PricesResponse:
+    request: MarketDataRequest, market_data_service: MarketDataServiceDep
+) -> MarketDataResponse:
     """Get market data snapshot (prices + returns) for multiple symbols"""
     if market_data_service is None:
         raise ServiceUnavailableError(

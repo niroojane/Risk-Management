@@ -17,10 +17,10 @@ FastAPI backend for cryptocurrency portfolio management system.
 ```
 services/binance/
 ├── binance_client.py        # Client async de base (rate limiting, cache)
-├── market_data_service.py   # Market cap, données publiques
-├── price_service.py         # Klines/prix historiques
-├── quantity_service.py      # Snapshots de compte
-├── position_service.py      # Orchestration des calculs de positions
+├── market_cap_service.py    # Market cap data
+├── market_data_service.py   # Prices + returns analytics
+├── quantity_service.py      # Account balance snapshots
+├── position_service.py      # Position calculations (quantities × prices)
 └── transformers/
     ├── kline_transformer.py    # Transformations pandas klines
     └── balance_transformer.py  # Transformations balances
@@ -67,10 +67,10 @@ pytest tests/ -v
 
 Services disponibles dans `app/core/dependencies.py`:
 - `BinanceServiceDep`: Client Binance de base
-- `MarketDataServiceDep`: Market cap, données publiques
-- `PriceServiceDep`: Prix/klines historiques
-- `QuantityServiceDep`: Quantités/balances de compte
-- `PositionServiceDep`: Orchestration des calculs de positions
+- `MarketCapServiceDep`: Market cap data
+- `MarketDataServiceDep`: Prices + returns analytics
+- `QuantityServiceDep`: Account balance snapshots
+- `PositionServiceDep`: Position calculations
 - `CacheServiceDep`: Service de cache
 
 Singletons créés via `@lru_cache()`.
@@ -91,5 +91,6 @@ Singletons créés via `@lru_cache()`.
 
 ## Phase actuelle
 
-Phase 3: Investment Universe API (market-cap, prices, returns)
+Phase 3: Investment Universe API (market-cap, market-data, positions) ✅
+Phase 4: Strategy & Portfolio Optimization - À démarrer
 Voir [ROADMAP.md](./ROADMAP.md)

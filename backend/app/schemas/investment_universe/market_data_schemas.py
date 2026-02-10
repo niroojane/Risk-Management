@@ -1,4 +1,4 @@
-"""Price API schemas - Request and response schemas for prices endpoint"""
+"""Market Data API schemas - Request and response schemas for market data endpoint"""
 
 from datetime import datetime
 from typing import List, Optional
@@ -8,8 +8,8 @@ from app.common import APIResponse
 from app.models.investment_universe import MarketDataSnapshot
 
 
-class PricesRequest(BaseModel):
-    """Request schema for fetching historical prices"""
+class MarketDataRequest(BaseModel):
+    """Request schema for fetching market data (prices + returns)"""
     symbols: List[str] = Field(..., min_length=1, description="List of trading symbols")
     start_date: Optional[datetime] = Field(None, description="Start date (default: 30 days ago)")
     end_date: Optional[datetime] = Field(None, description="End date (default: today)")
@@ -27,8 +27,8 @@ class PricesRequest(BaseModel):
     }
 
 
-class PricesResponse(APIResponse):
-    """Response schema for prices endpoint with market data snapshot"""
+class MarketDataResponse(APIResponse):
+    """Response schema for market data endpoint with prices and returns analytics"""
     data: MarketDataSnapshot
 
     model_config = {
