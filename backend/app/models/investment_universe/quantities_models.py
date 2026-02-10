@@ -1,4 +1,4 @@
-"""Quantity entities Domain objects for quantity data"""
+"""Quantity entities - Domain objects for quantity data"""
 from datetime import datetime
 from pydantic import BaseModel, Field
 

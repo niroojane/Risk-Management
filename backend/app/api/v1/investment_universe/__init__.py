@@ -2,15 +2,15 @@
 from fastapi import APIRouter
 
 from .market_cap import router as market_cap_router
+from .market_data import router as market_data_router
 from .positions import router as positions_router
-from .prices import router as prices_router
 
 # Create main investment universe router
 router = APIRouter(prefix="/investment-universe", tags=["Investment Universe"])
 
 # Include all sub-routers (remove their individual prefix since parent has it)
 router.include_router(market_cap_router, prefix="", tags=[])
+router.include_router(market_data_router, prefix="", tags=[])
 router.include_router(positions_router, prefix="", tags=[])
-router.include_router(prices_router, prefix="", tags=[])
 
 __all__ = ["router"]

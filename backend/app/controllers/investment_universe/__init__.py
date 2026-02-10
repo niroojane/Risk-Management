@@ -1,6 +1,6 @@
 """Investment Universe Controllers"""
 from .market_cap_controller import MarketCapController
+from .market_data_controller import MarketDataController
 from .positions_controller import PositionsController
-from .prices_controller import PricesController
 
-__all__ = ["MarketCapController", "PositionsController", "PricesController"]
+__all__ = ["MarketCapController", "MarketDataController", "PositionsController"]

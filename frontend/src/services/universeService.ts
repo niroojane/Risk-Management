@@ -23,12 +23,12 @@ export const universeService = {
     return response.data;
   },
 
-  fetchPrices: async (
+  fetchMarketData: async (
     symbols: string[],
     startDate: string,
     endDate: string
   ): Promise<PricesResponse> => {
-    const response = await apiClient.post('/api/v1/investment-universe/prices', {
+    const response = await apiClient.post('/api/v1/investment-universe/market-data', {
       symbols,
       start_date: startDate,
       end_date: endDate,

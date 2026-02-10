@@ -1,9 +1,9 @@
-"""Position calculations (orchestrates price and quantity services)"""
+"""Position calculations (orchestrates market data and quantity services)"""
 import logging
 from typing import List, Optional
 from datetime import datetime
 
-from .price_service import PriceService
+from .market_data_service import MarketDataService
 from .quantity_service import QuantityService
 from .transformers import KlineTransformer, BalanceTransformer
 from ...models.investment_universe import Position
@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class PositionService:
-    """Orchestrates position calculations using price and quantity data"""
+    """Orchestrates position calculations using market data and quantity data"""
 
-    def __init__(self, price_service: PriceService, quantity_service: QuantityService):
-        self._price_service = price_service
+    def __init__(self, market_data_service: MarketDataService, quantity_service: QuantityService):
+        self._market_data_service = market_data_service
         self._quantity_service = quantity_service
 
     async def get_historical_positions(
@@ -29,7 +29,7 @@ class PositionService:
         logger.info(f"Calculating historical positions for {len(symbols)} symbols")
 
         # Fetch prices and quantities in parallel
-        prices_data = await self._price_service.get_historical_prices(
+        prices_data = await self._market_data_service.get_historical_prices(
             symbols=symbols,
             start_date=start_date,
             end_date=end_date,

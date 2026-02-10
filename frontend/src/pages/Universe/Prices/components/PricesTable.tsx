@@ -33,7 +33,6 @@ export const PricesTable = ({ data, symbols }: PricesTableProps) => {
         currentPage={currentPage}
         onPageChange={(page) => table.setPageIndex(page - 1)}
         showItemRange={false}
-        showNavigationArrows={false}
       />
     </div>
   );

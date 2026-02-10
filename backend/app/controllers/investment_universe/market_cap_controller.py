@@ -1,15 +1,15 @@
 """Market Cap Controller - Business logic for market capitalization operations"""
 from datetime import datetime, timezone
 
-from ...services.binance import MarketDataService
+from ...services.binance import MarketCapService
 from ...schemas.investment_universe import MarketCapRequest, MarketCapResponse
 
 
 class MarketCapController:
     """Controller orchestrating market cap operations"""
 
-    def __init__(self, market_data_service: MarketDataService):
-        self._service = market_data_service
+    def __init__(self, market_cap_service: MarketCapService):
+        self._service = market_cap_service
 
     async def get_market_cap(self, request: MarketCapRequest) -> MarketCapResponse:
         """Get all cryptocurrencies by market cap (filtering handled by frontend)"""

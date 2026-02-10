@@ -1,10 +1,10 @@
-"""Positions API schemas Request and response schemas for positions endpoint"""
+"""Positions API schemas - Request and response schemas for positions endpoint"""
 from datetime import datetime
 from typing import List
 from pydantic import BaseModel, Field, field_validator
 
 from app.common import APIResponse
-from ....models.investment_universe import Position
+from ...models.investment_universe import Position
 
 
 class PositionsRequest(BaseModel):

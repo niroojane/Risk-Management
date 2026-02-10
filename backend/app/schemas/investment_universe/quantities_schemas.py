@@ -1,10 +1,10 @@
-"""Quantities API schemas Request and response schemas for quantities endpoint"""
+"""Quantities API schemas - Request and response schemas for quantities endpoint"""
 from datetime import datetime
 from typing import List
 from pydantic import BaseModel, Field, field_validator
 
 from app.common import APIResponse
-from ....models.investment_universe import Quantity
+from ...models.investment_universe import Quantity
 
 
 class QuantitiesRequest(BaseModel):

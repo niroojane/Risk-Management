@@ -14,8 +14,8 @@ from .config import BINANCE_API_KEY, BINANCE_API_SECRET, CACHE_DEFAULT_TTL
 if TYPE_CHECKING:
     from ..services.binance import (
         BinanceClient,
+        MarketCapService,
         MarketDataService,
-        PriceService,
         QuantityService,
         PositionService,
     )
@@ -53,6 +53,19 @@ def get_binance_service():
 
 
 @lru_cache()
+def get_market_cap_service():
+    """Get singleton MarketCapService instance"""
+    from ..services.binance import MarketCapService
+
+    client = get_binance_service()
+    if client is None:
+        return None
+
+    logger.info("Creating MarketCapService instance")
+    return MarketCapService(client)
+
+
+@lru_cache()
 def get_market_data_service():
     """Get singleton MarketDataService instance"""
     from ..services.binance import MarketDataService
@@ -63,19 +76,6 @@ def get_market_data_service():
 
     logger.info("Creating MarketDataService instance")
     return MarketDataService(client)
-
-
-@lru_cache()
-def get_price_service():
-    """Get singleton PriceService instance"""
-    from ..services.binance import PriceService
-
-    client = get_binance_service()
-    if client is None:
-        return None
-
-    logger.info("Creating PriceService instance")
-    return PriceService(client)
 
 
 @lru_cache()
@@ -96,20 +96,20 @@ def get_position_service():
     """Get singleton PositionService instance"""
     from ..services.binance import PositionService
 
-    price_service = get_price_service()
+    market_data_service = get_market_data_service()
     quantity_service = get_quantity_service()
 
-    if price_service is None or quantity_service is None:
+    if market_data_service is None or quantity_service is None:
         return None
 
     logger.info("Creating PositionService instance")
-    return PositionService(price_service, quantity_service)
+    return PositionService(market_data_service, quantity_service)
 
 
 # Type aliases for dependency injection
 BinanceServiceDep = Annotated[Optional["BinanceClient"], Depends(get_binance_service)]
+MarketCapServiceDep = Annotated[Optional["MarketCapService"], Depends(get_market_cap_service)]
 MarketDataServiceDep = Annotated[Optional["MarketDataService"], Depends(get_market_data_service)]
-PriceServiceDep = Annotated[Optional["PriceService"], Depends(get_price_service)]
 QuantityServiceDep = Annotated[Optional["QuantityService"], Depends(get_quantity_service)]
 PositionServiceDep = Annotated[Optional["PositionService"], Depends(get_position_service)]
 CacheServiceDep = Annotated["CacheService", Depends(get_cache_service)]

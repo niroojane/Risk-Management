@@ -31,7 +31,7 @@ const Prices = () => {
       const startDate = format(dateRange.from, 'yyyy-MM-dd');
       const endDate = format(dateRange.to, 'yyyy-MM-dd');
 
-      return universeService.fetchPrices(symbols, startDate, endDate);
+      return universeService.fetchMarketData(symbols, startDate, endDate);
     },
     enabled: false,
   });

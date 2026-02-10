@@ -1,4 +1,4 @@
-"""Position entities Domain objects for position data"""
+"""Position entities - Domain objects for position data"""
 from datetime import datetime
 from pydantic import BaseModel, Field
 
