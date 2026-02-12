@@ -199,7 +199,58 @@ def check_connection(url_positions,url_quantities,url_trades):
 
     st.session_state.quantities_holding=quantities_holding
     st.session_state.positions=positions
-        
+    
+def process_index(index,allocation,dataframe,iterations,stress_factor,var_centile,num_scenarios):
+    
+    horizon = 1 / 250
+    spot = dataframe.iloc[-1]
+    theta = 2
+    
+    range_returns=dataframe.pct_change()
+
+    distrib_functions = {
+    'multivariate_distribution': (iterations, stress_factor),
+    'gaussian_copula': (iterations, stress_factor),
+    't_copula': (iterations, stress_factor),
+    'gumbel_copula': (iterations, theta),
+    'monte_carlo': (spot, horizon, iterations, stress_factor)
+    }
+    
+    portfolio = RiskAnalysis(range_returns)
+
+    vs, cvs = {}, {}
+    for func_name, args in distrib_functions.items():
+        func = getattr(portfolio, func_name)
+        scenarios = {}
+
+        for i in range(num_scenarios):
+            if func_name == 'monte_carlo':
+                distrib = pd.DataFrame(func(*args)[1], columns=portfolio.returns.columns)
+            else:
+                distrib = pd.DataFrame(func(*args), columns=portfolio.returns.columns)
+
+            distrib = distrib * allocation.loc[index]
+            distrib = distrib[distrib.columns[allocation.loc[index] > 0]]
+            distrib['Portfolio'] = distrib.sum(axis=1)
+
+            results = distrib.sort_values(by='Portfolio').iloc[int(distrib.shape[0] * var_centile)]
+            scenarios[i] = results
+
+        scenario = pd.DataFrame(scenarios).T
+        mean_scenario = scenario.mean()
+        index_cvar = scenario['Portfolio'] < mean_scenario['Portfolio']
+        cvar = scenario.loc[index_cvar].mean()
+
+        vs[func_name] = mean_scenario
+        cvs[func_name] = cvar
+
+    fund_result = {
+        'Value At Risk': mean_scenario.loc['Portfolio'],
+        'CVaR': cvar.loc['Portfolio']
+    }
+
+    return index, vs, cvs, fund_result
+    
 main_tabs=st.tabs(["Investment Universe","Strategy","Current Portfolio","Risk Analysis","Market Risk"])
     
 Binance = None
@@ -353,7 +404,7 @@ with main_tabs[0]:
         st.dataframe(asset_returns,width='stretch')
         st.dataframe(asset_risk,width='stretch')
         
-        fig = px.line(dataframe.loc[mask], title='Price', width=800, height=400)
+        fig = px.line(dataframe.loc[mask], title='Price', width=800, height=400, render_mode = 'svg')
         fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
         fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
         fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
@@ -362,7 +413,7 @@ with main_tabs[0]:
         cumulative_returns.iloc[0]=0
         cumulative_returns=(1+cumulative_returns).cumprod()*100
         
-        fig2 = px.line(cumulative_returns, title='Cumulative Performance', width=800, height=400)
+        fig2 = px.line(cumulative_returns, title='Cumulative Performance', width=800, height=400, render_mode = 'svg')
         fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
         fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
         fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
@@ -530,111 +581,119 @@ with main_tabs[1]:
             
             if "run_optimization" not in st.session_state:
                 st.session_state.run_optimization = False
+
             if "results" not in st.session_state:
                 st.session_state.results = None
-            
-        
+                
             if st.button("Run Optimization"):
+                res_status=st.empty()
+
                 st.session_state.run_optimization = True
                 st.session_state.results = None  
-            
+                
+
             if st.session_state.run_optimization and st.session_state.results is None:
-            
-                freq_map = {
-                    'Monthly': pd.offsets.BMonthEnd(),
-                    'Quarterly': pd.offsets.BQuarterEnd(),
-                    'Yearly': pd.offsets.BYearEnd()
-                }
-                offset = freq_map.get(selected_frequency, pd.offsets.BMonthEnd())
-            
-                range_prices.index = pd.to_datetime(range_prices.index)
-                range_returns.index = pd.to_datetime(range_returns.index)
-                returns_to_use.index = pd.to_datetime(returns_to_use.index)
-            
-                candidate_anchors = pd.DatetimeIndex(sorted(set(range_prices.index + offset)))
-                if candidate_anchors.empty:
-                    candidate_anchors = pd.DatetimeIndex([range_returns.index[-1]])
-            
-                idx = range_returns.index.get_indexer(candidate_anchors, method='nearest')
-                idx = idx[idx >= 0]
-            
-                selected_dates = sorted(list(set(range_returns.index[idx].tolist() + [returns_to_use.index[-1]])))
-                dates_end = selected_dates
-            
-                if len(dates_end) < 2:
-                    st.warning("⚠️ Not enough anchor dates for rolling optimization.")
-            
-                results_dict = {}
-                for i in range(len(dates_end) - 1):
-                    dataset = range_returns.loc[dates_end[i]:dates_end[i+1]]
-                    risk = RiskAnalysis(dataset)
-                    date = dataset.index[-1]
-            
-                    optimal = risk.optimize(
-                        objective=dico_strategies[selected_strategy],
-                        constraints=constraints
-                    )
-                    results_dict[date] = np.round(optimal, 6)
-            
-                rolling_optimization = pd.DataFrame(results_dict, index=dataframe.columns).T
-                rolling_optimization.loc[dates_end[0]] = 1 / len(dataframe.columns)
-                rolling_optimization = rolling_optimization.sort_index()
-        
-                model = pd.DataFrame(rolling_optimization.iloc[-2])
-                model.columns = ["Model"]
-                alloc_df = st.session_state.allocation_dataframe.copy()
-            
-                if "Model" in alloc_df.index:
-                    alloc_df.loc["Model"] = model.T
-                else:
-                    alloc_df = pd.concat([alloc_df, model.T], axis=0)
-            
-                quantities = rebalanced_dynamic_quantities(dataframe, rolling_optimization)
-                performance_fund = pd.DataFrame({'Fund': (quantities * dataframe).sum(axis=1)})
-            
-                if 'BTCUSDT' in range_prices.columns:
-                    performance_fund['Bitcoin'] = range_prices['BTCUSDT']
+
+                with st.spinner("Computing Results...",show_time=True):
+
+                    freq_map = {
+                        'Monthly': pd.offsets.BMonthEnd(),
+                        'Quarterly': pd.offsets.BQuarterEnd(),
+                        'Yearly': pd.offsets.BYearEnd()
+                    }
+                    offset = freq_map.get(selected_frequency, pd.offsets.BMonthEnd())
                 
-                performance_pct = performance_fund.pct_change(fill_method=None)
+                    range_prices.index = pd.to_datetime(range_prices.index)
+                    range_returns.index = pd.to_datetime(range_returns.index)
+                    returns_to_use.index = pd.to_datetime(returns_to_use.index)
                 
-                cumulative = (1 + performance_pct).cumprod() * 100
-                drawdown = (cumulative - cumulative.cummax()) / cumulative.cummax()
-            
-                date_drawdown = drawdown.idxmin().dt.date
-                max_drawdown = drawdown.min()
-            
-                metrics = {}
-                metrics['Tracking Error'] = ((performance_pct['Fund'] - performance_pct['Bitcoin']).std() * np.sqrt(252)).round(4)
-                metrics['Fund Vol'] = (performance_pct['Fund'].std() * np.sqrt(252)).round(4)
-                metrics['Bitcoin Vol'] = (performance_pct['Bitcoin'].std() * np.sqrt(252)).round(4)
-                metrics['Fund Return'] = (performance_fund['Fund'].iloc[-2] / performance_fund['Fund'].iloc[0]).round(4)
-                metrics['Bitcoin Return'] = (performance_fund['Bitcoin'].iloc[-2] / performance_fund['Bitcoin'].iloc[0]).round(4)
-                metrics['Sharpe Ratio'] = ((1 + metrics['Fund Return']) ** (1 / len(set(returns_to_use.index.year))) / metrics['Fund Vol']).round(4)
-                metrics['Bitcoin Sharpe Ratio'] = ((1 + metrics['Bitcoin Return']) ** (1 / len(set(returns_to_use.index.year))) / metrics['Bitcoin Vol']).round(4)
-                metrics['Fund Drawdown'] = max_drawdown['Fund'].round(4)
-                metrics['Bitcoin Drawdown'] = max_drawdown['Bitcoin'].round(4)
-                metrics['Fund Date Drawdown'] = date_drawdown['Fund']
-                metrics['Bitcoin Date Drawdown'] = date_drawdown['Bitcoin']
-            
-                indicators = pd.DataFrame(metrics.values(), index=metrics.keys(), columns=['Indicators'])
+                    candidate_anchors = pd.DatetimeIndex(sorted(set(range_prices.index + offset)))
+                    if candidate_anchors.empty:
+                        candidate_anchors = pd.DatetimeIndex([range_returns.index[-1]])
                 
-                cumulative_performance = performance_pct.loc[mask]
-                cumulative_performance.iloc[0] = 0
-                cumulative_results = (1 + cumulative_performance).cumprod() * 100
-        
-                portfolio_returns = rebalanced_time_series(range_prices, alloc_df, frequency=selected_frequency)
-                cumulative_results = pd.concat([cumulative_results, portfolio_returns], axis=1)
-                drawdown = (cumulative_results - cumulative_results.cummax()) / cumulative_results.cummax()
-                rolling_vol_ptf = cumulative_results.pct_change().rolling(window_vol).std() * np.sqrt(260)
-        
-                st.session_state.results = {
-                    "rolling_optimization": rolling_optimization,
-                    "alloc_df": alloc_df,
-                    "quantities": quantities,
-                    "performance_pct": performance_pct,
-                    "cumulative_results":cumulative_results,
-                    "indicators":indicators}
+                    idx = range_returns.index.get_indexer(candidate_anchors, method='nearest')
+                    idx = idx[idx >= 0]
                 
+                    selected_dates = sorted(list(set(range_returns.index[idx].tolist() + [returns_to_use.index[-1]])))
+                    dates_end = selected_dates
+                
+                    if len(dates_end) < 2:
+                        st.warning("⚠️ Not enough anchor dates for rolling optimization.")
+                
+                    results_dict = {}
+                    for i in range(len(dates_end) - 1):
+                        dataset = range_returns.loc[dates_end[i]:dates_end[i+1]]
+                        risk = RiskAnalysis(dataset)
+                        date = dataset.index[-1]
+                
+                        optimal = risk.optimize(
+                            objective=dico_strategies[selected_strategy],
+                            constraints=constraints
+                        )
+                        results_dict[date] = np.round(optimal, 6)
+                
+                    rolling_optimization = pd.DataFrame(results_dict, index=dataframe.columns).T
+                    rolling_optimization.loc[dates_end[0]] = 1 / len(dataframe.columns)
+                    rolling_optimization = rolling_optimization.sort_index()
+            
+                    model = pd.DataFrame(rolling_optimization.iloc[-2])
+                    model.columns = ["Model"]
+                    alloc_df = st.session_state.allocation_dataframe.copy()
+                
+                    if "Model" in alloc_df.index:
+                        alloc_df.loc["Model"] = model.T
+                    else:
+                        alloc_df = pd.concat([alloc_df, model.T], axis=0)
+                
+                    quantities = rebalanced_dynamic_quantities(dataframe, rolling_optimization)
+                    performance_fund = pd.DataFrame({'Fund': (quantities * dataframe).sum(axis=1)})
+                
+                    if 'BTCUSDT' in range_prices.columns:
+                        performance_fund['Bitcoin'] = range_prices['BTCUSDT']
+                    
+                    performance_pct = performance_fund.pct_change(fill_method=None)
+                    
+                    cumulative = (1 + performance_pct).cumprod() * 100
+                    drawdown = (cumulative - cumulative.cummax()) / cumulative.cummax()
+                
+                    date_drawdown = drawdown.idxmin().dt.date
+                    max_drawdown = drawdown.min()
+                
+                    metrics = {}
+                    metrics['Tracking Error'] = ((performance_pct['Fund'] - performance_pct['Bitcoin']).std() * np.sqrt(252)).round(4)
+                    metrics['Fund Vol'] = (performance_pct['Fund'].std() * np.sqrt(252)).round(4)
+                    metrics['Bitcoin Vol'] = (performance_pct['Bitcoin'].std() * np.sqrt(252)).round(4)
+                    metrics['Fund Return'] = (performance_fund['Fund'].iloc[-2] / performance_fund['Fund'].iloc[0]).round(4)
+                    metrics['Bitcoin Return'] = (performance_fund['Bitcoin'].iloc[-2] / performance_fund['Bitcoin'].iloc[0]).round(4)
+                    metrics['Sharpe Ratio'] = ((1 + metrics['Fund Return']) ** (1 / len(set(returns_to_use.index.year))) / metrics['Fund Vol']).round(4)
+                    metrics['Bitcoin Sharpe Ratio'] = ((1 + metrics['Bitcoin Return']) ** (1 / len(set(returns_to_use.index.year))) / metrics['Bitcoin Vol']).round(4)
+                    metrics['Fund Drawdown'] = max_drawdown['Fund'].round(4)
+                    metrics['Bitcoin Drawdown'] = max_drawdown['Bitcoin'].round(4)
+                    metrics['Fund Date Drawdown'] = date_drawdown['Fund']
+                    metrics['Bitcoin Date Drawdown'] = date_drawdown['Bitcoin']
+                
+                    indicators = pd.DataFrame(metrics.values(), index=metrics.keys(), columns=['Indicators'])
+                    
+                    cumulative_performance = performance_pct.loc[mask]
+                    cumulative_performance.iloc[0] = 0
+                    cumulative_results = (1 + cumulative_performance).cumprod() * 100
+            
+                    portfolio_returns = rebalanced_time_series(range_prices, alloc_df, frequency=selected_frequency)
+                    cumulative_results = pd.concat([cumulative_results, portfolio_returns], axis=1)
+                    drawdown = (cumulative_results - cumulative_results.cummax()) / cumulative_results.cummax()
+                    rolling_vol_ptf = cumulative_results.pct_change().rolling(window_vol).std() * np.sqrt(260)
+            
+                    st.session_state.results = {
+                        "rolling_optimization": rolling_optimization,
+                        "alloc_df": alloc_df,
+                        "quantities": quantities,
+                        "performance_pct": performance_pct,
+                        "cumulative_results":cumulative_results,
+                        "indicators":indicators}
+                    
+                    res_status.success('Done!')
+
+
             if st.session_state.results is not None:
                 selmin, selmax = st.session_state['strategy_tab']
                 selmind = selmin.strftime('%Y-%m-%d') 
@@ -652,18 +711,18 @@ with main_tabs[1]:
                 
                 frontier_indicators, fig4 = get_frontier(range_returns, res['alloc_df'])
         
-                fig = px.line(cumulative_results, title='Performance', width=800, height=400)
+                fig = px.line(cumulative_results, title='Performance', width=800, height=400, render_mode = 'svg')
                 fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                 fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
                 fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
             
-                fig2 = px.line(drawdown, title='Drawdown', width=800, height=400)
+                fig2 = px.line(drawdown, title='Drawdown', width=800, height=400, render_mode = 'svg')
                 fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                 fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
                 fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
         
             
-                fig3 = px.line(rolling_vol_ptf, title="Portfolio Rolling Volatility").update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
+                fig3 = px.line(rolling_vol_ptf, title="Portfolio Rolling Volatility", render_mode = 'svg').update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
                 fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400) 
                 fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
                 fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
@@ -890,27 +949,26 @@ with main_tabs[3]:
             num_scenarios=st.number_input("Scenarios:", min_value=1, value=100, step=1)
             var_centile=st.number_input("Centile:", min_value=0.00, value=0.05, step=0.01)
     
-            var_button=st.button("Get Value At Risk")
-        
+            var_button=st.button("Run Simulation")
+            var_status=st.empty()
             selected_fund_var=st.selectbox("Fund:", list(allocation_dataframe.index),index=0,key='selected_fund_var')
     
+            # horizon = 1 / 250
+            # spot = dataframe.iloc[-1]
+            # theta = 2
         
-            horizon = 1 / 250
-            spot = dataframe.iloc[-1]
-            theta = 2
-        
-            distrib_functions = {
-                'multivariate_distribution': (iterations, stress_factor),
-                'gaussian_copula': (iterations, stress_factor),
-                't_copula': (iterations, stress_factor),
-                'gumbel_copula': (iterations, theta),
-                'monte_carlo': (spot, horizon, iterations, stress_factor)
-            }
+            # distrib_functions = {
+            #     'multivariate_distribution': (iterations, stress_factor),
+            #     'gaussian_copula': (iterations, stress_factor),
+            #     't_copula': (iterations, stress_factor),
+            #     'gumbel_copula': (iterations, theta),
+            #     'monte_carlo': (spot, horizon, iterations, stress_factor)
+            # }
     
             
             var_scenarios, cvar_scenarios, fund_results = {}, {}, {}
             
-            portfolio = RiskAnalysis(range_returns)
+            # portfolio = RiskAnalysis(range_returns)
             
             if "fund_results" not in st.session_state:
                 st.session_state.fund_results = None
@@ -918,44 +976,33 @@ with main_tabs[3]:
                 st.session_state.cvar_scenarios=None
                 
             if var_button:
-            
-                st.session_state.fund_results=None
-                st.session_state.var_scenarios=None
-                st.session_state.cvar_scenarios=None
+                with st.spinner("Computing VaR...",show_time=True):
+
                 
-                for index in allocation_dataframe.index:
-                    var_scenarios[index], cvar_scenarios[index] = {}, {}
-                    for func_name, args in distrib_functions.items():
-                        func = getattr(portfolio, func_name)
-                        scenarios = {}
-                
-                        for i in range(num_scenarios):
-                            if func_name == 'monte_carlo':
-                                distrib = pd.DataFrame(func(*args)[1], columns=range_returns.columns)
-                            else:
-                                distrib = pd.DataFrame(func(*args), columns=range_returns.columns)
+                    st.session_state.fund_results=None
+                    st.session_state.var_scenarios=None
+                    st.session_state.cvar_scenarios=None
+    
+                    tasks=[(idx,allocation_dataframe,range_prices,iterations,stress_factor,var_centile,num_scenarios) for idx in allocation_dataframe.index]
                     
-                            distrib = distrib * allocation_dataframe.loc[index]
-                            distrib = distrib[distrib.columns[allocation_dataframe.loc[index] > 0]]
-                            distrib['Portfolio'] = distrib.sum(axis=1)
+                    var_scenarios={}
+                    cvar_scenarios={}
+                    fund_results={}
                     
-                            results = distrib.sort_values(by='Portfolio').iloc[int(distrib.shape[0] * var_centile)]
-                            scenarios[i] = results
-                
-                        scenario = pd.DataFrame(scenarios).T
-                        mean_scenario = scenario.mean()
-                        index_cvar = scenario['Portfolio'] < mean_scenario['Portfolio']
-                        cvar = scenario.loc[index_cvar].mean()
+                    with ThreadPoolExecutor() as executor:
+                        futures = {executor.submit(process_index,idx,allocation_dataframe,range_prices,iterations,stress_factor,var_centile,num_scenarios): (idx,allocation_dataframe,range_prices,iterations,stress_factor,var_centile,num_scenarios)
+                                   for idx,allocation_dataframe,range_prices,iterations,stress_factor,var_centile,num_scenarios in tasks}
+                        for future in as_completed(futures):
+                            idx, vs, cvs, fund_result = future.result()
+                            var_scenarios[idx] = vs
+                            cvar_scenarios[idx] = cvs
+                            fund_results[idx] = fund_result
+
+                    st.session_state.var_scenarios = var_scenarios
+                    st.session_state.cvar_scenarios = cvar_scenarios
+                    st.session_state.fund_results = fund_results
+                    var_status.success('Done!')
                     
-                        var_scenarios[index][func_name] = mean_scenario
-                        cvar_scenarios[index][func_name] = cvar
-                    
-                    fund_results[index] = {'Value At Risk': mean_scenario.loc['Portfolio'],'CVaR': cvar.loc['Portfolio']}
-        
-                st.session_state.var_scenarios = var_scenarios
-                st.session_state.cvar_scenarios = cvar_scenarios
-                st.session_state.fund_results = fund_results
-        
             if st.session_state.fund_results is not None:
                 
                 var_scenarios=st.session_state.var_scenarios
@@ -1058,11 +1105,11 @@ with main_tabs[4]:
             fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400) 
             fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
             
-            fig3=px.line((1+historical_PCA).cumprod()*100,title='Eigen Index')
+            fig3=px.line((1+historical_PCA).cumprod()*100,title='Eigen Index', render_mode = 'svg')
             fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
             fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
     
-            fig4=px.line(pca_similarity,title='PCA Similarity')
+            fig4=px.line(pca_similarity,title='PCA Similarity', render_mode = 'svg')
             fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
             fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
             
@@ -1123,7 +1170,7 @@ with main_tabs[4]:
                 range_returns[dropdown_asset2]
             ).dropna()
             
-            fig = px.line(rolling_correlation, title=f"{dropdown_asset1}/{dropdown_asset2} Correlation")
+            fig = px.line(rolling_correlation, title=f"{dropdown_asset1}/{dropdown_asset2} Correlation", render_mode = 'svg')
             fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
             fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
     
@@ -1133,7 +1180,7 @@ with main_tabs[4]:
             fig2.update_traces(xgap=2, ygap=2)
             fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
             
-            fig3=px.line(pca_over_time,title='First principal component (Variance Explained in %)')
+            fig3=px.line(pca_over_time,title='First principal component (Variance Explained in %)', render_mode = 'svg')
             fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
             fig3.update_layout(xaxis_title=None, yaxis_title=None)
 
@@ -1525,19 +1572,19 @@ with main_tabs[2]:
     
                 with col1:
                         
-                    fig=px.line(selected_positions,title='Portfolio Value')
+                    fig=px.line(selected_positions,title='Portfolio Value', render_mode = 'svg')
                     fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
                     fig.update_layout(xaxis_title=None, yaxis_title=None)
                     st.plotly_chart(fig,width='content')
                     
-                    fig2=px.line(selected_history,title='Cumulative P&L')
+                    fig2=px.line(selected_history,title='Cumulative P&L', render_mode = 'svg')
                     fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
                     fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
                     fig2.update_layout(xaxis_title=None, yaxis_title=None)
                     st.plotly_chart(fig2,width='content')
     
                 with col2:
-                    fig3=px.line(cumulative_performance_ex_post,title='Cumulative Return')
+                    fig3=px.line(cumulative_performance_ex_post,title='Cumulative Return', render_mode = 'svg')
                     fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
                     fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio'])
                     fig3.update_layout(xaxis_title=None, yaxis_title=None)
