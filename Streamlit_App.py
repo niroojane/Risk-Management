@@ -312,7 +312,10 @@ with st.sidebar:
             binance_streamlit_secret
         )
 
+
         binance_status.success('Binance API Connected')
+        get_positions()
+
     except Exception as e:
         binance_status.error(f"❌ Binance API initialization failed: {e}")
         st.stop()
@@ -331,8 +334,6 @@ with st.sidebar:
         github_status.error(f"❌ GitHub connection failed: {e}")
         st.stop()
     
-    if Binance is not None:
-        get_positions()
 
 # Binance=BinanceAPI(binance_api_key,binance_api_secret)
 # Pnl_calculation=PnL(binance_api_key,binance_api_secret)
