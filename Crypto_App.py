@@ -1,7 +1,6 @@
 # Copyright (c) 2025 Niroojane Selvam
 # Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
-
 #!/usr/bin/env python
 # coding: utf-8
 
@@ -14,6 +13,7 @@ import seaborn as sns
 import requests
 from scipy.stats import norm, chi2,gumbel_l
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing import Pool, cpu_count
 
 import ipywidgets as widgets
 from ipydatagrid import DataGrid, TextRenderer
@@ -284,7 +284,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     title="Price",
                     width=800,
                     height=400
-                )
+                , render_mode = 'svg')
                 fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                 fig.update_traces(visible="legendonly", selector=lambda t: t.name != "BTCUSDT")
                 fig.show()
@@ -299,7 +299,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     title="Cumulative Performance",
                     width=800,
                     height=400
-                )
+                , render_mode = 'svg')
                 fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                 fig2.update_traces(visible="legendonly", selector=lambda t: t.name != "BTCUSDT")
                 fig2.show()
@@ -431,7 +431,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 return_output_graph=widgets.Output()
                 
                 with price_output_graph:
-                    fig = px.line(dataframe.loc[start_date_perf.value:end_date_perf.value], title='Price', width=800, height=400)
+                    fig = px.line(dataframe.loc[start_date_perf.value:end_date_perf.value], title='Price', width=800, height=400, render_mode = 'svg')
                     fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
@@ -443,7 +443,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     cumulative_returns.iloc[0]=0
                     cumulative_returns=(1+cumulative_returns).cumprod()*100
                     
-                    fig2 = px.line(cumulative_returns, title='Cumulative Performance', width=800, height=400)
+                    fig2 = px.line(cumulative_returns, title='Cumulative Performance', width=800, height=400, render_mode = 'svg')
                     fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
@@ -517,7 +517,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         with perf_output:
             
             perf_output.clear_output(wait=True)
-            fig = px.line(cumulative_results, title='Performance', width=800, height=400)
+            fig = px.line(cumulative_results, title='Performance', width=800, height=400, render_mode = 'svg')
             fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
             fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
             fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
@@ -527,7 +527,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
             drawdown_output.clear_output(wait=True)
 
-            fig2 = px.line(drawdown, title='Drawdown', width=800, height=400)
+            fig2 = px.line(drawdown, title='Drawdown', width=800, height=400, render_mode = 'svg')
             fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
             fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
             fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
@@ -537,7 +537,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         with vol_output:
             vol_output.clear_output(wait=True)
 
-            fig3 = px.line(rolling_vol_ptf, title="Portfolio Rolling Volatility").update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
+            fig3 = px.line(rolling_vol_ptf, title="Portfolio Rolling Volatility", render_mode = 'svg').update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
             fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400) 
             fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
             fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
@@ -701,24 +701,24 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 display(display_scrollable_df(pd.DataFrame(constraints))) 
 
     def get_result(_):
-        
         nonlocal constraint_container
-        global rolling_optimization, performance_pct, performance_fund, dates_end,quantities
-        
+        global rolling_optimization, performance_pct, performance_fund, dates_end, quantities
+    
         with strategy_output:
             strategy_output.clear_output(wait=True)
             if dataframe.empty or returns_to_use.empty:
                 print("⚠️ Load price data before optimizing.")
                 return
-
-            constraint_df = pd.DataFrame(constraints)
+    
+            # Build constraints
             cons = None
-            if not constraint_df.empty:
+            if constraints:
                 try:
-                    cons = build_constraint(dataframe, constraint_df.to_numpy())
+                    cons = build_constraint(dataframe, pd.DataFrame(constraints).to_numpy())
                 except Exception as e:
                     print("Error building constraints:", e)
-            
+    
+            # Candidate anchors
             freq_map = {
                 'Monthly': pd.offsets.BMonthEnd(),
                 'Quarterly': pd.offsets.BQuarterEnd(),
@@ -728,39 +728,54 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             candidate_anchors = pd.DatetimeIndex(sorted(set(dataframe.index + offset)))
             if candidate_anchors.empty:
                 candidate_anchors = pd.DatetimeIndex([returns_to_use.index[-1]])
-
+    
             idx = returns_to_use.index.get_indexer(candidate_anchors, method='nearest')
             idx = np.array(idx)
             idx = idx[idx >= 0]
             selected_dates = returns_to_use.index[idx].tolist()
-            selected_dates = sorted(list(set(selected_dates + [returns_to_use.index[-1]])))
-            dates_end = selected_dates
-
+            dates_end = sorted(list(set(selected_dates + [returns_to_use.index[-1]])))
+    
             if len(dates_end) < 2:
                 print("⚠️ Not enough anchor dates to perform rolling optimization.")
                 return
-
+    
+            # Prepare tasks
+            strategy_key = dico_strategies[strat.value]
+            tasks = [(dates_end[i], dates_end[i+1]) for i in range(len(dates_end)-1)]
+    
+            # Run with threads
             results = {}
-            for i in range(len(dates_end) - 1):
-                subset = returns_to_use.loc[dates_end[i]:dates_end[i + 1]]
+            def worker(start, end):
+                subset = returns_to_use.loc[start:end]
                 if subset.empty or len(subset) < 2:
-                    continue
+                    return None
                 try:
                     risk = RiskAnalysis(subset)
-                    opt = risk.optimize(objective=dico_strategies[strat.value], constraints=cons) if cons else \
-                          risk.optimize(objective=dico_strategies[strat.value])
-                    results[subset.index[-1]] = np.round(opt, 6)
+                    if cons:
+                        opt = risk.optimize(objective=strategy_key, constraints=cons)
+                    else:
+                        opt = risk.optimize(objective=strategy_key)
+                    return subset.index[-1], np.round(opt, 6)
                 except Exception:
-                    continue
-
+                    return None
+    
+            with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
+                futures = {executor.submit(worker, start, end): (start, end) for start, end in tasks}
+                for future in as_completed(futures):
+                    out = future.result()
+                    if out is not None:
+                        date_key, weights = out
+                        results[date_key] = weights
+    
             if not results:
                 print("⚠️ No valid optimizations computed.")
                 return
-
+    
             rolling_optimization = pd.DataFrame(results, index=dataframe.columns).T.sort_index()
-            if not rolling_optimization.empty and len(dataframe.columns) > 0:
+            if not rolling_optimization.empty:
                 first_row = pd.Series(1 / len(dataframe.columns), index=dataframe.columns, name=dates_end[0])
                 rolling_optimization = pd.concat([pd.DataFrame([first_row]), rolling_optimization])
+    
             display(display_scrollable_df(rolling_optimization))
             
             model=pd.DataFrame(rolling_optimization.iloc[-2])
@@ -1209,45 +1224,52 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             var_scenarios, cvar_scenarios, fund_results = {}, {}, {}
 
             display(loading_bar_var)
-            
-            for index in grid.data.index:
-                var_scenarios[index], cvar_scenarios[index] = {}, {}
+            def process_index(index):
+                vs, cvs = {}, {}
                 for func_name, args in distrib_functions.items():
                     func = getattr(portfolio, func_name)
                     scenarios = {}
-        
+    
                     for i in range(num_scenarios.value):
                         if func_name == 'monte_carlo':
                             distrib = pd.DataFrame(func(*args)[1], columns=portfolio.returns.columns)
                         else:
                             distrib = pd.DataFrame(func(*args), columns=portfolio.returns.columns)
-        
+    
                         distrib = distrib * grid.data.loc[index]
                         distrib = distrib[distrib.columns[grid.data.loc[index] > 0]]
                         distrib['Portfolio'] = distrib.sum(axis=1)
-        
+    
                         results = distrib.sort_values(by='Portfolio').iloc[int(distrib.shape[0] * var_centile.value)]
                         scenarios[i] = results
-                    
-        
+    
                     scenario = pd.DataFrame(scenarios).T
                     mean_scenario = scenario.mean()
                     index_cvar = scenario['Portfolio'] < mean_scenario['Portfolio']
                     cvar = scenario.loc[index_cvar].mean()
-        
-                    var_scenarios[index][func_name] = mean_scenario
-                    cvar_scenarios[index][func_name] = cvar
-        
-                fund_results[index] = {
+    
+                    vs[func_name] = mean_scenario
+                    cvs[func_name] = cvar
+    
+                fund_result = {
                     'Value At Risk': mean_scenario.loc['Portfolio'],
                     'CVaR': cvar.loc['Portfolio']
                 }
-                
-                loading_bar_var.value+=100/(len(grid.data.index))
-            
-            loading_bar_var.value+=100/(len(grid.data.index))
-            var_output.clear_output()
-            
+    
+                return index, vs, cvs, fund_result
+    
+            # Threaded execution
+            with ThreadPoolExecutor() as executor:
+                futures = {executor.submit(process_index, idx): idx for idx in grid.data.index}
+                for future in as_completed(futures):
+                    idx, vs, cvs, fund_result = future.result()
+                    var_scenarios[idx] = vs
+                    cvar_scenarios[idx] = cvs
+                    fund_results[idx] = fund_result
+                    loading_bar_var.value += 100 / len(grid.data.index)
+    
+            loading_bar_var.value = 0
+    
         display_var_results(selected_fund_var.value)
         loading_bar_var.value=0
 
@@ -1388,11 +1410,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         with pca_output:
             pca_output.clear_output(wait=True)
             
-            fig3=px.line((1+historical_PCA).cumprod()*100,title='Eigen Index')
+            fig3=px.line((1+historical_PCA).cumprod()*100,title='Eigen Index', render_mode = 'svg')
             fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
             fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
 
-            fig4=px.line(pca_similarity,title='PCA Similarity')
+            fig4=px.line(pca_similarity,title='PCA Similarity', render_mode = 'svg')
             fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
             fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
 
@@ -1459,7 +1481,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             ).dropna()
 
             with rolling_corr_output:
-                fig = px.line(rolling_correlation, title=f"{dropdown_asset1.value}/{dropdown_asset2.value} Correlation")
+                fig = px.line(rolling_correlation, title=f"{dropdown_asset1.value}/{dropdown_asset2.value} Correlation", render_mode = 'svg')
                 fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
                 fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
     
@@ -1472,7 +1494,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
                 fig2.show()
             with pca_overtime_output:
-                fig3=px.line(pca_over_time,title='First principal component (Variance Explained in %)')
+                fig3=px.line(pca_over_time,title='First principal component (Variance Explained in %)', render_mode = 'svg')
                 fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
                 fig3.update_layout(xaxis_title=None, yaxis_title=None)
                 fig3.show()
@@ -1700,12 +1722,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
             with expost_output:
             
-                fig=px.line(selected_positions,title='Portfolio Value')
+                fig=px.line(selected_positions,title='Portfolio Value', render_mode = 'svg')
                 fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
                 fig.update_layout(xaxis_title=None, yaxis_title=None)
                 fig.show()
                 
-                fig2=px.line(selected_history,title='Cumulative P&L')
+                fig2=px.line(selected_history,title='Cumulative P&L', render_mode = 'svg')
                 fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
                 fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
     
@@ -1714,7 +1736,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
             with expost_output1:
 
-                fig3=px.line(cumulative_performance_ex_post,title='Cumulative Return')
+                fig3=px.line(cumulative_performance_ex_post,title='Cumulative Return', render_mode = 'svg')
                 fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
                 fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio'])
                 fig3.update_layout(xaxis_title=None, yaxis_title=None)
@@ -1816,7 +1838,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             benchmark_ex_post.options = options
             fund_ex_post.value = 'Historical Portfolio'
             benchmark_ex_post.value ='Fund'
-        
 
         update_ex_post_chart(None)
         show_graph_ex_post(None)
