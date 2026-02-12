@@ -40,7 +40,7 @@ st.markdown(
 )
 
 
-
+    
 def load_data(tickers,start=datetime.datetime(2023,1,1),today=None):
 
     if today is None:
@@ -66,14 +66,12 @@ def load_data(tickers,start=datetime.datetime(2023,1,1),today=None):
         )
     )
 
-    def fetch_prices(end_date):
-        return Binance.get_price(combined_tickers, end_date)
 
     scope_prices = None
 
     try:
         with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(fetch_prices, d) for d in end_dates]
+            futures = [executor.submit(Binance.get_price, combined_tickers,d) for d in end_dates]
 
             for future in as_completed(futures):
                 data = future.result()
@@ -989,7 +987,7 @@ with main_tabs[3]:
                     cvar_scenarios={}
                     fund_results={}
                     
-                    with ThreadPoolExecutor() as executor:
+                    with ThreadPoolExecutor(max_workers=8) as executor:
                         futures = {executor.submit(process_index,idx,allocation_dataframe,range_prices,iterations,stress_factor,var_centile,num_scenarios): (idx,allocation_dataframe,range_prices,iterations,stress_factor,var_centile,num_scenarios)
                                    for idx,allocation_dataframe,range_prices,iterations,stress_factor,var_centile,num_scenarios in tasks}
                         for future in as_completed(futures):
@@ -1430,14 +1428,13 @@ with main_tabs[2]:
                         )
                     )
                 
-                    def fetch_prices(end_date):
-                        return Binance.get_price(quantities_tickers, end_date)
+
                 
                     binance_data = None
                 
                     try:
                         with ThreadPoolExecutor(max_workers=8) as executor:
-                            futures = [executor.submit(fetch_prices, d) for d in end_dates]
+                            futures = [executor.submit(Binance.get_price,quantities_tickers,d) for d in end_dates]
                 
                             for future in as_completed(futures):
                                 data = future.result()
