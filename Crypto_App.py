@@ -971,7 +971,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                                                main_output,
         widgets.VBox([strat, rebalancing_frequency,benchmark_tracking_error,window_vol]),
         allocation_ui,strategy_output,
-        widgets.HBox([start_date_perf, end_date_perf]),
+        widgets.HBox([start_date_perf, end_date_perf,refresh_perf_button]),
         output_returns,widgets.HBox([perf_output, drawdown_output]),widgets.HBox([vol_output,frontier_output])
     ])
 
