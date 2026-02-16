@@ -741,12 +741,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
             # Prepare tasks
             strategy_key = dico_strategies[strat.value]
-            tasks = [(dates_end[i], dates_end[i+1]) for i in range(len(dates_end)-1)]
+            tasks = [(returns_to_use.loc[dates_end[i]:dates_end[i+1]],dates_end[i], dates_end[i+1]) for i in range(len(dates_end)-1)]
     
             # Run with threads
             results = {}
-            def worker(start, end):
-                subset = returns_to_use.loc[start:end]
+            def worker(subset,start, end):
+
                 if subset.empty or len(subset) < 2:
                     return None
                 try:
@@ -760,13 +760,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     return None
     
             with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-                futures = {executor.submit(worker, start, end): (start, end) for start, end in tasks}
+                futures = {executor.submit(worker,subset, start, end): (subset,start, end) for subset,start, end in tasks}
                 for future in as_completed(futures):
                     out = future.result()
                     if out is not None:
                         date_key, weights = out
                         results[date_key] = weights
-    
             if not results:
                 print("⚠️ No valid optimizations computed.")
                 return
@@ -1045,7 +1044,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
      
         selected_weights = grid.data.loc[selected_fund.value]
         
-        decomposition = pd.DataFrame(portfolio.var_contrib_pct(selected_weights))*100
+        decomposition = pd.DataFrame(portfolio.var_contrib(selected_weights)[0])*100
+
+        # decomposition_vol = pd.DataFrame(portfolio.var_contrib(selected_weights)[0])*100
+        # decomposition_vol.loc['Total'] = decomposition_vol.sum(axis=0)
+        
         quantities_rebalanced = rebalanced_portfolio(range_prices, selected_weights,frequency=rebalancing_frequency_pnl.value) / range_prices
         quantities_buy_hold = buy_and_hold(range_prices, selected_weights) / range_prices
         
@@ -1065,12 +1068,18 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         profit_and_loss_simulated.loc['Total'] = profit_and_loss_simulated.sum(axis=0)
         profit_and_loss_simulated=profit_and_loss_simulated.fillna(0)
         
+
+
         with risk_output:
             risk_output.clear_output(wait=True)
             display(Markdown("### Performance and Risk Contribution"))
             display(display_scrollable_df(
-                profit_and_loss_simulated.sort_values(by='Variance Contribution in %', ascending=False)
+                profit_and_loss_simulated.sort_values(by='Vol Contribution', ascending=False)
             ))
+            # display(display_scrollable_df(
+            #     decomposition_vol.sort_values(by='Vol Contribution', ascending=False)
+            # ))
+
 
     def on_fund_change(change):
         if change['name'] == 'value' and change['new'] in grid.data.index:
@@ -1805,7 +1814,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             pnl_history[col]=quantities_holding[col]*(binance_data[col]-book_cost_history[col])
         pnl_history['Total']=pnl_history.sum(axis=1)
     
-        
         daily_pnl=pnl_history['Total']-pnl_history['Total'].shift(1)
         daily_pnl=pd.DataFrame(daily_pnl)
         colors = ['green' if value >= 0 else 'red' for value in daily_pnl.values]
@@ -1849,6 +1857,221 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     ex_post_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button]),ex_post_perf])    
     calendar_ui_ex_post=widgets.VBox([widgets.HBox([frequency_graph_ex_post,fund_ex_post,benchmark_ex_post,calendar_button_ex_post]),ex_post_calendar])
+
+
+    global results_vol,series_dict,current_underlying_returns
+
+    results_vol=pd.DataFrame()
+    current_underlying_returns=pd.DataFrame()
+    series_dict={}
+    
+    risk_trajectory_output=widgets.Output()
+
+    selected_fund_to_decompose=widgets.Dropdown(options=['Fund','Historical Portfolio'],value='Historical Portfolio',description='Fund:')
+    selected_bench_risk=widgets.Dropdown(options=['Fund','Historical Portfolio'],value='Historical Portfolio',description='Benchmark:')
+    window_risk=widgets.IntText(
+    value=252,
+    description='Window',
+    disabled=False)   
+    
+    loading_bar_risk = widgets.IntProgress(description='Loading Vol...',min=0, max=100,style={'description_width': '150px'})
+    loading_bar_tracking_error = widgets.IntProgress(description='Loading TE...',min=0, max=100,style={'description_width': '150px'})
+    risk_trajectoy_button=widgets.Button(description="Get Ex Ante Vol", button_style="success")
+    risk_trajectoy_refresh_button=widgets.Button(description="Refresh")
+
+    def show_risk_graph(_):
+        
+        global results_vol
+        
+        try:
+            start_ts = pd.to_datetime(start_date_perf_risk.value)
+            end_ts = pd.to_datetime(end_date_perf_risk.value)
+        except Exception:
+            with risk_trajectory_output:
+                risk_trajectory_output.clear_output(wait=True)
+                print("⚠️ Invalid start or end date.")
+            return
+        output1=widgets.Output()
+        output2=widgets.Output()
+        with risk_trajectory_output:
+            
+            risk_trajectory_output.clear_output(wait=True)
+            
+            if dataframe.empty:
+                print('⚠️Load Prices.')
+                return
+            if dataframe.empty or returns_to_use.empty or grid.data.empty:
+                print("⚠️ Please compute optimization results first.")
+                return
+
+            if results_vol.empty:
+                print("⚠️ Load Ex Ante Vol.")
+                return
+                
+            else:
+                
+                risk_trajectory_output.clear_output(wait=True)
+                
+                series_weights=series_dict[selected_fund_to_decompose.value]
+                if selected_fund_to_decompose.value!='Historical Portfolio':
+                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[start_ts:end_ts],window_risk.value)
+                    correlation_contrib=get_correlation_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[start_ts:end_ts],window_risk.value)
+                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[start_ts:end_ts],window_risk.value)
+
+                else:
+                    
+                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+                    correlation_contrib=get_correlation_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+                    # contribution_to_vol_pct=get_ex_ante_vol_contribution_in_pct(series_weights,current_underlying_returns.loc[series_weights.index],window_risk.value)
+                    
+                with output1:
+                    fig = px.line(results_vol.loc[start_ts:end_ts], title='Ex Ante Volatility', width=800, height=400, render_mode = 'svg')
+                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
+                    fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig.show()
+
+                    fig4 = px.line(idiosyncratic_contrib, title='Idiosyncratic Contribution', width=800, height=400, render_mode = 'svg')
+                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+    
+                    fig4.show()   
+                                        
+                with output2:
+                    fig2 = px.line(contribution_to_vol, title='Volatility Contribution', width=800, height=400, render_mode = 'svg')
+                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    
+                    fig2.show()
+                    
+                    fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
+                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig3.show()
+                    
+
+                ui=widgets.HBox([output1,output2])
+
+                display(ui)
+                # fig3 = px.line(contribution_to_vol_pct, title='Contributors to Vol in %', width=800, height=400, render_mode = 'svg')
+                # fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                # fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                # fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol in %"])
+
+                # fig3.show()  
+
+                    
+    def get_risk_trajectoy(_):
+        
+        global results_vol,series_dict,current_underlying_returns
+
+        results_vol=pd.DataFrame()
+        
+        try:
+            start_ts = pd.to_datetime(start_date_perf_risk.value)
+            end_ts = pd.to_datetime(end_date_perf_risk.value)
+        except Exception:
+            with risk_trajectory_output:
+                risk_trajectory_output.clear_output(wait=True)
+                print("⚠️ Invalid start or end date.")
+            return
+            
+        with risk_trajectory_output:
+            risk_trajectory_output.clear_output(wait=True)
+
+            if dataframe.empty:
+                print('⚠️Load Prices.')
+                return
+            if dataframe.empty or returns_to_use.empty or grid.data.empty:
+                print("⚠️ Please compute optimization results first.")
+                return
+            else:
+                display(loading_bar)
+                display(loading_bar_risk)
+
+        series_dict={}
+
+        for key in grid.data.index:
+            
+            rebalanced_series=rebalanced_portfolio(dataframe,grid.data.loc[key])
+            rebalanced_series_weights=rebalanced_series.apply(lambda x: x/rebalanced_series.sum(axis=1))
+            buy_and_hold_series=buy_and_hold(dataframe,grid.data.loc[key])
+            buy_and_hold_series_weights=buy_and_hold_series.apply(lambda x: x/buy_and_hold_series.sum(axis=1))
+            series_dict['Rebalanced '+key]=rebalanced_series_weights.loc[start_ts:end_ts]
+            series_dict['Buy and Hold '+key]=buy_and_hold_series_weights.loc[start_ts:end_ts]
+        
+        weights_ex_post=positions.copy()
+        weights_ex_post=weights_ex_post.drop(columns=['USDTUSDT'])
+        weights_ex_post=weights_ex_post.apply(lambda x: x/weights_ex_post['Total'])
+        weights_ex_post=weights_ex_post.drop(columns=['Total'])
+        weights_ex_post=weights_ex_post.fillna(0.0)
+        
+        if not quantities.empty:
+            portfolio=quantities*dataframe
+            model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+            series_dict['Fund']=model_weights.loc[start_ts:end_ts]
+
+        tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
+        tickers_combined=list(set(tickers_combined))
+        
+        current_underlying_prices=get_price_threading(tickers_combined,weights_ex_post.index[0].date())
+        current_underlying_returns=current_underlying_prices.pct_change(fill_method=None)
+
+        tasks=[(key,series_dict[key],returns_to_use.loc[start_ts:end_ts],window_risk.value) for key in series_dict]
+        names=list(series_dict.keys())
+
+        series_dict['Historical Portfolio']=weights_ex_post.loc[start_ts:end_ts]
+        
+        # selected_weights=series_dict[selected_bench_risk.value]
+
+        # weights_copied=weights_ex_post.copy()
+        # selected_weights_copied=selected_weights.copy()
+        
+        # not_in_bench=list(set(weights_ex_post.columns)-set(selected_weights.columns))
+        # not_in_fund=list(set(selected_weights.columns)-set(weights_ex_post.columns))
+        
+        # weights_copied[not_in_fund]=0
+        # selected_weights_copied[not_in_bench]=0
+        
+        tasks.append(('Historical Portfolio',weights_ex_post.loc[start_ts:end_ts],current_underlying_returns.loc[weights_ex_post.index].loc[start_ts:end_ts],window_risk.value))
+
+        loading_bar_risk.value = 0
+        loading_bar_risk.max=len(tasks)   
+        
+        results_dict = {}
+        
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = {
+                executor.submit(get_ex_ante_vol, weights, returns, window): name
+                for name, weights, returns, window in tasks
+            }
+        
+            for future in as_completed(futures):
+                name = futures[future]
+                results_dict[name] = future.result()
+                loading_bar_risk.value += 1
+
+                
+        loading_bar_risk.value = loading_bar_risk.max
+        
+        results_vol=pd.concat(results_dict.values(), axis=1)
+        results_vol.columns=results_dict.keys()
+        selected_bench_risk.options=results_vol.columns
+        selected_fund_to_decompose.options=results_vol.columns
+        
+        show_risk_graph(None)
+
+    show_risk_graph(None)
+    
+    risk_trajectoy_button.on_click(get_risk_trajectoy)
+    risk_trajectoy_refresh_button.on_click(show_risk_graph)
+    risk_exposure_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,risk_trajectoy_button,risk_trajectoy_refresh_button]),
+                                   selected_fund_to_decompose,window_risk,risk_trajectory_output])
+
     
     check_connection(None)
 
@@ -1934,14 +2157,16 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     risk_contribution_tab = widgets.Output()
     var_tab = widgets.Output()
+    risk_exposure=widgets.Output()
     
     risk_subtabs = widgets.Tab(children=[
         risk_contribution_tab,
-        var_tab
-    ])
+        var_tab,
+        risk_exposure])
     
     risk_subtabs.set_title(0, 'Risk Contribution')
     risk_subtabs.set_title(1, 'Value at Risk')
+    risk_subtabs.set_title(2, 'Risk Trajectory')
     
     with risk_analysis_tab:
         display(risk_subtabs)
@@ -1951,7 +2176,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     with var_tab:
         display(var_ui)
-    
+    with risk_exposure:
+        display(risk_exposure_ui)
+        
     market_risk_detail_tab = widgets.Output()
     correlation_tab = widgets.Output()
     
