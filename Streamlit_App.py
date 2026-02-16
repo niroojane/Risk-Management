@@ -248,7 +248,7 @@ def process_index(index,allocation,dataframe,iterations,stress_factor,var_centil
     spot = dataframe.iloc[-1]
     theta = 2
     
-    range_returns=dataframe.pct_change()
+    range_returns=dataframe.pct_change(fill_method=None)
 
     distrib_functions = {
     'multivariate_distribution': (iterations, stress_factor),
@@ -724,7 +724,7 @@ with main_tabs[1]:
                     portfolio_returns = rebalanced_time_series(range_prices, alloc_df, frequency=selected_frequency)
                     cumulative_results = pd.concat([cumulative_results, portfolio_returns], axis=1)
                     drawdown = (cumulative_results - cumulative_results.cummax()) / cumulative_results.cummax()
-                    rolling_vol_ptf = cumulative_results.pct_change().rolling(window_vol).std() * np.sqrt(260)
+                    rolling_vol_ptf = cumulative_results.pct_change(fill_method=None).rolling(window_vol).std() * np.sqrt(260)
             
                     st.session_state.results = {
                         "rolling_optimization": rolling_optimization,
@@ -745,12 +745,12 @@ with main_tabs[1]:
                 res=st.session_state.results
                 mask = (res['cumulative_results'].index >= selmind) & (res['cumulative_results'].index <= selmaxd)
 
-                cumulative_performance=res['cumulative_results'].loc[mask].pct_change()
+                cumulative_performance=res['cumulative_results'].loc[mask].pct_change(fill_method=None)
                 cumulative_performance.iloc[0] = 0
                 cumulative_results = (1 + cumulative_performance).cumprod() * 100
                 
                 drawdown = (cumulative_results - cumulative_results.cummax()) / cumulative_results.cummax()
-                rolling_vol_ptf = cumulative_results.pct_change().rolling(window_vol).std() * np.sqrt(260)
+                rolling_vol_ptf = cumulative_results.pct_change(fill_method=None).rolling(window_vol).std() * np.sqrt(260)
                 
                 frontier_indicators, fig4 = get_frontier(range_returns, res['alloc_df'])
         
@@ -1723,7 +1723,7 @@ with main_tabs[2]:
                 
                 mask = (ex_post_portfolios.index >= selmind) & (ex_post_portfolios.index <= selmaxd)
     
-                cumulative_performance=ex_post_portfolios.loc[mask].pct_change()
+                cumulative_performance=ex_post_portfolios.loc[mask].pct_change(fill_method=None)
                 cumulative_performance.iloc[0] = 0
                 cumulative_performance_ex_post = (1 + cumulative_performance).cumprod() * 100
     
