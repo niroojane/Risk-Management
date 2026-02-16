@@ -101,6 +101,50 @@ def load_data(tickers,start=datetime.datetime(2023,1,1),today=None):
 
     st.session_state.dataframe = dataframe.ffill()
     st.session_state.returns_to_use = returns_to_use.fillna(0)
+    
+def get_price_threading(tickers,start_date):
+    today = datetime.date.today()
+
+    days=(today-start_date).days
+
+    remaining = days % 500
+    numbers_of_table = days // 500
+    start_dt = datetime.datetime.combine(start_date, datetime.time())
+    
+    end_dates = [
+        start_dt + datetime.timedelta(days=500 * i)
+        for i in range(numbers_of_table + 1)
+    ]
+
+    end_dates.append(
+        datetime.datetime.combine(
+            today - datetime.timedelta(days=remaining),
+            datetime.time()
+        )
+    )
+
+    price = None
+
+    try:
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(Binance.get_price,tickers_combined,d) for d in end_dates]
+
+            for future in as_completed(futures):
+                data = future.result()
+
+                if price is None:
+                    price = data
+                else:
+                    price = price.combine_first(data)
+
+    except Exception as e:
+        print("❌ Error while fetching prices:", e)
+
+    price=price.sort_index()
+    price = price[~price.index.duplicated(keep='first')]
+    price.index=pd.to_datetime(price.index)
+
+    return price
 
     
 def get_positions():
@@ -818,7 +862,7 @@ with main_tabs[3]:
         st.info("Compute Optimization first ⬅️")
 
     else:
-        sub_tabs_risk=st.tabs(['Risk Analysis','Value At Risk'])
+        sub_tabs_risk=st.tabs(['Risk Analysis','Value At Risk','Risk Trajectory'])
         with sub_tabs_risk[0]:
             
             dataframe = st.session_state.dataframe
@@ -870,8 +914,9 @@ with main_tabs[3]:
             
             selected_weights = allocation_dataframe.loc[fund_risk]
             
-            decomposition = pd.DataFrame(portfolio.var_contrib_pct(selected_weights))*100
-            
+            decomposition = pd.DataFrame(portfolio.var_contrib(selected_weights)[0])*100
+
+
             quantities_rebalanced = rebalanced_portfolio(range_prices, selected_weights,frequency=frequency_pnl) / range_prices
             quantities_buy_hold = buy_and_hold(range_prices, selected_weights) / range_prices
             
@@ -890,7 +935,7 @@ with main_tabs[3]:
             profit_and_loss_simulated = pd.concat([pnl_buy_and_hold, pnl_rebalanced, decomposition], axis=1)
             profit_and_loss_simulated.loc['Total'] = profit_and_loss_simulated.sum(axis=0)
             profit_and_loss_simulated=profit_and_loss_simulated.fillna(0)
-            profit_and_loss_simulated=profit_and_loss_simulated.sort_values(by='Variance Contribution in %', ascending=False)
+            profit_and_loss_simulated=profit_and_loss_simulated.sort_values(by='Vol Contribution', ascending=False)
         
             vol_ex_ante = {}
             tracking_error_ex_ante = {}
@@ -908,7 +953,7 @@ with main_tabs[3]:
     
     
             st.dataframe(profit_and_loss_simulated,width='stretch')
-    
+
             st.subheader("Ex Ante Metrics")
     
             st.dataframe(ex_ante_dataframe,width='stretch')
@@ -1024,7 +1069,168 @@ with main_tabs[3]:
                 st.dataframe(cvar_dataframe,width='stretch')
                 st.subheader('Results')
                 st.dataframe(fund_results_dataframe,width='stretch')
+        
+        with sub_tabs_risk[2]:
+
+            dataframe = st.session_state.dataframe
+            returns_to_use = st.session_state.returns_to_use
+            res=st.session_state.results
+            allocation_dataframe=res["alloc_df"]
+            quantities=res['quantities']
+            positions=st.session_state.positions
+    
+            max_value = dataframe.index.max().strftime('%Y-%m-%d')
+            min_value = dataframe.index.min().strftime('%Y-%m-%d')
+            max_value=datetime.datetime.strptime(max_value, '%Y-%m-%d')
+            min_value=datetime.datetime.strptime(min_value, '%Y-%m-%d')  
+            value=(min_value,max_value)
+    
+            Model_trajectory = st.slider(
+            'Date:',
+            min_value=min_value,
+            max_value=max_value,
+            value=value,key='risk_path_tab')
+        
+            selmin, selmax = Model_trajectory
+            selmind = selmin.strftime('%Y-%m-%d')  # datetime to str
+            selmaxd = selmax.strftime('%Y-%m-%d')
+            
+            mask = (dataframe.index >= selmind) & (dataframe.index <= selmaxd)
+            
+            range_prices=dataframe.loc[mask].copy()
+            range_returns=returns_to_use.loc[mask].copy()
+            
+            if "results_vol" not in st.session_state:
+                st.session_state.results_vol=None
                 
+            if "current_underlying_returns" not in st.session_state:
+                st.session_state.current_underlying_returns=None
+                
+            series_dict={}
+
+            for key in allocation_dataframe.index:
+                
+                rebalanced_series=rebalanced_portfolio(range_prices,allocation_dataframe.loc[key])
+                rebalanced_series_weights=rebalanced_series.apply(lambda x: x/rebalanced_series.sum(axis=1))
+                buy_and_hold_series=buy_and_hold(range_prices,allocation_dataframe.loc[key])
+                buy_and_hold_series_weights=buy_and_hold_series.apply(lambda x: x/buy_and_hold_series.sum(axis=1))
+                series_dict['Rebalanced '+key]=rebalanced_series_weights
+                series_dict['Buy and Hold '+key]=buy_and_hold_series_weights
+            
+            weights_ex_post=positions.copy()
+            weights_ex_post=weights_ex_post.drop(columns=['USDTUSDT'])
+            weights_ex_post=weights_ex_post.apply(lambda x: x/weights_ex_post['Total'])
+            weights_ex_post=weights_ex_post.drop(columns=['Total'])
+            weights_ex_post=weights_ex_post.fillna(0.0)
+            
+            if not quantities.empty:
+                portfolio=quantities*range_prices
+                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+                series_dict['Fund']=model_weights
+            
+            mask = (weights_ex_post.index >= selmind) & (weights_ex_post.index <= selmaxd)
+            series_dict['Historical Portfolio']=weights_ex_post.loc[mask]
+
+            tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
+            tickers_combined=list(set(tickers_combined))
+            
+            selected_fund_to_decompose=st.selectbox("Fund:", list(series_dict.keys()),index=0,key='selected_fund_risk_decomposition')
+            window_risk=st.number_input("Window Vol:", min_value=7, value=252, step=1)
+            ex_ante_vol_button=st.button("Get Risk History")
+            ex_ante_vol_status=st.empty()
+
+            if ex_ante_vol_button:
+                st.session_state.results_vol=None
+                st.session_state.current_underlying_returns=None
+
+                with st.spinner("Computing Ex Ante Vol...",show_time=True):
+                                        
+                    start_date=weights_ex_post.index[0].date()
+                    
+                    current_underlying_prices=get_price_threading(tickers_combined,start_date)
+                    current_underlying_returns=current_underlying_prices.pct_change(fill_method=None)
+                    
+                    tasks=[(key,series_dict[key],range_returns,window_risk) for key in series_dict if key!='Historical Portfolio']
+                    names=list(series_dict.keys())
+                    
+                    mask = (weights_ex_post.index >= selmind) & (weights_ex_post.index <= selmaxd)
+
+                    tasks.append(('Historical Portfolio',weights_ex_post.loc[mask],current_underlying_returns.loc[weights_ex_post.index].loc[mask],window_risk))
+                            
+                    results_dict = {}
+                    
+                    with ThreadPoolExecutor(max_workers=8) as executor:
+                        futures = {
+                            executor.submit(get_ex_ante_vol, weights, returns, window): name
+                            for name, weights, returns, window in tasks
+                        }
+                    
+                        for future in as_completed(futures):
+                            name = futures[future]
+                            results_dict[name] = future.result()
+            
+                                        
+                    results_vol=pd.concat(results_dict.values(), axis=1)
+                    results_vol.columns=results_dict.keys()
+                    
+                    st.session_state.results_vol= results_vol
+                    st.session_state.current_underlying_returns=current_underlying_returns
+                    
+                    ex_ante_vol_status.success('Done!')
+
+        series_weights=series_dict[selected_fund_to_decompose]
+
+        if st.session_state.results_vol is not None:
+            mask = (series_weights.index >= selmind) & (series_weights.index <= selmaxd)
+            results_vol=st.session_state.results_vol
+            current_underlying_returns=st.session_state.current_underlying_returns
+            
+            if selected_fund_to_decompose!='Historical Portfolio':
+                
+
+                contribution_to_vol=get_ex_ante_vol_contribution(series_weights,range_returns,window_risk)
+                correlation_contrib=get_correlation_contribution(series_weights,range_returns,window_risk)
+                idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights,range_returns,window_risk)
+
+            else:
+                
+                contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_risk)
+                correlation_contrib=get_correlation_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_risk)
+                idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_risk)
+            
+            col1, col2 = st.columns([1, 1])
+
+            with col1:
+                mask = (results_vol.index >= selmind) & (results_vol.index <= selmaxd)
+
+                fig = px.line(results_vol.loc[mask], title='Ex Ante Volatility', width=800, height=400, render_mode = 'svg')
+                fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
+                fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                st.plotly_chart(fig,width='content')
+    
+                fig4 = px.line(idiosyncratic_contrib, title='Idiosyncratic Contribution', width=800, height=400, render_mode = 'svg')
+                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                st.plotly_chart(fig4,width='content')
+            with col2:
+                
+                fig2 = px.line(contribution_to_vol, title='Volatility Contribution', width=800, height=400, render_mode = 'svg')
+                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                st.plotly_chart(fig2,width='content')
+    
+                
+                fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
+                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                st.plotly_chart(fig3,width='content')
+        else:
+            st.info('Load Ex Ante Data')
+                 
 with main_tabs[4]:
     
     
@@ -1386,12 +1592,11 @@ with main_tabs[2]:
                         
                     book_cost=st.session_state.book_cost  
 
-                    quantities_tickers=list(quantities_holding.columns)
+                    historical_quantities_tickers=list(quantities_holding.columns)
                     daily_book_cost=book_cost.resample("D").last().dropna().sort_index()
                     book_cost_history=pd.DataFrame()
-                    book_cost_history.index=set(daily_book_cost.index.append(quantities_holding.index))
+                    book_cost_history = pd.DataFrame(index=daily_book_cost.index.union(quantities_holding.index)).sort_index() 
                     
-                    book_cost_history=book_cost_history.sort_index()
                     cols= quantities_holding.columns[quantities_holding.columns!='USDCUSDT']
                     
                     for col in cols:
@@ -1400,58 +1605,15 @@ with main_tabs[2]:
                         
                     book_cost_history=book_cost_history.ffill()
                     book_cost_history=book_cost_history.loc[quantities_holding.index] 
-                    
-                    today = datetime.date.today()
-                    start_pnl=quantities_holding.index[0]
-                    days_total = (today - start_pnl.date()).days
-                    
+
                     weights_ex_post=positions.copy()
                     weights_ex_post=weights_ex_post.drop(columns=['USDTUSDT'])
                     weights_ex_post=weights_ex_post.apply(lambda x: x/weights_ex_post['Total'])
                     
                     start_date=weights_ex_post.index[0].date()
                     
-                    days=(today-start_date).days
- 
-                    remaining = days_total % 500
-                    numbers_of_table = days_total // 500
-                    start_dt = datetime.datetime.combine(start_date, datetime.time())
-                    
-                    end_dates = [
-                        start_dt + datetime.timedelta(days=500 * i)
-                        for i in range(numbers_of_table + 1)
-                    ]
+                    binance_data=get_price_threading(historical_quantities_tickers,start_date)
                 
-                    end_dates.append(
-                        datetime.datetime.combine(
-                            today - datetime.timedelta(days=remaining),
-                            datetime.time()
-                        )
-                    )
-                
-
-                
-                    binance_data = None
-                
-                    try:
-                        with ThreadPoolExecutor(max_workers=8) as executor:
-                            futures = [executor.submit(Binance.get_price,quantities_tickers,d) for d in end_dates]
-                
-                            for future in as_completed(futures):
-                                data = future.result()
-                
-                                if binance_data is None:
-                                    binance_data = data
-                                else:
-                                    binance_data = binance_data.combine_first(data)
-                
-                    except Exception as e:
-                        print("❌ Error while fetching prices:", e)
-
-                    binance_data=binance_data.sort_index()
-                    binance_data = binance_data[~binance_data.index.duplicated(keep='first')]
-                    binance_data.index=pd.to_datetime(binance_data.index)
-            
                     pnl_history=pd.DataFrame()
                     pnl_history.index=quantities_holding.index
                     pnl_history=pnl_history.sort_index()
@@ -1467,18 +1629,21 @@ with main_tabs[2]:
                     
                     daily_pnl['color'] = daily_pnl['Total'].apply(lambda v: 'green' if v >= 0 else 'red')
                 
-                    binance_data_return=np.log(1+binance_data.pct_change(fill_method=None))
+                    binance_data_return=binance_data.pct_change(fill_method=None)
                     weight_date=set(weights_ex_post.index)
                     binance_date=set(binance_data_return.index)
-                    common_date=weight_date.intersection(binance_date)
+                    common_date = weights_ex_post.index.intersection(binance_data_return.index)
                     
                     binance_data2=binance_data_return.loc[list(common_date)].copy().sort_index()
                     weights_ex_post2=weights_ex_post.loc[list(common_date)].copy().sort_index()
                     historical_ptf=pd.DataFrame()
                     
-                    for col in binance_data:
-                        historical_ptf[col]=weights_ex_post2[col]*binance_data2[col]
-                        
+                    common_cols = weights_ex_post2.columns.intersection(binance_data2.columns)
+                    
+                    historical_ptf = (
+                        weights_ex_post2[common_cols] *
+                        binance_data2[common_cols])
+                                            
                     historical_ptf['Historical Portfolio']=historical_ptf.sum(axis=1)   
                     
                     performance_ex_post=historical_ptf['Historical Portfolio'].copy()
