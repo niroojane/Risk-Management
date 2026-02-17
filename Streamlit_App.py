@@ -862,7 +862,7 @@ with main_tabs[3]:
         st.info("Compute Optimization first ⬅️")
 
     else:
-        sub_tabs_risk=st.tabs(['Risk Analysis','Value At Risk','Risk Trajectory'])
+        sub_tabs_risk=st.tabs(['Risk Analysis','Value At Risk','Risk Trajectory','Tracking Error Trajectory'])
         with sub_tabs_risk[0]:
             
             dataframe = st.session_state.dataframe
@@ -1124,7 +1124,7 @@ with main_tabs[3]:
             weights_ex_post=weights_ex_post.fillna(0.0)
             
             if not quantities.empty:
-                portfolio=quantities*range_prices
+                portfolio=quantities.loc[range_prices.index]*range_prices
                 model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
                 series_dict['Fund']=model_weights
             
@@ -1133,8 +1133,8 @@ with main_tabs[3]:
 
             tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
             tickers_combined=list(set(tickers_combined))
-            
-            selected_fund_to_decompose=st.selectbox("Fund:", list(series_dict.keys()),index=0,key='selected_fund_risk_decomposition')
+            options_vol=list(series_dict.keys())
+            selected_fund_to_decompose=st.selectbox("Fund:",options=options_vol,index=len(options_vol)-1,key='selected_fund_risk_decomposition')
             window_risk=st.number_input("Window Vol:", min_value=7, value=252, step=1)
             ex_ante_vol_button=st.button("Get Risk History")
             ex_ante_vol_status=st.empty()
@@ -1151,7 +1151,6 @@ with main_tabs[3]:
                     current_underlying_returns=current_underlying_prices.pct_change(fill_method=None)
                     
                     tasks=[(key,series_dict[key],range_returns,window_risk) for key in series_dict if key!='Historical Portfolio']
-                    names=list(series_dict.keys())
                     
                     mask = (weights_ex_post.index >= selmind) & (weights_ex_post.index <= selmaxd)
 
@@ -1177,60 +1176,239 @@ with main_tabs[3]:
                     st.session_state.current_underlying_returns=current_underlying_returns
                     
                     ex_ante_vol_status.success('Done!')
+    
+            if st.session_state.results_vol is not None:
+                series_weights=series_dict[selected_fund_to_decompose]
+                mask = (series_weights.index >= selmind) & (series_weights.index <= selmaxd)
+                results_vol=st.session_state.results_vol
+                current_underlying_returns=st.session_state.current_underlying_returns
 
-        series_weights=series_dict[selected_fund_to_decompose]
-
-        if st.session_state.results_vol is not None:
-            mask = (series_weights.index >= selmind) & (series_weights.index <= selmaxd)
-            results_vol=st.session_state.results_vol
-            current_underlying_returns=st.session_state.current_underlying_returns
-            
-            if selected_fund_to_decompose!='Historical Portfolio':
+                if selected_fund_to_decompose!='Historical Portfolio':
+                    
+                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights,range_returns.loc[series_weights.index],window_risk)
+                    correlation_contrib=get_correlation_contribution(series_weights,range_returns.loc[series_weights.index],window_risk)
+                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights,range_returns.loc[series_weights.index],window_risk)
+    
+                else:
+                    
+                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_risk)
+                    correlation_contrib=get_correlation_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_risk)
+                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_risk)
                 
-
-                contribution_to_vol=get_ex_ante_vol_contribution(series_weights,range_returns,window_risk)
-                correlation_contrib=get_correlation_contribution(series_weights,range_returns,window_risk)
-                idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights,range_returns,window_risk)
-
+                col1, col2 = st.columns([1, 1])
+    
+                with col1:
+                    mask = (results_vol.index >= selmind) & (results_vol.index <= selmaxd)
+    
+                    fig = px.line(results_vol.loc[mask], title='Ex Ante Volatility', width=800, height=400, render_mode = 'svg')
+                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
+                    fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    st.plotly_chart(fig,width='content')
+        
+                    fig4 = px.line(idiosyncratic_contrib, title='Idiosyncratic Contribution', width=800, height=400, render_mode = 'svg')
+                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    st.plotly_chart(fig4,width='content')
+                with col2:
+                    
+                    fig2 = px.line(contribution_to_vol, title='Volatility Contribution', width=800, height=400, render_mode = 'svg')
+                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    st.plotly_chart(fig2,width='content')
+        
+                    
+                    fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
+                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    st.plotly_chart(fig3,width='content')
             else:
+                st.info('Load Ex Ante Data')
                 
-                contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_risk)
-                correlation_contrib=get_correlation_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_risk)
-                idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_risk)
+        with sub_tabs_risk[3]:
             
-            col1, col2 = st.columns([1, 1])
-
-            with col1:
-                mask = (results_vol.index >= selmind) & (results_vol.index <= selmaxd)
-
-                fig = px.line(results_vol.loc[mask], title='Ex Ante Volatility', width=800, height=400, render_mode = 'svg')
-                fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
-                fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                st.plotly_chart(fig,width='content')
+            dataframe = st.session_state.dataframe
+            returns_to_use = st.session_state.returns_to_use
+            res=st.session_state.results
+            allocation_dataframe=res["alloc_df"]
+            quantities=res['quantities']
+            positions=st.session_state.positions
     
-                fig4 = px.line(idiosyncratic_contrib, title='Idiosyncratic Contribution', width=800, height=400, render_mode = 'svg')
-                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
-                st.plotly_chart(fig4,width='content')
-            with col2:
-                
-                fig2 = px.line(contribution_to_vol, title='Volatility Contribution', width=800, height=400, render_mode = 'svg')
-                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
-                st.plotly_chart(fig2,width='content')
+            max_value = dataframe.index.max().strftime('%Y-%m-%d')
+            min_value = dataframe.index.min().strftime('%Y-%m-%d')
+            max_value=datetime.datetime.strptime(max_value, '%Y-%m-%d')
+            min_value=datetime.datetime.strptime(min_value, '%Y-%m-%d')  
+            value=(min_value,max_value)
     
+            Model_tracking_error_trajectory = st.slider(
+            'Date:',
+            min_value=min_value,
+            max_value=max_value,
+            value=value,key='te_path_tab')
+        
+            selmin, selmax = Model_tracking_error_trajectory
+            selmind = selmin.strftime('%Y-%m-%d')  # datetime to str
+            selmaxd = selmax.strftime('%Y-%m-%d')
+            
+            mask = (dataframe.index >= selmind) & (dataframe.index <= selmaxd)
+            
+            range_prices=dataframe.loc[mask].copy()
+            range_returns=returns_to_use.loc[mask].copy()
+            
+            if "results_tracking_error" not in st.session_state:
+                st.session_state.results_tracking_error=None
                 
-                fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
-                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
-                fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                st.plotly_chart(fig3,width='content')
-        else:
-            st.info('Load Ex Ante Data')
-                 
+            if "current_underlying_returns_te" not in st.session_state:
+                st.session_state.current_underlying_returns_te=None
+                
+            series_dict={}
+
+            for key in allocation_dataframe.index:
+                
+                rebalanced_series=rebalanced_portfolio(range_prices,allocation_dataframe.loc[key])
+                rebalanced_series_weights=rebalanced_series.apply(lambda x: x/rebalanced_series.sum(axis=1))
+                buy_and_hold_series=buy_and_hold(range_prices,allocation_dataframe.loc[key])
+                buy_and_hold_series_weights=buy_and_hold_series.apply(lambda x: x/buy_and_hold_series.sum(axis=1))
+                series_dict['Rebalanced '+key]=rebalanced_series_weights
+                series_dict['Buy and Hold '+key]=buy_and_hold_series_weights
+            
+            weights_ex_post=positions.copy()
+            weights_ex_post=weights_ex_post.drop(columns=['USDTUSDT'])
+            weights_ex_post=weights_ex_post.apply(lambda x: x/weights_ex_post['Total'])
+            weights_ex_post=weights_ex_post.drop(columns=['Total'])
+            weights_ex_post=weights_ex_post.fillna(0.0)
+            
+            if not quantities.empty:
+                portfolio=quantities.loc[range_prices.index]*range_prices
+                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+                series_dict['Fund']=model_weights
+            
+            mask = (weights_ex_post.index >= selmind) & (weights_ex_post.index <= selmaxd)
+            series_dict['Historical Portfolio']=weights_ex_post.loc[mask]
+
+            tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
+            tickers_combined=list(set(tickers_combined))
+            options_te=list(series_dict.keys())
+
+            selected_fund_to_decompose=st.selectbox("Fund:", options=options_te,index=len(options_te)-1,key='selected_fund_te_decomposition')
+            select_benchmark_te=st.selectbox("Bench:", options=options_te,index=len(options_te)-2,key='selected_bench_risk_decomposition')
+            window_te=st.number_input("Window Tracking Error:", min_value=7, value=252, step=1)
+
+            selected_weights=series_dict[select_benchmark_te]
+            not_in_bench=list(set(weights_ex_post.columns)-set(selected_weights.columns))
+            not_in_fund=list(set(selected_weights.columns)-set(weights_ex_post.columns))
+            
+            selected_weights = selected_weights.copy()
+            weights_ex_post = weights_ex_post.copy()
+            
+            weights_ex_post[not_in_fund] = 0
+            selected_weights[not_in_bench] = 0
+    
+            spread_weights={}
+    
+            for key in series_dict:
+                spread_weights[key]=(series_dict[key]-selected_weights).fillna(0)
+            
+            mask = (weights_ex_post.index >= selmind) & (weights_ex_post.index <= selmaxd)
+
+            spread_ex_post=(weights_ex_post-selected_weights).loc[weights_ex_post.index].loc[mask].fillna(0)
+            spread_weights['Historical Portfolio']=spread_ex_post
+                        
+            ex_ante_te_button=st.button("Get Tracking Error History")
+            ex_ante_te_status=st.empty()
+
+            if ex_ante_te_button:
+                st.session_state.results_tracking_error=None
+                st.session_state.current_underlying_returns_te=None
+
+                with st.spinner("Computing Ex Ante TE...",show_time=True):
+                                        
+                    start_date=weights_ex_post.index[0].date()
+                    
+                    current_underlying_prices=get_price_threading(tickers_combined,start_date)
+                    current_underlying_returns=current_underlying_prices.pct_change(fill_method=None)
+                    
+                    tasks=[(key,spread_weights[key],range_returns.loc[spread_weights[key].index],window_te) for key in series_dict if key!='Historical Portfolio']
+                    
+                    mask = (current_underlying_returns.index >= selmind) & (current_underlying_returns.index <= selmaxd)
+
+                    tasks.append(('Historical Portfolio',spread_ex_post,current_underlying_returns.loc[mask],window_te))
+                            
+                    results_dict = {}
+                    
+                    with ThreadPoolExecutor(max_workers=8) as executor:
+                        futures = {
+                            executor.submit(get_ex_ante_vol, weights, returns, window): name
+                            for name, weights, returns, window in tasks
+                        }
+                    
+                        for future in as_completed(futures):
+                            name = futures[future]
+                            results_dict[name] = future.result()
+            
+                                        
+                    results_tracking_error=pd.concat(results_dict.values(), axis=1)
+                    results_tracking_error.columns=results_dict.keys()
+                    
+                    st.session_state.results_tracking_error= results_tracking_error
+                    st.session_state.current_underlying_returns_te=current_underlying_returns
+                    
+                    ex_ante_te_status.success('Done!')
+
+            if st.session_state.results_tracking_error is not None:
+                series_weights=spread_weights[selected_fund_to_decompose]
+                mask = (series_weights.index >= selmind) & (series_weights.index <= selmaxd)
+                results_tracking_error=st.session_state.results_tracking_error
+                current_underlying_returns=st.session_state.current_underlying_returns_te
+    
+                if selected_fund_to_decompose!='Historical Portfolio':
+    
+                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights,range_returns.loc[series_weights.index],window_te)
+                    correlation_contrib=get_correlation_contribution(series_weights,range_returns.loc[series_weights.index],window_te)
+                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights,range_returns.loc[series_weights.index],window_te)
+    
+                else:
+                    
+                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_te)
+                    correlation_contrib=get_correlation_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_te)
+                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[mask],current_underlying_returns.loc[series_weights.index].loc[mask],window_te)
+                
+                col1, col2 = st.columns([1, 1])
+    
+                with col1:
+                    mask = (results_tracking_error.index >= selmind) & (results_tracking_error.index <= selmaxd)
+    
+                    fig = px.line(results_tracking_error.loc[mask], title='Ex Ante Tracking Error', width=800, height=400, render_mode = 'svg')
+                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
+                    fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    st.plotly_chart(fig,width='content')
+        
+                    fig4 = px.line(idiosyncratic_contrib, title='Idiosyncratic Contribution', width=800, height=400, render_mode = 'svg')
+                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    st.plotly_chart(fig4,width='content')
+                with col2:
+                    
+                    fig2 = px.line(contribution_to_vol, title='Tracking Error Contribution', width=800, height=400, render_mode = 'svg')
+                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    st.plotly_chart(fig2,width='content')
+        
+                    
+                    fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
+                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    st.plotly_chart(fig3,width='content')
+            else:
+                st.info('Load Tracking Error Data')
+            
 with main_tabs[4]:
     
     
