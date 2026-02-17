@@ -1859,25 +1859,39 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     calendar_ui_ex_post=widgets.VBox([widgets.HBox([frequency_graph_ex_post,fund_ex_post,benchmark_ex_post,calendar_button_ex_post]),ex_post_calendar])
 
 
-    global results_vol,series_dict,current_underlying_returns
+    global results_vol,series_dict,current_underlying_returns,results_tracking_error,spread_weights
 
     results_vol=pd.DataFrame()
+    results_tracking_error=pd.DataFrame()
     current_underlying_returns=pd.DataFrame()
     series_dict={}
+    spread_weights={}
     
     risk_trajectory_output=widgets.Output()
+    tracking_error_trajectory_output=widgets.Output()
 
     selected_fund_to_decompose=widgets.Dropdown(options=['Fund','Historical Portfolio'],value='Historical Portfolio',description='Fund:')
-    selected_bench_risk=widgets.Dropdown(options=['Fund','Historical Portfolio'],value='Historical Portfolio',description='Benchmark:')
+    selected_bench_risk=widgets.Dropdown(options=['Fund','Historical Portfolio'],value='Fund',description='Bench:')
+    
     window_risk=widgets.IntText(
     value=252,
     description='Window',
     disabled=False)   
     
+    window_te=widgets.IntText(
+    value=252,
+    description='Window',
+    disabled=False)   
+        
     loading_bar_risk = widgets.IntProgress(description='Loading Vol...',min=0, max=100,style={'description_width': '150px'})
     loading_bar_tracking_error = widgets.IntProgress(description='Loading TE...',min=0, max=100,style={'description_width': '150px'})
-    risk_trajectoy_button=widgets.Button(description="Get Ex Ante Vol", button_style="success")
-    risk_trajectoy_refresh_button=widgets.Button(description="Refresh")
+    
+    risk_trajectory_button=widgets.Button(description="Get Ex Ante Vol", button_style="success")
+    tracking_error_trajectory_button=widgets.Button(description="Get Ex Ante TE", button_style="success")
+
+    risk_trajectory_refresh_button=widgets.Button(description="Refresh")
+    tracking_error_refresh_button=widgets.Button(description="Refresh")
+    
 
     def show_risk_graph(_):
         
@@ -1893,6 +1907,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             return
         output1=widgets.Output()
         output2=widgets.Output()
+        
         with risk_trajectory_output:
             
             risk_trajectory_output.clear_output(wait=True)
@@ -1907,7 +1922,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if results_vol.empty:
                 print("⚠️ Load Ex Ante Vol.")
                 return
-                
+
+            if not series_dict:
+                print("⚠️ Weights Empty.")
+                return
             else:
                 
                 risk_trajectory_output.clear_output(wait=True)
@@ -1926,6 +1944,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     # contribution_to_vol_pct=get_ex_ante_vol_contribution_in_pct(series_weights,current_underlying_returns.loc[series_weights.index],window_risk.value)
                     
                 with output1:
+                    
                     fig = px.line(results_vol.loc[start_ts:end_ts], title='Ex Ante Volatility', width=800, height=400, render_mode = 'svg')
                     fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
@@ -1938,8 +1957,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
     
                     fig4.show()   
-                                        
+                        
                 with output2:
+                    
+                        
                     fig2 = px.line(contribution_to_vol, title='Volatility Contribution', width=800, height=400, render_mode = 'svg')
                     fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
@@ -1952,20 +1973,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
                     fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig3.show()
-                    
 
                 ui=widgets.HBox([output1,output2])
 
                 display(ui)
-                # fig3 = px.line(contribution_to_vol_pct, title='Contributors to Vol in %', width=800, height=400, render_mode = 'svg')
-                # fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                # fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                # fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol in %"])
-
-                # fig3.show()  
-
+                
                     
-    def get_risk_trajectoy(_):
+    def get_risk_trajectory(_):
         
         global results_vol,series_dict,current_underlying_returns
 
@@ -2018,24 +2032,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
         tickers_combined=list(set(tickers_combined))
         
-        current_underlying_prices=get_price_threading(tickers_combined,weights_ex_post.index[0].date())
+        current_underlying_prices=get_price_threading(tickers_combined,weights_ex_post.index[0].date())    
         current_underlying_returns=current_underlying_prices.pct_change(fill_method=None)
 
         tasks=[(key,series_dict[key],returns_to_use.loc[start_ts:end_ts],window_risk.value) for key in series_dict]
-        names=list(series_dict.keys())
 
         series_dict['Historical Portfolio']=weights_ex_post.loc[start_ts:end_ts]
-        
-        # selected_weights=series_dict[selected_bench_risk.value]
 
-        # weights_copied=weights_ex_post.copy()
-        # selected_weights_copied=selected_weights.copy()
-        
-        # not_in_bench=list(set(weights_ex_post.columns)-set(selected_weights.columns))
-        # not_in_fund=list(set(selected_weights.columns)-set(weights_ex_post.columns))
-        
-        # weights_copied[not_in_fund]=0
-        # selected_weights_copied[not_in_bench]=0
         
         tasks.append(('Historical Portfolio',weights_ex_post.loc[start_ts:end_ts],current_underlying_returns.loc[weights_ex_post.index].loc[start_ts:end_ts],window_risk.value))
 
@@ -2058,20 +2061,234 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 
         loading_bar_risk.value = loading_bar_risk.max
         
-        results_vol=pd.concat(results_dict.values(), axis=1)
+        with risk_trajectory_output:
+            if len(returns_to_use.loc[start_ts:end_ts]) < window_risk.value:
+                print("⚠️ Date range is shorter than rolling window.")
+                return    
+            if not results_dict:
+                print("⚠️ No risk results were computed.")
+                return
+            
+            results_vol = pd.concat(results_dict.values(), axis=1)
+            
+            if results_vol.shape[1] == 0:
+                print("⚠️ Risk results are empty.")
+                return  
+
         results_vol.columns=results_dict.keys()
-        selected_bench_risk.options=results_vol.columns
         selected_fund_to_decompose.options=results_vol.columns
+        selected_fund_to_decompose.value='Historical Portfolio'
         
         show_risk_graph(None)
 
     show_risk_graph(None)
     
-    risk_trajectoy_button.on_click(get_risk_trajectoy)
-    risk_trajectoy_refresh_button.on_click(show_risk_graph)
-    risk_exposure_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,risk_trajectoy_button,risk_trajectoy_refresh_button]),
+    def show_tracking_error_graph(_):
+        
+        global results_tracking_error
+        
+        try:
+            start_ts = pd.to_datetime(start_date_perf_risk.value)
+            end_ts = pd.to_datetime(end_date_perf_risk.value)
+        except Exception:
+            with tracking_error_trajectory_output:
+                tracking_error_trajectory_output.clear_output(wait=True)
+                print("⚠️ Invalid start or end date.")
+            return
+        output1=widgets.Output()
+        output2=widgets.Output()
+        
+        with tracking_error_trajectory_output:
+            
+            tracking_error_trajectory_output.clear_output(wait=True)
+            
+            if dataframe.empty:
+                print('⚠️Load Prices.')
+                return
+            if dataframe.empty or returns_to_use.empty or grid.data.empty:
+                print("⚠️ Please compute optimization results first.")
+                return
+
+            if results_tracking_error.empty:
+                print("⚠️ Load Ex Ante TE.")
+                return
+
+            if not spread_weights:
+                print("⚠️ Weights Empty.")
+                return
+            else:
+                
+                tracking_error_trajectory_output.clear_output(wait=True)
+                
+                series_weights=spread_weights[selected_fund_to_decompose.value]
+                
+                if selected_fund_to_decompose.value!='Historical Portfolio':
+                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+                    correlation_contrib=get_correlation_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+
+                else:
+                    
+                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+                    correlation_contrib=get_correlation_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+                    # contribution_to_vol_pct=get_ex_ante_vol_contribution_in_pct(series_weights,current_underlying_returns.loc[series_weights.index],window_risk.value)
+                    
+                with output1:
+                    
+                    fig = px.line(results_tracking_error.loc[start_ts:end_ts], title='Ex Ante Tracking Error', width=800, height=400, render_mode = 'svg')
+                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
+                    fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig.show()
+
+                    fig4 = px.line(idiosyncratic_contrib, title='Idiosyncratic Contribution', width=800, height=400, render_mode = 'svg')
+                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+    
+                    fig4.show()   
+                        
+                with output2:
+                    
+                        
+                    fig2 = px.line(contribution_to_vol, title='Tracking Error Contribution', width=800, height=400, render_mode = 'svg')
+                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    
+                    fig2.show()
+                    
+                    fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
+                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig3.show()
+
+                ui=widgets.HBox([output1,output2])
+
+                display(ui)
+                    
+    def get_tracking_error_trajectory(_):
+        
+        global results_tracking_error,spread_weights,current_underlying_returns
+
+        results_tracking_error=pd.DataFrame()
+        
+        try:
+            start_ts = pd.to_datetime(start_date_perf_risk.value)
+            end_ts = pd.to_datetime(end_date_perf_risk.value)
+        except Exception:
+            with tracking_error_trajectory_output:
+                risk_trajectory_output.clear_output(wait=True)
+                print("⚠️ Invalid start or end date.")
+            return
+            
+        with tracking_error_trajectory_output:
+            tracking_error_trajectory_output.clear_output(wait=True)
+
+            if dataframe.empty:
+                print('⚠️Load Prices.')
+                return
+            if dataframe.empty or returns_to_use.empty or grid.data.empty:
+                print("⚠️ Please compute optimization results first.")
+                return
+            else:
+                display(loading_bar)
+                display(loading_bar_risk)
+
+        series_dict={}
+
+        for key in grid.data.index:
+            
+            rebalanced_series=rebalanced_portfolio(dataframe,grid.data.loc[key])
+            rebalanced_series_weights=rebalanced_series.apply(lambda x: x/rebalanced_series.sum(axis=1))
+            buy_and_hold_series=buy_and_hold(dataframe,grid.data.loc[key])
+            buy_and_hold_series_weights=buy_and_hold_series.apply(lambda x: x/buy_and_hold_series.sum(axis=1))
+            series_dict['Rebalanced '+key]=rebalanced_series_weights.loc[start_ts:end_ts]
+            series_dict['Buy and Hold '+key]=buy_and_hold_series_weights.loc[start_ts:end_ts]
+        
+        weights_ex_post=positions.copy()
+        weights_ex_post=weights_ex_post.drop(columns=['USDTUSDT'])
+        weights_ex_post=weights_ex_post.apply(lambda x: x/weights_ex_post['Total'])
+        weights_ex_post=weights_ex_post.drop(columns=['Total'])
+        weights_ex_post=weights_ex_post.fillna(0.0)
+        
+        if not quantities.empty:
+            portfolio=quantities*dataframe
+            model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+            series_dict['Fund']=model_weights.loc[start_ts:end_ts]
+
+        tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
+        tickers_combined=list(set(tickers_combined))
+        
+        current_underlying_prices=get_price_threading(tickers_combined,weights_ex_post.index[0].date())
+        current_underlying_returns=current_underlying_prices.pct_change(fill_method=None)
+
+        series_dict['Historical Portfolio']=weights_ex_post.loc[start_ts:end_ts]
+        selected_weights=series_dict[selected_bench_risk.value]
+        
+        not_in_bench=list(set(weights_ex_post.columns)-set(selected_weights.columns))
+        not_in_fund=list(set(selected_weights.columns)-set(weights_ex_post.columns))
+        
+        selected_weights = selected_weights.copy()
+        weights_ex_post = weights_ex_post.copy()
+        
+        weights_ex_post[not_in_fund] = 0
+        selected_weights[not_in_bench] = 0
+
+        spread_weights={}
+
+        for key in series_dict:
+            spread_weights[key]=(series_dict[key]-selected_weights).fillna(0)
+        
+        tasks=[(key,spread_weights[key].loc[start_ts:end_ts],returns_to_use.loc[spread_weights[key].loc[start_ts:end_ts].index],window_te.value) for key in series_dict if key!='Historical Portfolio']
+        
+        spread_ex_post=(weights_ex_post-selected_weights).loc[weights_ex_post.index].loc[start_ts:end_ts].fillna(0)
+        spread_weights['Historical Portfolio']=spread_ex_post
+        tasks.append(('Historical Portfolio',spread_ex_post,current_underlying_returns.loc[spread_ex_post.index].loc[start_ts:end_ts],window_te.value))
+
+        loading_bar_risk.value = 0
+        loading_bar_risk.max=len(tasks)   
+        
+        results_dict = {}
+        
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = {
+                executor.submit(get_ex_ante_vol, weights, returns, window): name
+                for name, weights, returns, window in tasks
+            }
+        
+            for future in as_completed(futures):
+                name = futures[future]
+                results_dict[name] = future.result()
+                loading_bar_risk.value += 1
+
+                
+        loading_bar_risk.value = loading_bar_risk.max
+        
+        results_tracking_error=pd.concat(results_dict.values(), axis=1)
+        results_tracking_error.columns=results_dict.keys()
+        selected_bench_risk.options=results_tracking_error.columns
+        selected_fund_to_decompose.options=results_tracking_error.columns
+        selected_fund_to_decompose.value='Historical Portfolio'
+        selected_bench_risk.value='Fund'
+        
+        show_tracking_error_graph(None)
+
+    show_tracking_error_graph(None)    
+
+    
+    risk_trajectory_button.on_click(get_risk_trajectory)
+    risk_trajectory_refresh_button.on_click(show_risk_graph)
+    risk_exposure_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,risk_trajectory_button,risk_trajectory_refresh_button]),
                                    selected_fund_to_decompose,window_risk,risk_trajectory_output])
 
+
+    tracking_error_trajectory_button.on_click(get_tracking_error_trajectory)
+    tracking_error_refresh_button.on_click(show_tracking_error_graph)
+    tracking_error_exposure_ui=widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,tracking_error_trajectory_button,tracking_error_refresh_button]),
+                                   selected_fund_to_decompose,selected_bench_risk,window_te,tracking_error_trajectory_output])   
     
     check_connection(None)
 
@@ -2158,16 +2375,19 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     risk_contribution_tab = widgets.Output()
     var_tab = widgets.Output()
     risk_exposure=widgets.Output()
+    tracking_error_exposure=widgets.Output()
     
     risk_subtabs = widgets.Tab(children=[
         risk_contribution_tab,
         var_tab,
-        risk_exposure])
+        risk_exposure,
+        tracking_error_exposure])
     
     risk_subtabs.set_title(0, 'Risk Contribution')
     risk_subtabs.set_title(1, 'Value at Risk')
     risk_subtabs.set_title(2, 'Risk Trajectory')
-    
+    risk_subtabs.set_title(3, 'Tracking Error')
+
     with risk_analysis_tab:
         display(risk_subtabs)
     
@@ -2176,8 +2396,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     with var_tab:
         display(var_ui)
+        
     with risk_exposure:
         display(risk_exposure_ui)
+
+    with tracking_error_exposure:
+        display(tracking_error_exposure_ui)
         
     market_risk_detail_tab = widgets.Output()
     correlation_tab = widgets.Output()
