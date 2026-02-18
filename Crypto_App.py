@@ -2123,15 +2123,15 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 series_weights=spread_weights[selected_fund_to_decompose.value]
                 
                 if selected_fund_to_decompose.value!='Historical Portfolio':
-                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
-                    correlation_contrib=get_correlation_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
-                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[series_weights.index].loc[start_ts:end_ts],window_te.value)
+                    correlation_contrib=get_correlation_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[series_weights.index].loc[start_ts:end_ts],window_te.value)
+                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts],returns_to_use.loc[series_weights.index].loc[start_ts:end_ts],window_te.value)
 
                 else:
                     
-                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
-                    correlation_contrib=get_correlation_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
-                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
+                    contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_te.value)
+                    correlation_contrib=get_correlation_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_te.value)
+                    idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_te.value)
                     # contribution_to_vol_pct=get_ex_ante_vol_contribution_in_pct(series_weights,current_underlying_returns.loc[series_weights.index],window_risk.value)
                     
                 with output1:
@@ -2376,21 +2376,26 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     var_tab = widgets.Output()
     risk_exposure=widgets.Output()
     tracking_error_exposure=widgets.Output()
+
     
     risk_subtabs = widgets.Tab(children=[
         risk_contribution_tab,
-        var_tab,
         risk_exposure,
         tracking_error_exposure])
     
+    var_subtabs=widgets.Tab(children=[var_tab])
+    var_subtabs.set_title(0, 'Value at Risk')
+
     risk_subtabs.set_title(0, 'Risk Contribution')
-    risk_subtabs.set_title(1, 'Value at Risk')
-    risk_subtabs.set_title(2, 'Risk Trajectory')
-    risk_subtabs.set_title(3, 'Tracking Error')
+    risk_subtabs.set_title(1, 'Risk Trajectory')
+    risk_subtabs.set_title(2, 'Tracking Error')
 
     with risk_analysis_tab:
-        display(risk_subtabs)
-    
+        risk_tabs=widgets.Tab(children=[risk_subtabs,var_subtabs])
+        risk_tabs.set_title(0,'Volatility Analysis')
+        risk_tabs.set_title(1,'Value at Risk')
+        display(risk_tabs)
+        
     with risk_contribution_tab:
         display(ex_ante_ui)
     
