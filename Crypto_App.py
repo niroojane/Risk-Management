@@ -1922,6 +1922,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if results_vol.empty:
                 print("⚠️ Load Ex Ante Vol.")
                 return
+            
+            if len(returns_to_use.loc[start_ts:end_ts]) < window_risk.value:
+                print("⚠️ Date range is shorter than rolling window.")
+                return    
 
             if not series_dict:
                 print("⚠️ Weights Empty.")
@@ -2003,6 +2007,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if dataframe.empty or returns_to_use.empty or grid.data.empty:
                 print("⚠️ Please compute optimization results first.")
                 return
+            
+            if len(returns_to_use.loc[start_ts:end_ts]) < window_risk.value:
+                print("⚠️ Date range is shorter than rolling window.")
+                return    
             else:
                 display(loading_bar)
                 display(loading_bar_risk)
@@ -2062,9 +2070,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         loading_bar_risk.value = loading_bar_risk.max
         
         with risk_trajectory_output:
-            if len(returns_to_use.loc[start_ts:end_ts]) < window_risk.value:
-                print("⚠️ Date range is shorter than rolling window.")
-                return    
+
             if not results_dict:
                 print("⚠️ No risk results were computed.")
                 return
@@ -2116,6 +2122,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if not spread_weights:
                 print("⚠️ Weights Empty.")
                 return
+
+            if len(returns_to_use.loc[start_ts:end_ts]) < window_te.value:
+                print("⚠️ Date range is shorter than rolling window.")
+                return   
+                
             else:
                 
                 tracking_error_trajectory_output.clear_output(wait=True)
@@ -2186,13 +2197,18 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
         with tracking_error_trajectory_output:
             tracking_error_trajectory_output.clear_output(wait=True)
-
+ 
+                
             if dataframe.empty:
                 print('⚠️Load Prices.')
                 return
             if dataframe.empty or returns_to_use.empty or grid.data.empty:
                 print("⚠️ Please compute optimization results first.")
                 return
+                        
+            if len(returns_to_use.loc[start_ts:end_ts]) < window_te.value:
+                print("⚠️ Date range is shorter than rolling window.")
+                return   
             else:
                 display(loading_bar)
                 display(loading_bar_risk)
@@ -2267,8 +2283,21 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 
         loading_bar_risk.value = loading_bar_risk.max
         
-        results_tracking_error=pd.concat(results_dict.values(), axis=1)
-        results_tracking_error.columns=results_dict.keys()
+        with tracking_error_trajectory_output:
+            
+            tracking_error_trajectory_output.clear_output(wait=True)
+
+            if not results_dict:
+                print("⚠️ No risk results were computed.")
+                return
+            
+            results_tracking_error = pd.concat(results_dict.values(), axis=1)
+            
+            if results_tracking_error.shape[1] == 0:
+                print("⚠️ Risk results are empty.")
+                return       
+                
+        results_tracking_error.columns=results_dict.keys()       
         selected_bench_risk.options=results_tracking_error.columns
         selected_fund_to_decompose.options=results_tracking_error.columns
         selected_fund_to_decompose.value='Historical Portfolio'
