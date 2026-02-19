@@ -339,6 +339,7 @@ with st.sidebar:
     
     st.subheader('Github Keys')
     
+    token_input=st.text_input(label='Github Token',value=token)
     owner=st.text_input(label='Github Owner',value=repo_owner)
     repo=st.text_input(label='Repository',value=repo_name)
     branch_name=st.text_input(label='Branch',value=branch)
