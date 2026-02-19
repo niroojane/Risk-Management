@@ -1875,12 +1875,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     window_risk=widgets.IntText(
     value=252,
-    description='Window',
+    description='Window:',
     disabled=False)   
     
     window_te=widgets.IntText(
     value=252,
-    description='Window',
+    description='Window:',
     disabled=False)   
         
     loading_bar_risk = widgets.IntProgress(description='Loading Vol...',min=0, max=100,style={'description_width': '150px'})
