@@ -71,7 +71,7 @@ def load_data(tickers,start=datetime.datetime(2023,1,1),today=None):
 
     try:
         with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(Binance.get_price, combined_tickers,d) for d in end_dates]
+            futures = [executor.submit(Binance.get_price, tickers,d) for d in end_dates]
 
             for future in as_completed(futures):
                 data = future.result()
