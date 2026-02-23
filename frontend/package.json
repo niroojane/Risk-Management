@@ -26,12 +26,24 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
-    "react-day-picker": "^8.10.1",
+    "react-day-picker": "^9.6.9",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.11.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18",
     "zustand": "^5.0.9"
+  },
+  "overrides": {
+    "minimatch": "^10.2.1",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^10.2.1"
+    },
+    "@eslint/config-array": {
+      "minimatch": "^10.2.1"
+    },
+    "@eslint/eslintrc": {
+      "minimatch": "^10.2.1"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
