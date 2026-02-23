@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     BINANCE_RATE_LIMIT_CALLS: int = 1200
     BINANCE_RATE_LIMIT_PERIOD: int = 60
 
+    # Redis (optional - falls back to in-memory if not set)
+    REDIS_URL: str = ""
+
     # Cache TTLs (seconds)
     CACHE_DEFAULT_TTL: int = 300
     CACHE_MARKET_CAP_TTL: int = 300
@@ -68,6 +71,7 @@ BINANCE_API_SECRET = settings.BINANCE_API_SECRET
 BINANCE_RATE_LIMIT_CALLS = settings.BINANCE_RATE_LIMIT_CALLS
 BINANCE_RATE_LIMIT_PERIOD = settings.BINANCE_RATE_LIMIT_PERIOD
 
+REDIS_URL = settings.REDIS_URL
 CACHE_DEFAULT_TTL = settings.CACHE_DEFAULT_TTL
 CACHE_MARKET_CAP_TTL = settings.CACHE_MARKET_CAP_TTL
 CACHE_PRICES_TTL = settings.CACHE_PRICES_TTL

@@ -8,7 +8,7 @@ from fastapi import Depends
 import logging
 
 # Import root modules
-from .config import BINANCE_API_KEY, BINANCE_API_SECRET, CACHE_DEFAULT_TTL
+from .config import BINANCE_API_KEY, BINANCE_API_SECRET, CACHE_DEFAULT_TTL, REDIS_URL
 
 # Type-only imports to avoid circular dependencies
 if TYPE_CHECKING:
@@ -26,9 +26,13 @@ logger = logging.getLogger(__name__)
 
 @lru_cache()
 def get_cache_service():
-    """Get singleton CacheService instance"""
+    """Get singleton cache instance - Redis if REDIS_URL is set, in-memory otherwise"""
+    if REDIS_URL:
+        from ..services.infrastructure.redis_cache_service import RedisCacheService
+        logger.info("Using Redis cache")
+        return RedisCacheService(url=REDIS_URL, default_ttl=CACHE_DEFAULT_TTL)
     from ..services.infrastructure.cache_service import CacheService
-    logger.info("Creating CacheService instance")
+    logger.info("Using in-memory cache")
     return CacheService(default_ttl=CACHE_DEFAULT_TTL)
 
 

@@ -4,12 +4,11 @@ FastAPI backend for cryptocurrency portfolio management system.
 
 ## Architecture
 
-**Clean Architecture en 6 couches:**
+**Clean Architecture en 5 couches:**
 - `app/core/`: Config, rate limiter, cache, middleware, exceptions
 - `app/services/binance/`: Services Binance modulaires avec appels API directs
 - `app/api/v1/`: Routes FastAPI (gestion HTTP uniquement)
 - `app/controllers/`: Logique métier et orchestration
-- `app/mappers/`: Transformation de données (external format ↔ domain entities)
 - `app/models/`: Entities (objets métier purs organisés par domaine)
 - `app/schemas/`: Schemas Pydantic (Request/Response API contracts)
 
@@ -18,20 +17,20 @@ FastAPI backend for cryptocurrency portfolio management system.
 services/binance/
 ├── binance_client.py        # Client async de base (rate limiting, cache)
 ├── market_cap_service.py    # Market cap data
-├── market_data_service.py   # Prices + returns analytics
+├── market_data_service.py   # Prices + returns + risk analytics
 ├── quantity_service.py      # Account balance snapshots
 ├── position_service.py      # Position calculations (quantities × prices)
 └── transformers/
     ├── kline_transformer.py    # Transformations pandas klines
-    └── balance_transformer.py  # Transformations balances
+    ├── balance_transformer.py  # Transformations balances
+    └── risk_transformer.py     # Risk metrics (vol, drawdown, CVaR)
 ```
 
 **Flux de données:**
 ```
 Route → Controller → Service → Binance API
   ↓         ↓          ↓
-  ↓         ↓      Transformer
-  ↓      Mapper → Entity
+  ↓         ↓      Transformer → Entity
   ↓         ↓
 Schema ← Response
 ```
@@ -48,6 +47,7 @@ BINANCE_API_SECRET=...
 GITHUB_TOKEN=...
 GITHUB_REPO_OWNER=...
 GITHUB_REPO_NAME=Risk-Management
+REDIS_URL=redis://localhost:6379/0  # optionnel, in-memory si absent
 ```
 
 ## Commandes
@@ -85,7 +85,7 @@ Singletons créés via `@lru_cache()`.
 ## Notes importantes
 
 - **Rate limiting**: 1200 req/min weight-based (géré automatiquement par BinanceClient)
-- **Cache**: Géré automatiquement par `BinanceClient.fetch_with_cache()`
+- **Cache**: Redis si `REDIS_URL` est défini dans `.env`, sinon in-memory automatiquement. Géré par `BinanceClient.fetch_with_cache()`
 - **Transformers**: Utilisés pour convertir les données Binance (pandas) vers les formats API
 - **Async**: Appels sync Binance wrappés avec `_run_in_executor()`
 

@@ -68,6 +68,30 @@ class MarketDataResponse(APIResponse):
                             }
                         ]
                     },
+                    "risk": [
+                        {
+                            "symbol": "BTCUSDT",
+                            "annualized_vol_daily": 0.6213,
+                            "annualized_vol_3y_weekly": 0.5874,
+                            "annualized_vol_5y_monthly": 0.7102,
+                            "annualized_vol_since_inception_monthly": 0.7891,
+                            "inception_year": 2020,
+                            "cvar_parametric_95": -1.6934,
+                            "max_drawdown": -0.7731,
+                            "date_of_max_drawdown": "2022-11-21"
+                        },
+                        {
+                            "symbol": "ETHUSDT",
+                            "annualized_vol_daily": 0.7445,
+                            "annualized_vol_3y_weekly": 0.6932,
+                            "annualized_vol_5y_monthly": 0.8210,
+                            "annualized_vol_since_inception_monthly": 0.9123,
+                            "inception_year": 2020,
+                            "cvar_parametric_95": -1.9544,
+                            "max_drawdown": -0.8201,
+                            "date_of_max_drawdown": "2022-06-18"
+                        }
+                    ],
                     "timestamp": "2024-01-01T12:00:00Z"
                 },
                 "message": "Price data retrieved successfully",
