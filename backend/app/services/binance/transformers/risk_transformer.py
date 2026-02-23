@@ -27,10 +27,6 @@ class RiskTransformer:
         if prices.empty or len(prices) < 2:
             return None
 
-        if not isinstance(prices.index, pd.DatetimeIndex):
-            prices = prices.copy()
-            prices.index = pd.to_datetime(prices.index)
-
         inception_year = int(prices.index[0].year)
 
         try:

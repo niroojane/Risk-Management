@@ -17,9 +17,6 @@ class ReturnTransformer:
         if prices.empty or len(prices) < 2:
             return None
 
-        if not isinstance(prices.index, pd.DatetimeIndex):
-            prices.index = pd.to_datetime(prices.index)
-
         total_returns = prices.iloc[-1] / prices.iloc[0] - 1
 
         days_elapsed = (prices.index[-1] - prices.index[0]).days

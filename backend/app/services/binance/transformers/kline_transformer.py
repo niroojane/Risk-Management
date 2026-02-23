@@ -62,8 +62,7 @@ class KlineTransformer:
                 df = KlineTransformer.to_dataframe(klines, symbol)
                 price_data[symbol] = df[symbol]
 
-        # Standardize date format
         if not price_data.empty:
-            price_data.index = pd.to_datetime(price_data.index).strftime('%Y-%m-%d')
+            price_data.index = pd.to_datetime(price_data.index).normalize()
 
         return price_data

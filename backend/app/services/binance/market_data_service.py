@@ -100,7 +100,10 @@ class MarketDataService:
         else:
             price_data = pd.DataFrame()
 
-        prices_by_date = price_data.to_dict(orient='index')
+        prices_by_date = {
+            idx.strftime('%Y-%m-%d'): values
+            for idx, values in price_data.to_dict(orient='index').items()
+        }
         returns_data = ReturnTransformer.calculate_asset_returns(price_data)
         risk_data = RiskTransformer.calculate_asset_risk(price_data)
 
