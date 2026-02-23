@@ -21,9 +21,10 @@ services/binance/
 ├── quantity_service.py      # Account balance snapshots
 ├── position_service.py      # Position calculations (quantities × prices)
 └── transformers/
-    ├── kline_transformer.py    # Transformations pandas klines
-    ├── balance_transformer.py  # Transformations balances
-    └── risk_transformer.py     # Risk metrics (vol, drawdown, CVaR)
+    ├── kline_transformer.py    # Klines → DataFrame (DatetimeIndex, normalize())
+    ├── balance_transformer.py  # Balances → quantities dict
+    ├── return_transformer.py   # Prix → ReturnMetrics (total, ytd, annualized)
+    └── risk_transformer.py     # Prix → RiskMetrics (vol, drawdown, CVaR)
 ```
 
 **Flux de données:**
@@ -86,11 +87,13 @@ Singletons créés via `@lru_cache()`.
 
 - **Rate limiting**: 1200 req/min weight-based (géré automatiquement par BinanceClient)
 - **Cache**: Redis si `REDIS_URL` est défini dans `.env`, sinon in-memory automatiquement. Géré par `BinanceClient.fetch_with_cache()`
-- **Transformers**: Utilisés pour convertir les données Binance (pandas) vers les formats API
+- **Transformers**: Fonctions pures `@staticmethod` — pattern à suivre pour toute nouvelle transformation
+- **DatetimeIndex**: Maintenu dans toute la couche service. Conversion en string `'YYYY-MM-DD'` uniquement à la sérialisation JSON finale
+- **ServiceUnavailableError**: Levée dans `dependencies.py` si credentials absents — ne pas dupliquer ce check dans les routes
 - **Async**: Appels sync Binance wrappés avec `_run_in_executor()`
 
 ## Phase actuelle
 
-Phase 3: Investment Universe API (market-cap, market-data, positions) ✅
+Phase 3: Investment Universe API ✅ (incluant refacto architecture)
 Phase 4: Strategy & Portfolio Optimization - À démarrer
 Voir [ROADMAP.md](./ROADMAP.md)

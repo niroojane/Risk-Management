@@ -29,9 +29,15 @@ Feuille de route pour le développement du backend FastAPI.
 
 **Endpoints :**
 - [x] POST `/api/v1/investment-universe/market-cap` - Top N cryptos
-- [x] POST `/api/v1/investment-universe/market-data` - Prices + returns (parallélisé 3 mois)
+- [x] POST `/api/v1/investment-universe/market-data` - Prices + returns + risk metrics (vol, drawdown, CVaR)
 - [x] POST `/api/v1/investment-universe/positions` - Positions historiques
-- [ ] Ajouter asset risk metrics à market-data (volatility, sharpe, drawdown)
+
+**Refacto architecture (Phase 3 bis) :**
+- [x] `ReturnTransformer` — cohérence pattern transformer
+- [x] `RiskTransformer` — vol (daily/weekly/monthly), drawdown, CVaR 95%
+- [x] `RedisCacheService` + `CacheProtocol` — cache Redis optionnel via `REDIS_URL`
+- [x] `DatetimeIndex` maintenu dans la couche service, string uniquement à la sérialisation
+- [x] `ServiceUnavailableError` centralisé dans `dependencies.py`
 
 ## ⏳ Phase 4 : Strategy & Portfolio Optimization
 
@@ -88,4 +94,4 @@ Feuille de route pour le développement du backend FastAPI.
 
 ---
 
-**Status actuel** : Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ (asset risk à finaliser) | Phase 4 à démarrer
+**Status actuel** : Phase 1 ✅ | Phase 2 ✅ | Phase 3 ✅ | Phase 4 à démarrer
