@@ -127,7 +127,7 @@ def get_price_threading(tickers,start_date):
 
     try:
         with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(Binance.get_price,tickers_combined,d) for d in end_dates]
+            futures = [executor.submit(Binance.get_price,tickers,d) for d in end_dates]
 
             for future in as_completed(futures):
                 data = future.result()
@@ -1793,7 +1793,7 @@ with main_tabs[2]:
                     
                     daily_pnl['color'] = daily_pnl['Total'].apply(lambda v: 'green' if v >= 0 else 'red')
                 
-                    binance_data_return=binance_data.pct_change(fill_method=None)
+                    binance_data_return=np.log(1+binance_data.pct_change(fill_method=None))
                     weight_date=set(weights_ex_post.index)
                     binance_date=set(binance_data_return.index)
                     common_date = weights_ex_post.index.intersection(binance_data_return.index)
@@ -1805,14 +1805,13 @@ with main_tabs[2]:
                     common_cols = weights_ex_post2.columns.intersection(binance_data2.columns)
                     
                     historical_ptf = (
-                        weights_ex_post2[common_cols] *
-                        binance_data2[common_cols])
+                        weights_ex_post2[cols] *
+                        binance_data2[cols])
                                             
                     historical_ptf['Historical Portfolio']=historical_ptf.sum(axis=1)   
                     
                     performance_ex_post=historical_ptf['Historical Portfolio'].copy()
                     performance_ex_post=performance_ex_post.to_frame()
-                    performance_ex_post=historical_ptf['Historical Portfolio'].copy()
                     
                     cumulative_performance=performance_ex_post.copy()
                     cumulative_performance.iloc[0]=0
