@@ -1912,7 +1912,7 @@ with main_tabs[2]:
                 with col2:
                     fig3=px.line(cumulative_performance_ex_post,title='Cumulative Return', render_mode = 'svg')
                     fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio'])
+                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
                     fig3.update_layout(xaxis_title=None, yaxis_title=None)
                     st.plotly_chart(fig3,width='content')
     
