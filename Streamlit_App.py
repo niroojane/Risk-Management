@@ -1485,14 +1485,14 @@ with main_tabs[4]:
             fig4=px.line(pca_similarity,title='PCA Similarity', render_mode = 'svg')
             fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
             fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
-            
+            col1, col2 = st.columns([1, 1])
+
             with col1:
                 st.plotly_chart(fig,width='content')
-            with col2:
                 st.plotly_chart(fig2,width='content')
-                st.plotly_chart(fig4,width='content')
 
-            with col3:
+            with col2:
+                st.plotly_chart(fig4,width='content')
                 st.plotly_chart(fig3,width='content')
             
             
