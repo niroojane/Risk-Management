@@ -1340,9 +1340,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     pca_components=widgets.Output()
     start_date_market_risk = widgets.DatePicker(value=start_perf_date, layout=widgets.Layout(width='350px'))
     end_date_market_risk = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
+
     
     def get_market_risk_metrics(_):
-        
+
         try:
             start_ts = pd.to_datetime(start_date_market_risk.value)
             end_ts = pd.to_datetime(end_date_market_risk.value)
@@ -1361,7 +1362,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 pca_components.clear_output()   
                 print("⚠️ Error with date range.")
             return
-        
+
         if returns_to_use.empty:
 
             with pca_output:
@@ -1375,7 +1376,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
         range_returns=returns_to_use.loc[start_ts:end_ts,market_tickers]
         portfolio=RiskAnalysis(range_returns)
-    
 
         eigval,eigvec,portfolio_components=portfolio.pca(num_components=num_components.value)
         selected_components.options=portfolio_components.columns
@@ -1399,7 +1399,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         pca_similarity=comparison[distances.index[:num_closest_to_pca.value]]
         pca_similarity.iloc[0]=0
         pca_similarity=(1+pca_similarity).cumprod()*100
-
     
         with pca_components:
             
@@ -1450,6 +1449,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         try:
             start_ts = pd.to_datetime(start_date_market_risk.value)
             end_ts = pd.to_datetime(end_date_market_risk.value)
+            
         except Exception:
             with asset_output_corr:
                 asset_output_corr.clear_output()
@@ -1608,9 +1608,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         cumulative_performance_ex_post=pd.DataFrame()
         
         if global_returns.empty:
+            
             performance_ex_post=historical_ptf['Historical Portfolio'].copy()
             performance_ex_post=performance_ex_post.to_frame()
         else:
+            
             performance_ex_post=historical_ptf['Historical Portfolio'].copy()
             performance_ex_post=pd.concat([performance_ex_post,global_returns],axis=1).sort_index()
         
@@ -1619,6 +1621,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             benchmark_ex_post.options = options
             
         with ex_post_calendar:
+            
             return_and_vol_graph=widgets.Output()
             sharpe_and_te_graph=widgets.Output()
             
@@ -1633,11 +1636,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if performance_ex_post.empty or performance_ex_post.shape[1]<2:
                 print("⚠️ No performance data available yet. Please run an optimization first.")
                 return
-                
+
             cumulative_performance_ex_post=performance_ex_post.loc[start_date_perf_ex_post.value:end_date_perf_ex_post.value].copy()
             cumulative_performance_ex_post.iloc[0]=0
             cumulative_performance_ex_post=(1+cumulative_performance_ex_post).cumprod()*100   
-            
+
             graphs=get_calendar_graph(cumulative_performance_ex_post, 
                                freq=frequency_graph_ex_post.value, 
                                benchmark=benchmark_ex_post.value, 
@@ -1958,7 +1961,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     fig4 = px.line(idiosyncratic_contrib, title='Idiosyncratic Contribution', width=800, height=400, render_mode = 'svg')
                     fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                    fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Idiosyncratic Vol"])
     
                     fig4.show()   
                         
@@ -1968,13 +1971,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     fig2 = px.line(contribution_to_vol, title='Volatility Contribution', width=800, height=400, render_mode = 'svg')
                     fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                    fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Vol'])
                     
                     fig2.show()
                     
                     fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
                     fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Correlation"])
                     fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig3.show()
 
@@ -2156,7 +2159,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     fig4 = px.line(idiosyncratic_contrib, title='Idiosyncratic Contribution', width=800, height=400, render_mode = 'svg')
                     fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                    fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Idiosyncratic Vol"])
     
                     fig4.show()   
                         
@@ -2172,7 +2175,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     
                     fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
                     fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Correlation"])
                     fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig3.show()
 
@@ -2197,7 +2200,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
         with tracking_error_trajectory_output:
             tracking_error_trajectory_output.clear_output(wait=True)
- 
                 
             if dataframe.empty:
                 print('⚠️Load Prices.')
