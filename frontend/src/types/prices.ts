@@ -5,6 +5,18 @@ export interface AssetReturnMetrics {
   annualized_return: number;
 }
 
+export interface AssetRiskMetrics {
+  symbol: string;
+  annualized_vol_daily: number;
+  annualized_vol_3y_weekly: number;
+  annualized_vol_5y_monthly: number;
+  annualized_vol_since_inception_monthly: number;
+  inception_year: number;
+  cvar_parametric_95: number;
+  max_drawdown: number;
+  date_of_max_drawdown: string;
+}
+
 export interface MarketReturnsData {
   period_start_date: string;
   ytd_start_date: string;
@@ -22,6 +34,7 @@ export interface MarketDataSnapshot {
   };
   count: number;
   returns?: MarketReturnsData;
+  risk?: AssetRiskMetrics[];
   timestamp: string;
 }
 

@@ -1,5 +1,4 @@
 import { flexRender, type Table, type Cell } from '@tanstack/react-table';
-import { isNumericColumn } from '@/utils';
 
 interface GenericTableBodyProps<TData> {
   table: Table<TData>;
@@ -7,6 +6,7 @@ interface GenericTableBodyProps<TData> {
   noResultsMessage?: string;
   getCellClassName?: (cell: Cell<TData, unknown>) => string;
   stickyColumnId?: string;
+  numericColumnIds?: string[];
 }
 
 const DEFAULT_NO_RESULTS_MESSAGE = 'No data available';
@@ -17,7 +17,9 @@ export const GenericTableBody = <TData,>({
   noResultsMessage = DEFAULT_NO_RESULTS_MESSAGE,
   getCellClassName,
   stickyColumnId,
+  numericColumnIds,
 }: GenericTableBodyProps<TData>) => {
+  const numericSet = new Set(numericColumnIds);
   const rows = table.getRowModel().rows;
 
   if (rows.length === 0) {
@@ -40,7 +42,7 @@ export const GenericTableBody = <TData,>({
       {rows.map((row) => (
         <tr key={row.id} className="hover:bg-muted/50 transition-colors">
           {row.getVisibleCells().map((cell) => {
-            const isNumeric = isNumericColumn(cell.column.id);
+            const isNumeric = numericSet.has(cell.column.id);
             const customClassName = getCellClassName?.(cell) || '';
             const isSticky = stickyColumnId && cell.column.id === stickyColumnId;
 

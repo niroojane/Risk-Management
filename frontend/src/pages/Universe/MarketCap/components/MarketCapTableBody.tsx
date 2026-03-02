@@ -1,7 +1,7 @@
 import type { Table, Cell } from '@tanstack/react-table';
 import { GenericTableBody } from '@/components/common';
 import type { MarketCapData } from '@/types/universe';
-import { NO_RESULTS_MESSAGE } from '../constants/table';
+import { NO_RESULTS_MESSAGE, NUMERIC_COLUMN_IDS } from '../constants/table';
 
 interface MarketCapTableBodyProps {
   table: Table<MarketCapData>;
@@ -23,6 +23,7 @@ export const MarketCapTableBody = ({ table, columnsLength }: MarketCapTableBodyP
       columnsLength={columnsLength}
       noResultsMessage={NO_RESULTS_MESSAGE}
       getCellClassName={getCellClassName}
+      numericColumnIds={NUMERIC_COLUMN_IDS}
     />
   );
 };

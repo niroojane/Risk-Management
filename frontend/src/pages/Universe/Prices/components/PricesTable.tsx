@@ -3,13 +3,12 @@ import type { PriceRow } from '@/types/prices';
 import { usePricesTable } from '../hooks/usePricesTable';
 import { PricesTableHeader } from './PricesTableHeader';
 import { PricesTableBody } from './PricesTableBody';
+import { ITEMS_PER_PAGE } from '../constants/table';
 
 interface PricesTableProps {
   data: PriceRow[];
   symbols: string[];
 }
-
-const ITEMS_PER_PAGE = 20;
 
 export const PricesTable = ({ data, symbols }: PricesTableProps) => {
   const { table } = usePricesTable({ data, symbols });

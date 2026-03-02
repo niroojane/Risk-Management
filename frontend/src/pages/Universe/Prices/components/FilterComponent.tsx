@@ -1,3 +1,4 @@
+import { AlertCircle } from 'lucide-react';
 import { SymbolSelector } from './SymbolSelector';
 import { DateRangeSelector } from './DateRangeSelector';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ interface FilterComponentProps {
   dateRange?: DateRange;
   onDateRangeChange?: (dateRange: DateRange | undefined) => void;
   onGenerateTable?: () => void;
+  validationError?: string | null;
 }
 
 export const FilterComponent = ({
@@ -17,6 +19,7 @@ export const FilterComponent = ({
   dateRange,
   onDateRangeChange,
   onGenerateTable,
+  validationError,
 }: FilterComponentProps) => {
   return (
     <div className="space-y-6 rounded-lg border border-border bg-card p-6 shadow-sm">
@@ -31,10 +34,16 @@ export const FilterComponent = ({
       </div>
 
       {onGenerateTable && (
-        <div className="pt-2 border-t border-border">
+        <div className="pt-2 border-t border-border space-y-3">
+          {validationError && (
+            <p className="flex items-center gap-1.5 text-sm text-destructive">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {validationError}
+            </p>
+          )}
           <Button
             onClick={onGenerateTable}
-            className="w-full sm:w-auto mt-4 cursor-pointer"
+            className="w-full sm:w-auto cursor-pointer"
             size="lg"
           >
             Generate Table

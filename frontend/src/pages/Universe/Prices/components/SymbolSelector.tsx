@@ -2,23 +2,22 @@ import { SelectableItem } from '@/components/ui/SelectableItem';
 import { Button } from '@/components/ui/button';
 
 const SYMBOLS = [
+  'BNBUSDT',
   'BTCUSDT',
   'ETHUSDT',
-  'BNBUSDT',
+  'GNOUSDT',
+  'GUNUSDT',
+  'IOTAUSDT',
+  'POLUSDT',
+  'TAOUSDT',
+  'TONUSDT',
   'TRXUSDT',
+  'UNIUSDT',
   'WLFIUSDT',
   'XLMUSDT',
-  'TONUSDT',
-  'UNIUSDT',
-  'TAOUSDT',
-  'POLUSDT',
-  'GUNUSDT',
-  'GNOUSDT',
-  'IOTAUSDT'
 ];
 
 
-//TODO Trier Symbols ordre alphabétiques
 export const getDefaultSymbols = (): string[] => SYMBOLS;
 
 interface SymbolSelectorProps {

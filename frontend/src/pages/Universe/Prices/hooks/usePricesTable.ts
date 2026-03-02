@@ -8,13 +8,12 @@ import {
 } from '@tanstack/react-table';
 import type { PriceRow } from '@/types/prices';
 import { usePricesColumns } from './usePricesColumns';
+import { ITEMS_PER_PAGE } from '../constants/table';
 
 interface UsePricesTableProps {
   data: PriceRow[];
   symbols: string[];
 }
-
-const ITEMS_PER_PAGE = 20;
 
 export const usePricesTable = ({ data, symbols }: UsePricesTableProps) => {
   const [globalFilter, setGlobalFilter] = useState('');

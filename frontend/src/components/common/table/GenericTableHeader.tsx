@@ -1,19 +1,23 @@
 import { flexRender, type Table } from '@tanstack/react-table';
 import { SortIcon } from '@/components/common';
-import { isNumericColumn, getAriaSortValue } from '@/utils';
+import { getAriaSortValue } from '@/utils';
 
 interface GenericTableHeaderProps<TData> {
   table: Table<TData>;
   stickyColumnId?: string;
+  numericColumnIds?: string[];
 }
 
-export const GenericTableHeader = <TData,>({ table, stickyColumnId }: GenericTableHeaderProps<TData>) => {
+export const GenericTableHeader = <TData,>({ table, stickyColumnId, numericColumnIds }: GenericTableHeaderProps<TData>) => {
+  const numericSet = new Set(numericColumnIds);
+
   return (
     <thead className="bg-muted">
       {table.getHeaderGroups().map((headerGroup) => (
         <tr key={headerGroup.id}>
           {headerGroup.headers.map((header) => {
             const isSticky = stickyColumnId && header.id === stickyColumnId;
+            const isNumeric = numericSet.has(header.id);
 
             return (
               <th
@@ -25,7 +29,7 @@ export const GenericTableHeader = <TData,>({ table, stickyColumnId }: GenericTab
                     : undefined
                 }
                 className={`px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider ${
-                  isNumericColumn(header.id) ? 'text-right' : 'text-left'
+                  isNumeric ? 'text-right' : 'text-left'
                 } ${isSticky ? 'sticky left-0 z-10 bg-muted shadow-[2px_0_4px_rgba(0,0,0,0.1)]' : ''}`}
               >
               {header.isPlaceholder ? null : (
@@ -34,7 +38,7 @@ export const GenericTableHeader = <TData,>({ table, stickyColumnId }: GenericTab
                     header.column.getCanSort()
                       ? 'cursor-pointer select-none hover:text-foreground transition-colors'
                       : ''
-                  } ${isNumericColumn(header.id) ? 'justify-end' : ''}`}
+                  } ${isNumeric ? 'justify-end' : ''}`}
                   onClick={header.column.getToggleSortingHandler()}
                 >
                   {flexRender(header.column.columnDef.header, header.getContext())}

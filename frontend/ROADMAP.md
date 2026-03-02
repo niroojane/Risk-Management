@@ -31,10 +31,11 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 - [x] Transitions et hover effects
 - [x] Migration vers TanStack Query (useQuery, QueryClientProvider)
 - [x] Refacto MarketCapTable
-- [ ] Implémentation partie prices dans le frontend
+- [x] Implémentation partie prices dans le frontend
   - [x] Sélection des symbols / dates
   - [x] Affichage du tableau des prix
-- [ ] Service `universeService.fetchPositions()` - À implémenter quand backend disponible
+  - [x] Affichage du tableau des returns (`ReturnsTable`)
+  - [x] Affichage du tableau des risk metrics (`RiskTable`)
 
 ## ⏳ Phase 3 : Strategy & Portfolio Optimization
 
@@ -70,7 +71,9 @@ Feuille de route pour le développement du frontend web de Risk-Management.
   - [ ] Bouton "Get PnL"
   - [ ] Breakdown par asset
 - [ ] Services:
-  - [ ] `positionService.getPositions()`
+  - [ ] Créer `positionService.ts` et y migrer `fetchPositions` depuis `universeService.ts`
+  - [ ] Corriger `fetchPositions` : `response.data` → `response.data.data` (wrapper `APIResponse`)
+  - [ ] Mettre à jour `PositionData` dans `universe.ts` : champs backend réels = `{ date, symbol, position }` (≠ `asset, quantity, value_usdt, weight` actuellement définis)
   - [ ] `positionService.getPnL()`
 
 ## ⏳ Phase 5 : Performance & Returns
@@ -143,6 +146,7 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 - [ ] Gestion des états vides
 - [ ] Documentation utilisateur
 - [ ] Tooltips et aide contextuelle
+- [ ] Gestion des symbols favoris (remplacer la liste hardcodée `DEFAULT_SYMBOLS` dans `universeStore.ts` et `SymbolSelector.tsx` par une sélection persistée par l'utilisateur)
 
 ## ⏳ Phase 9 : Real-time Features
 

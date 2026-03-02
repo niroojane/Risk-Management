@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useUIStore } from '@/stores/uiStore';
 import {
   LayoutDashboard,
   Globe,
@@ -47,15 +47,8 @@ const navItems: NavItem[] = [
 ];
 
 export const Sidebar = () => {
-  const [openMenus, setOpenMenus] = useState<{ [key: string]: boolean }>({});
+  const { openMenus, toggleMenu } = useUIStore();
   const location = useLocation();
-
-  const toggleMenu = (label: string) => {
-    setOpenMenus((prev) => ({
-      ...prev,
-      [label]: !prev[label],
-    }));
-  };
 
   const isChildActive = (children?: SubNavItem[]) => {
     if (!children) return false;

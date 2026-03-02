@@ -4,17 +4,19 @@ import { format } from 'date-fns';
 import { FilterComponent } from './components/FilterComponent';
 import { FilterDialog } from './components/FilterDialog';
 import { PricesTable } from './components/PricesTable';
-import { getDefaultDateRange } from './components/DateRangeSelector';
-import { getDefaultSymbols } from './components/SymbolSelector';
+import { ReturnsTable } from './components/ReturnsTable';
+import { RiskTable } from './components/RiskTable';
 import { transformPricesData } from './utils/transformPricesData';
 import { universeService } from '@/services/universeService';
 import { Loading, ErrorMessage } from '@/components/common';
-import type { DateRange } from './types/filters';
+import { useUniverseStore } from '@/stores/universeStore';
+import { useFiltersStore } from '@/stores/filtersStore';
 
 const Prices = () => {
+  const { symbols, setSymbols } = useUniverseStore();
+  const { dateRange, setDateRange } = useFiltersStore();
   const [showTable, setShowTable] = useState(false);
-  const [symbols, setSymbols] = useState<string[]>(getDefaultSymbols());
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(getDefaultDateRange());
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const {
     data: pricesData,
@@ -36,19 +38,22 @@ const Prices = () => {
     enabled: false,
   });
 
-  const handleGenerateTable = () => {
+  const handleGenerateTable = (): boolean => {
+    setValidationError(null);
+
     if (symbols.length === 0) {
-      alert('Please select at least one symbol');
-      return;
+      setValidationError('Please select at least one symbol');
+      return false;
     }
 
     if (!dateRange?.from || !dateRange?.to) {
-      alert('Please select a date range');
-      return;
+      setValidationError('Please select a date range');
+      return false;
     }
 
     setShowTable(true);
     refetch();
+    return true;
   };
 
   const tableData = pricesData ? transformPricesData(pricesData) : [];
@@ -70,6 +75,7 @@ const Prices = () => {
             dateRange={dateRange}
             onDateRangeChange={setDateRange}
             onGenerateTable={handleGenerateTable}
+            validationError={validationError}
           />
         )}
       </div>
@@ -81,13 +87,33 @@ const Prices = () => {
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
           onGenerateTable={handleGenerateTable}
+          validationError={validationError}
         />
       ) : (
         <div>
           {isLoading && <Loading />}
           {error && <ErrorMessage message="Failed to fetch prices data" />}
           {!isLoading && !error && pricesData && (
-            <PricesTable data={tableData} symbols={symbols} />
+            <div className="space-y-8">
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-foreground">Prices</h2>
+                <PricesTable data={tableData} symbols={symbols} />
+              </section>
+
+              {pricesData.data.returns && (
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground">Returns</h2>
+                  <ReturnsTable data={pricesData.data.returns.assets} />
+                </section>
+              )}
+
+              {pricesData.data.risk && (
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground">Risk Metrics</h2>
+                  <RiskTable data={pricesData.data.risk} />
+                </section>
+              )}
+            </div>
           )}
         </div>
       )}

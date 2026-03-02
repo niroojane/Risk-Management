@@ -16,7 +16,8 @@ interface FilterDialogProps {
   onSymbolsChange: (symbols: string[]) => void;
   dateRange: DateRange | undefined;
   onDateRangeChange: (dateRange: DateRange | undefined) => void;
-  onGenerateTable: () => void;
+  onGenerateTable: () => boolean;
+  validationError?: string | null;
 }
 
 export const FilterDialog = ({
@@ -25,19 +26,20 @@ export const FilterDialog = ({
   dateRange,
   onDateRangeChange,
   onGenerateTable,
+  validationError,
 }: FilterDialogProps) => {
   const [open, setOpen] = useState(false);
 
   const handleGenerate = () => {
-    onGenerateTable();
-    setOpen(false);
+    const success = onGenerateTable();
+    if (success) setOpen(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="cursor-pointer">
-          <Filter className="h-4 w-4 mr-2 cursor" />
+          <Filter className="h-4 w-4 mr-2 cursor-pointer" />
           View Filters
         </Button>
       </DialogTrigger>
@@ -51,6 +53,7 @@ export const FilterDialog = ({
           dateRange={dateRange}
           onDateRangeChange={onDateRangeChange}
           onGenerateTable={handleGenerate}
+          validationError={validationError}
         />
       </DialogContent>
     </Dialog>

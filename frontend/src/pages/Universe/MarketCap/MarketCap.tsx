@@ -1,12 +1,12 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { universeService } from '@/services/universeService';
 import { MarketCapTable } from './components/MarketCapTable';
 import { MarketCapFilter } from './components/MarketCapFilter';
 import { ErrorMessage, Loading } from '@/components/common';
+import { useUniverseStore } from '@/stores/universeStore';
 
 function MarketCap() {
-  const [displayCount, setDisplayCount] = useState(100);
+  const { displayCount, setDisplayCount } = useUniverseStore();
 
   const {
     data = [],

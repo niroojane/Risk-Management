@@ -1,5 +1,7 @@
 export const ITEMS_PER_PAGE = 50;
 
+export const NUMERIC_COLUMN_IDS = ['price', 'supply', 'market_cap'];
+
 export const COLUMN_HEADERS = {
   RANK: 'Rank',
   ASSET: 'Asset',
