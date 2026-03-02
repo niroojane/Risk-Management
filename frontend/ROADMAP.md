@@ -173,6 +173,6 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 
 ---
 
-**Status actuel** : Phase 1 terminée ✅ | Phase 2 en cours 🚧
+**Status actuel** : Phase 1 terminée ✅ | Phase 2 terminée ✅ | Phase 3 en cours 🚧
 
 **Note** : Chaque phase dépend de la phase backend correspondante. Le développement peut être fait en parallèle mais le testing nécessite les endpoints backend disponibles.
