@@ -1613,9 +1613,7 @@ with main_tabs[4]:
                         try:
                             risk = RiskAnalysis(subset)
                             eigval,eigvec,portfolio_components=risk.pca(num_components=5)
-                            portfolio_components=portfolio_components.apply(np.real)
                             weights=portfolio_components[selected_pca_market].to_numpy()
-                            weights = np.real(weights)
                             
                             return subset.index[-1], np.round(weights, 6)
                         except Exception:
@@ -1651,36 +1649,40 @@ with main_tabs[4]:
             weights_series=weights_series.apply(lambda x: x/market_portfolio.sum(axis=1))  
             
             market_index=market_portfolio.sum(axis=1).to_frame()
+            market_index=market_index.pct_change(fill_method=None)
             market_index.columns=['Market Index']
             
             vol_contribution=get_ex_ante_vol_contribution(weights_series,range_returns,window=window_vol_market)
             correlation_contribution=get_correlation_contribution(weights_series,range_returns,window=window_vol_market)
             idiosyncratic_contribution=get_idiosyncratic_contribution(weights_series,range_returns,window=window_vol_market)
             col1, col2 = st.columns([1, 1])
-
-            if 'ex_post_portfolios' in st.session_state:
+            
+            perf_index_eigen=pd.DataFrame()
+            
+            if 'ex_post_portfolios' in st.session_state and 'results' in st.session_state and st.session_state.results is not None:
+                
                 performance_ex_post=st.session_state.ex_post_portfolios.pct_change(fill_method=None)
-                
-                perf_index_eigen=market_index.pct_change(fill_method=None)
-                perf_index_eigen=pd.concat([perf_index_eigen,performance_ex_post],axis=1)   
-                
-            elif 'results' in st.session_state and st.session_state.results is not None:                        
                 res=st.session_state.results
                 global_returns=res['cumulative_results'].pct_change(fill_method=None)
+                perf_index_eigen=pd.concat([market_index,performance_ex_post,global_returns],axis=1)   
                 
+            elif 'results' in st.session_state and st.session_state.results is not None:                        
+                
+                res=st.session_state.results
+                global_returns=res['cumulative_results'].pct_change(fill_method=None)
                 perf_index_eigen=market_index.pct_change(fill_method=None)
-                perf_index_eigen=pd.concat([perf_index_eigen,global_returns],axis=1)
-        
+                perf_index_eigen=pd.concat([market_index,global_returns],axis=1)
             else:
-                perf_index_eigen=market_index.pct_change(fill_method=None)
-                            
+                perf_index_eigen=market_index
+            
+            perf_index_eigen=perf_index_eigen.loc[mask]            
             perf_index_eigen.iloc[0]=0
             market_results=(1+perf_index_eigen).cumprod()*100
     
             with col1:
                 fig = px.line(market_results, title='Performance Comparison', width=800, height=400, render_mode = 'svg')
                 fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Market Index","Fund","Bitcoin"])
+                fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Market Index","Fund","Bitcoin","Historical Portfolio"])
                 fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
                 
                 fig2 = px.line(market_pnl, title='Market Drivers', width=800, height=400, render_mode = 'svg')
