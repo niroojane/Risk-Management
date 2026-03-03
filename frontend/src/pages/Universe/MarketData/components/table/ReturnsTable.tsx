@@ -1,7 +1,7 @@
 import type { AssetReturnMetrics } from '@/types/prices';
 import { GenericTableHeader, GenericTableBody } from '@/components/common/table';
-import { useReturnsTable } from '../hooks/useReturnsTable';
-import { NUMERIC_RETURNS_COLUMN_IDS } from '../constants/table';
+import { useReturnsTable } from '../../hooks/useReturnsTable';
+import { NUMERIC_RETURNS_COLUMN_IDS } from '../../constants/table';
 
 interface ReturnsTableProps {
   data: AssetReturnMetrics[];

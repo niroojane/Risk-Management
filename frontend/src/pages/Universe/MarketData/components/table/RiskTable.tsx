@@ -1,7 +1,7 @@
 import type { AssetRiskMetrics } from '@/types/prices';
 import { GenericTableHeader, GenericTableBody } from '@/components/common/table';
-import { useRiskTable } from '../hooks/useRiskTable';
-import { NUMERIC_RISK_COLUMN_IDS } from '../constants/table';
+import { useRiskTable } from '../../hooks/useRiskTable';
+import { NUMERIC_RISK_COLUMN_IDS } from '../../constants/table';
 
 interface RiskTableProps {
   data: AssetRiskMetrics[];

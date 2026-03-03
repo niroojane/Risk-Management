@@ -36,6 +36,7 @@ Feuille de route pour le développement du frontend web de Risk-Management.
   - [x] Affichage du tableau des prix
   - [x] Affichage du tableau des returns (`ReturnsTable`)
   - [x] Affichage du tableau des risk metrics (`RiskTable`)
+  - [x] Affichage des graphiques
 
 ## ⏳ Phase 3 : Strategy & Portfolio Optimization
 

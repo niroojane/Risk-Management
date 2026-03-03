@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DateRange } from '@/pages/Universe/Prices/types/filters';
+import type { DateRange } from '@/pages/Universe/MarketData/types/filters';
 
 const getInitialDateRange = (): DateRange => {
   const today = new Date();

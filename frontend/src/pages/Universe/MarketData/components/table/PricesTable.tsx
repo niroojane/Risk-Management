@@ -1,9 +1,9 @@
 import { Pagination } from '@/components/common';
 import type { PriceRow } from '@/types/prices';
-import { usePricesTable } from '../hooks/usePricesTable';
+import { usePricesTable } from '../../hooks/usePricesTable';
 import { PricesTableHeader } from './PricesTableHeader';
 import { PricesTableBody } from './PricesTableBody';
-import { ITEMS_PER_PAGE } from '../constants/table';
+import { ITEMS_PER_PAGE } from '../../constants/table';
 
 interface PricesTableProps {
   data: PriceRow[];

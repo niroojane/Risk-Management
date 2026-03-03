@@ -3,12 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { FilterComponent } from './components/FilterComponent';
 import { FilterDialog } from './components/FilterDialog';
-import { PricesTable } from './components/PricesTable';
-import { ReturnsTable } from './components/ReturnsTable';
-import { RiskTable } from './components/RiskTable';
+import { PricesTable } from './components/table/PricesTable';
+import { ReturnsTable } from './components/table/ReturnsTable';
+import { RiskTable } from './components/table/RiskTable';
+import { PricesChart } from './components/charts/PricesChart';
+import { CumulativeChart } from './components/charts/CumulativeChart';
 import { transformPricesData } from './utils/transformPricesData';
 import { universeService } from '@/services/universeService';
-import { Loading, ErrorMessage } from '@/components/common';
+import { Loading, ErrorMessage, ViewChartToggle, useViewToggle } from '@/components/common';
 import { useUniverseStore } from '@/stores/universeStore';
 import { useFiltersStore } from '@/stores/filtersStore';
 
@@ -17,6 +19,7 @@ const Prices = () => {
   const { dateRange, setDateRange } = useFiltersStore();
   const [showTable, setShowTable] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const { view: pricesView, setView: setPricesView } = useViewToggle('chart');
 
   const {
     data: pricesData,
@@ -96,8 +99,15 @@ const Prices = () => {
           {!isLoading && !error && pricesData && (
             <div className="space-y-8">
               <section className="space-y-3">
-                <h2 className="text-lg font-semibold text-foreground">Prices</h2>
-                <PricesTable data={tableData} symbols={symbols} />
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-foreground">Prices</h2>
+                  <ViewChartToggle view={pricesView} onChange={setPricesView} />
+                </div>
+                {pricesView === 'table' ? (
+                  <PricesTable data={tableData} symbols={symbols} />
+                ) : (
+                  <PricesChart data={tableData} symbols={symbols} />
+                )}
               </section>
 
               {pricesData.data.returns && (
@@ -106,6 +116,11 @@ const Prices = () => {
                   <ReturnsTable data={pricesData.data.returns.assets} />
                 </section>
               )}
+
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold text-foreground">Cumulative Performance</h2>
+                <CumulativeChart data={tableData} symbols={symbols} />
+              </section>
 
               {pricesData.data.risk && (
                 <section className="space-y-3">

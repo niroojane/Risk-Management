@@ -1,7 +1,7 @@
 import type { Table, Cell } from '@tanstack/react-table';
 import { GenericTableBody } from '@/components/common';
 import type { PriceRow } from '@/types/prices';
-import { NON_NUMERIC_PRICES_COLUMN_IDS } from '../constants/table';
+import { NON_NUMERIC_PRICES_COLUMN_IDS } from '../../constants/table';
 
 interface PricesTableBodyProps {
   table: Table<PriceRow>;

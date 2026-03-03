@@ -21,7 +21,7 @@ export const routes: RouteConfig[] = [
   },
   {
     path: 'prices',
-    component: lazy(() => import('@/pages/Universe/Prices/Prices')),
+    component: lazy(() => import('@/pages/Universe/MarketData/MarketData')),
     title: 'Prices',
   },
   {
