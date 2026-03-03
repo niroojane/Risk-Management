@@ -1652,7 +1652,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
                 fig = px.line(market_results, title='Performance Comparison', width=800, height=400, render_mode = 'svg')
                 fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Market Index","Fund","Bitcoin"])
+                fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Market Index","Fund","Bitcoin","Historical Portfolio"])
                 fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
                 fig.show()
                 
@@ -1838,7 +1838,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
 
     def update_ex_post_chart(_):
-
+        
+        global performance_ex_post
+        
         try:
             start_ts = pd.to_datetime(start_date_perf_ex_post.value)
             end_ts = pd.to_datetime(end_date_perf_ex_post.value)
