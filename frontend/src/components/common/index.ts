@@ -23,7 +23,7 @@ export type { PaginationProps } from './Pagination';
 export { LazyRoute } from './LazyRoute';
 export type { LazyRouteProps } from './LazyRoute';
 
-export { GenericTableHeader, GenericTableBody } from './table';
+export { GenericTableHeader, GenericTableBody, ReturnsTable, RiskTable } from './table';
 
 export { LineChart, ViewChartToggle, useViewToggle } from './charts';
 export type { LineChartProps, LineChartRow, ViewChartToggleProps, ViewMode } from './charts';

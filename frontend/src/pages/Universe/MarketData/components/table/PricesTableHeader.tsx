@@ -1,5 +1,5 @@
 import type { Table } from '@tanstack/react-table';
-import { GenericTableHeader } from '@/components/common';
+import { GenericTableHeader } from '@/components/common/table/GenericTableHeader';
 import type { PriceRow } from '@/types/prices';
 import { NON_NUMERIC_PRICES_COLUMN_IDS } from '../../constants/table';
 

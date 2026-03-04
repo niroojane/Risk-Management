@@ -1,45 +1,22 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
 import { FilterComponent } from './components/FilterComponent';
 import { FilterDialog } from './components/FilterDialog';
 import { PricesTable } from './components/table/PricesTable';
-import { ReturnsTable } from './components/table/ReturnsTable';
-import { RiskTable } from './components/table/RiskTable';
 import { PricesChart } from './components/charts/PricesChart';
 import { CumulativeChart } from './components/charts/CumulativeChart';
 import { transformPricesData } from './utils/transformPricesData';
-import { universeService } from '@/services/universeService';
-import { Loading, ErrorMessage, ViewChartToggle, useViewToggle } from '@/components/common';
+import { Loading, ErrorMessage, ViewChartToggle, useViewToggle, ReturnsTable, RiskTable } from '@/components/common';
 import { useUniverseStore } from '@/stores/universeStore';
 import { useFiltersStore } from '@/stores/filtersStore';
+import { useMarketData } from '@/hooks/useMarketData';
 
 const Prices = () => {
   const { symbols, setSymbols } = useUniverseStore();
-  const { dateRange, setDateRange } = useFiltersStore();
-  const [showTable, setShowTable] = useState(false);
+  const { dateRange, setDateRange, showTable, setShowTable } = useFiltersStore();
   const [validationError, setValidationError] = useState<string | null>(null);
   const { view: pricesView, setView: setPricesView } = useViewToggle('chart');
 
-  const {
-    data: pricesData,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['prices', symbols, dateRange],
-    queryFn: async () => {
-      if (!dateRange?.from || !dateRange?.to) {
-        throw new Error('Date range is required');
-      }
-
-      const startDate = format(dateRange.from, 'yyyy-MM-dd');
-      const endDate = format(dateRange.to, 'yyyy-MM-dd');
-
-      return universeService.fetchMarketData(symbols, startDate, endDate);
-    },
-    enabled: false,
-  });
+  const { data: pricesData, isLoading, error, refetch } = useMarketData();
 
   const handleGenerateTable = (): boolean => {
     setValidationError(null);

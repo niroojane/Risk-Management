@@ -11,9 +11,13 @@ const getInitialDateRange = (): DateRange => {
 interface FiltersState {
   dateRange: DateRange | undefined;
   setDateRange: (dateRange: DateRange | undefined) => void;
+  showTable: boolean;
+  setShowTable: (showTable: boolean) => void;
 }
 
 export const useFiltersStore = create<FiltersState>()((set) => ({
   dateRange: getInitialDateRange(),
   setDateRange: (dateRange) => set({ dateRange }),
+  showTable: false,
+  setShowTable: (showTable) => set({ showTable }),
 }));

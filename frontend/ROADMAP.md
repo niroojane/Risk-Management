@@ -42,7 +42,7 @@ Feuille de route pour le développement du frontend web de Risk-Management.
 
 **Backend prérequis** : Phase 4 du backend
 
-- [ ] Page Strategy (`pages/Strategy/Strategy.tsx`)
+- [x] Page Strategy (`pages/Strategy/Strategy.tsx`)
 - [ ] Composants:
   - [ ] `AllocationGrid.tsx` ⭐ - Editable grid (pandas DataFrame-like)
   - [ ] `ConstraintForm.tsx` - Asset & portfolio constraints
