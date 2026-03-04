@@ -1613,7 +1613,7 @@ with main_tabs[4]:
                         try:
                             risk = RiskAnalysis(subset)
                             eigval,eigvec,portfolio_components=risk.pca(num_components=5)
-                            weights=portfolio_components[selected_pca_market].to_numpy()
+                            weights=np.real(portfolio_components[selected_pca_market].to_numpy())
                             
                             return subset.index[-1], np.round(weights, 6)
                         except Exception:
