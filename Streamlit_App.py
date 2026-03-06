@@ -1929,10 +1929,14 @@ with main_tabs[2]:
                     
                     cols= quantities_holding.columns[quantities_holding.columns!='USDCUSDT']
                     
+                    corporates_actions={'MANTRAUSDT':'OMUSDT'}
+            
                     for col in cols:
-                        
-                        book_cost_history[col]=daily_book_cost[col]
-                        
+                        if col in corporates_actions:
+                            book_cost_history[col]=daily_book_cost[corporates_actions[col]]
+                        else:
+                            book_cost_history[col]=daily_book_cost[col]
+                            
                     book_cost_history=book_cost_history.ffill()
                     book_cost_history=book_cost_history.loc[quantities_holding.index] 
 
