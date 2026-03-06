@@ -1965,10 +1965,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         book_cost_history=book_cost_history.sort_index()
         cols= quantities_holding.columns[quantities_holding.columns!='USDCUSDT']
         
+        corporates_actions={'MANTRAUSDT':'OMUSDT'}
+
         for col in cols:
-            
-            book_cost_history[col]=daily_book_cost[col]
-            
+            if col in corporates_actions:
+                book_cost_history[col]=daily_book_cost[corporates_actions[col]]
+            else:
+                book_cost_history[col]=daily_book_cost[col]
+
         book_cost_history=book_cost_history.ffill()
         book_cost_history=book_cost_history.loc[quantities_holding.index] 
         
@@ -1986,9 +1990,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         pnl_history=pd.DataFrame()
         pnl_history.index=quantities_holding.index
         pnl_history=pnl_history.sort_index()
-        
+
         for col in cols:
             pnl_history[col]=quantities_holding[col]*(binance_data[col]-book_cost_history[col])
+
         pnl_history['Total']=pnl_history.sum(axis=1)
     
         daily_pnl=pnl_history['Total']-pnl_history['Total'].shift(1)
