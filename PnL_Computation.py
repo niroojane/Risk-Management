@@ -107,7 +107,8 @@ class PnL:
         # Compute total and pair quantity
         trade_history['Total in USDT'] = trade_history['Price in USDT'] * trade_history['Amount'].astype(float)
         trade_history['Pair Quantity'] = trade_history['Total in USDT'] / trade_history['Price in USDT']
-
+        trade_history.set_index('Date(UTC)')
+        
         return trade_history
 
         
