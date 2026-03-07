@@ -29,60 +29,88 @@ class PnL:
         self.binance=BinanceAPI(binance_api_key,binance_api_secret)
         
     def get_trade_in_usdt(self,trade_history):
-    
+
         trade_history['Date(UTC)']=pd.to_datetime(trade_history['Date(UTC)'])
-        trade_history=trade_history.set_index('Date(UTC)')
-    
-        trade_info=zip(trade_history['Market'],trade_history.index)
-        trade_info=dict(enumerate(trade_info))
-    
-        trade_price={}
-        for index in trade_info:
-
-            
-            if trade_info[index][0][-4:]=='USDT':
-                ticker=trade_info[index][0]
-            else:
-                if trade_info[index][0][-3:]!='TRY':
-                    ticker=trade_info[index][0][-3:]+'USDT'
-                else:
-                    ticker='USDT'+trade_info[index][0][-3:]
-            
-            print(ticker,index)
-            time_of_trade=trade_info[index][1]
-            time_of_trade_stamp=int(trade_info[index][1].round(freq='min').timestamp()-60)*1000
-            
-            price_data_api=self.binance.binance_api.klines(ticker,interval='1m',startTime=time_of_trade_stamp,limit=2)
-            price_data=pd.DataFrame(price_data_api)
-            numeric_columns =  ['Open Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'Close Time', 'Quote Asset Volume', 
-                                            'Number of Trades', 'TB Base Volume', 'TB Quote Volume', 'Ignore']
-            price_data.columns=numeric_columns
-            price_data['Close Time']=pd.to_datetime(price_data['Close Time'], unit='ms')
-            
-            close_prev = price_data.iloc[0]["Close"]
-            close_next = price_data.iloc[1]["Close"]
-            t_prev = price_data.iloc[0]["Close Time"]
-            t_next = price_data.iloc[1]["Close Time"]
-            
-            weight_prev = (t_next - time_of_trade) / pd.Timedelta(minutes=1)
-            weight_next = (time_of_trade - t_prev) / pd.Timedelta(minutes=1)
-            
-            pair_price = float(close_prev)* weight_prev + float(close_next) * weight_next
-
-
-            if trade_info[index][0][-3:]=='TRY':
-                pair_price=1/pair_price
-                
-            trade_price[index]=(trade_info[index][1],trade_info[index][0],pair_price)
-    
-        price=pd.DataFrame(trade_price.values(),columns=['Time','Market','Pair Price'])
-        price=pd.concat([trade_history.reset_index(),price['Pair Price']],axis=1)
-        price['Price in USDT']=np.where(price['Market'].str[-4:]=='USDT',price['Price'],price['Price'].astype(float)*price['Pair Price'].astype(float))
-        price['Total in USDT']=(price['Price in USDT'].astype(float))*(price['Amount'].astype(float))
-        price['Pair Quantity']=price['Total in USDT']/price['Price in USDT']
         
-        return price
+        new_cols=['Pair Price','Price in USDT','Total in USDT','Pair Quantity']
+        
+        missing_cols = [col for col in new_cols if col not in trade_history.columns]
+        
+        for col in missing_cols:
+            
+            trade_history[col] = None    
+            trade_history['Pair Price']=np.nan
+            trade_history['Price in USDT']=np.nan
+            trade_history['Total in USDT']=np.nan
+            trade_history['Pair Quantity']=np.nan
+        
+        trade_price = {}
+        
+        for index in trade_history.index:
+            
+            if pd.isna(trade_history.iloc[index]['Pair Quantity']):
+                
+                market = trade_history.iloc[index]['Market']
+        
+                if market.endswith('USDT'):
+                    ticker = market
+                elif market.endswith('TRY'):
+                    ticker = 'USDT' + market[-3:]
+                else:
+                    ticker = market[-3:] + 'USDT'
+        
+                time_of_trade = trade_history.iloc[index]['Date(UTC)']
+                time_of_trade_stamp = int(time_of_trade.round(freq='min').timestamp() - 60) * 1000
+        
+                price_data_api = self.binance.binance_api.klines(
+                    ticker, interval='1m', startTime=time_of_trade_stamp, limit=2
+                )
+                price_data = pd.DataFrame(price_data_api)
+                numeric_columns = ['Open Time', 'Open', 'High', 'Low', 'Close', 'Volume', 
+                                   'Close Time', 'Quote Asset Volume', 'Number of Trades', 
+                                   'TB Base Volume', 'TB Quote Volume', 'Ignore']
+                price_data.columns = numeric_columns
+                price_data['Close Time'] = pd.to_datetime(price_data['Close Time'], unit='ms')
+        
+                close_prev = float(price_data.iloc[0]["Close"])
+                close_next = float(price_data.iloc[1]["Close"])
+                t_prev = price_data.iloc[0]["Close Time"]
+                t_next = price_data.iloc[1]["Close Time"]
+        
+                total_diff = (t_next - t_prev) / pd.Timedelta(minutes=1)
+                weight_prev = (t_next - time_of_trade) / pd.Timedelta(minutes=1) / total_diff
+                weight_next = (time_of_trade - t_prev) / pd.Timedelta(minutes=1) / total_diff
+        
+                pair_price = close_prev * weight_prev + close_next * weight_next
+        
+                if market.endswith('TRY'):
+                    pair_price = 1 / pair_price
+        
+                trade_price[index] = (time_of_trade, market, pair_price)
 
+                print(index,trade_price[index][0],trade_price[index][1],trade_price[index][2])
+            else:
+                continue
+                
+        # Merge with trade_history
+        price = pd.DataFrame(trade_price.values(),index=trade_price.keys(),columns=['Time','Market','Pair Price'])
+        
+        trade_history.iloc[price.index,8]=price['Pair Price']
+        
+        # Convert to USDT
+        trade_history['Price in USDT'] = np.where(
+            trade_history['Market'].str[-4:] == 'USDT',
+            trade_history['Price'].astype(float),
+            trade_history['Price'].astype(float) * trade_history['Pair Price'].astype(float)
+        )
+        
+        # Compute total and pair quantity
+        trade_history['Total in USDT'] = trade_history['Price in USDT'] * trade_history['Amount'].astype(float)
+        trade_history['Pair Quantity'] = trade_history['Total in USDT'] / trade_history['Price in USDT']
+
+        return trade_history
+
+        
     def get_crypto_traded(self, price):
     
         traded_crypto = set(price['Market'])  # include all trades, BUY and SELL
