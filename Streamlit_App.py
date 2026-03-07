@@ -192,7 +192,7 @@ def get_pnl(url):
     trades=Pnl_calculation.get_trade_in_usdt(trade_history)
     book_cost=Pnl_calculation.get_book_cost(trades)
     realized_pnl,profit_and_loss=Pnl_calculation.get_pnl(book_cost,trades)
-    
+    book_cost['MANTRAUSDT']=book_cost['OMUSDT']/4
     st.session_state.book_cost=book_cost
     st.session_state.realized_pnl=realized_pnl
     st.session_state.profit_and_loss=profit_and_loss
