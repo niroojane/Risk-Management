@@ -1893,7 +1893,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 
                 quantities_holding.to_excel('Quantities.xlsx',index=False)
                 positions.to_excel('Positions.xlsx')
-                
+                if not trades.empty:
+                    trades.to_excel('Trade History Reconstructed.xlsx')
+                    git.push_or_update_file(trades,'Trade History Reconstructed')
+
                 git.push_or_update_file(positions,'Positions')
                 git.push_or_update_file(quantities_holding,'Quantities')
                     
