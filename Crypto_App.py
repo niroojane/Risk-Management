@@ -943,6 +943,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         trades=Pnl_calculation.get_trade_in_usdt(trade_history)
         loading_bar_pnl.value+=100/3
         book_cost=Pnl_calculation.get_book_cost(trades)
+        book_cost['MANTRAUSDT']=book_cost['OMUSDT']/4
         loading_bar_pnl.value+=100/3
         realized_pnl,profit_and_loss=Pnl_calculation.get_pnl(book_cost,trades)
         loading_bar_pnl.value+=100/3
