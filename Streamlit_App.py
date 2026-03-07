@@ -2101,13 +2101,19 @@ with main_tabs[2]:
                 if push_button:
                     quantities_holding.to_excel('Quantities.xlsx',index=False)
                     positions.to_excel('Positions.xlsx')
+                    trades.to_excel('Trade History Reconstructed.xlsx')
 
                     git.push_or_update_file(positions,'Positions')
-                    st.success('Positions Updated',icon="✅")                    
+                    st.success('Positions Updated',icon="✅")   
+                    
+                    if 'trades' in st.session_state:
+                        git.push_or_update_file(trades,'Trade History Reconstructed')
+                        st.success('Trades Updated',icon="✅")
 
                     git.push_or_update_file(quantities_holding,'Quantities')
                     st.success('Quantities Updated',icon="✅")
-    
+
+                    
     with sub_tabs_ex_post[2]:
 
         if 'ex_post_portfolios' in st.session_state:
