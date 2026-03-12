@@ -418,7 +418,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 
                 main_output.clear_output(wait=True)
                 range_prices=dataframe.loc[start_ts:end_ts]
-                range_returns=range_prices.pct_change()
+                range_returns=range_prices.pct_change(fill_method=None)
                 
                 asset_risk=get_asset_risk(range_prices)
                 asset_returns=get_asset_returns(range_prices)
@@ -500,10 +500,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         portfolio_returns = rebalanced_time_series(range_prices, grid.data, frequency=rebalancing_frequency.value)
         cumulative_results=pd.concat([cumulative_results,portfolio_returns],axis=1)
-        global_returns=cumulative_results.pct_change()
+        global_returns=cumulative_results.pct_change(fill_method=None)
                 
         drawdown = (cumulative_results - cumulative_results.cummax()) / cumulative_results.cummax()
-        rolling_vol_ptf=cumulative_results.pct_change().rolling(window_vol.value).std()*np.sqrt(260)
+        rolling_vol_ptf=cumulative_results.pct_change(fill_method=None).rolling(window_vol.value).std()*np.sqrt(260)
         frontier_indicators, fig4 = get_frontier(range_returns, grid.data)
         update_dropdown_options()
         
@@ -1031,7 +1031,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 risk_output.clear_output()   
             return
     
-        range_returns = range_prices.pct_change().dropna()
+        range_returns = range_prices.pct_change(fill_method=None).dropna()
  
         if grid.data.empty:
             with ex_ante_output:
@@ -1136,7 +1136,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 print("⚠️ No data available in selected date range.")
             return
     
-        range_returns = range_prices.pct_change().dropna()
+        range_returns = range_prices.pct_change(fill_method=None).dropna()
     
         if range_returns.empty:
             with ex_ante_output:
@@ -1227,7 +1227,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
             
             range_prices=dataframe.loc[start_ts:end_ts]
-            range_returns=range_prices.pct_change()
+            range_returns=range_prices.pct_change(fill_method=None)
             
             portfolio = RiskAnalysis(range_returns)
             
