@@ -228,7 +228,7 @@ def check_connection(url_positions,url_quantities,url_trades):
     positions=pd.concat([position,positions])
     positions.index=pd.to_datetime(positions.index)
     positions=pd.concat([position,positions]).sort_index()
-    positions=positions.loc[~positions.index.duplicated(keep='first'),:]
+    positions=positions.loc[~positions.index.duplicated(keep='last'),:]
     positions['Total']=positions.loc[:,positions.columns!='Total'].sum(axis=1)
     
     # quantities_history=pd.read_excel('Quantities.xlsx',index_col=0)
@@ -1943,7 +1943,9 @@ with main_tabs[2]:
                     start_date=weights_ex_post.index[0].date()
                     
                     binance_data=get_price_threading(historical_quantities_tickers,start_date)
-                
+                    binance_data=binance_data.sort_index()
+                    binance_data=binance_data.loc[~binance_data.index.duplicated(keep='last')]
+                    
                     pnl_history=pd.DataFrame()
                     pnl_history.index=quantities_holding.index
                     pnl_history=pnl_history.sort_index()
