@@ -1929,13 +1929,9 @@ with main_tabs[2]:
                     
                     cols= quantities_holding.columns[quantities_holding.columns!='USDCUSDT']
                     
-                    corporates_actions={'MANTRAUSDT':'OMUSDT'}
             
                     for col in cols:
-                        if col in corporates_actions:
-                            book_cost_history[col]=daily_book_cost[corporates_actions[col]]
-                        else:
-                            book_cost_history[col]=daily_book_cost[col]
+                        book_cost_history[col]=daily_book_cost[col]
                             
                     book_cost_history=book_cost_history.ffill()
                     book_cost_history=book_cost_history.loc[quantities_holding.index] 
@@ -2099,9 +2095,9 @@ with main_tabs[2]:
                 push_button=st.button('Upload Files')
 
                 if push_button:
-                    quantities_holding.to_excel('Quantities.xlsx',index=False)
-                    positions.to_excel('Positions.xlsx')
-                    trades.to_excel('Trade History Reconstructed.xlsx')
+                    quantities_holding.to_excel('Quantities.xlsx',index=True)
+                    positions.to_excel('Positions.xlsx',index=True)
+                    trades.to_excel('Trade History Reconstructed.xlsx',index=True)
 
                     git.push_or_update_file(positions,'Positions')
                     st.success('Positions Updated',icon="✅")   
