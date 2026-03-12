@@ -2092,7 +2092,7 @@ with main_tabs[2]:
                     fig4.update_layout(xaxis_title=None, yaxis_title=None,showlegend=False)
                     st.plotly_chart(fig4,width='content')
                 
-                st.dataframe(pnl_contribution.round(2), use_container_width=True)
+                st.dataframe(pnl_contribution.round(2), width='content')
 
                 push_button=st.button('Upload Files')
 
@@ -2137,7 +2137,7 @@ with main_tabs[2]:
                 selmind,selmaxd=st.session_state['ex_post_tab']
                 
                 mask = (ex_post_portfolios.index >= selmind) & (ex_post_portfolios.index <= selmaxd)
-                cumulative_performance=ex_post_portfolios.loc[mask].pct_change()
+                cumulative_performance=ex_post_portfolios.loc[mask].pct_change(fill_method=None)
                 cumulative_performance.iloc[0] = 0
                 cumulative_performance_ex_post = (1 + cumulative_performance).cumprod() * 100
                 
