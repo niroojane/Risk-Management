@@ -750,7 +750,7 @@ class RiskAnalysis(Portfolio):
             corr_matrix = corr_matrix + np.tril(stress_factor) + np.tril(stress_factor).T
 
         vol = np.sqrt(np.diag(stressed_cov))*np.sqrt(250)  # standard deviations
-        shocked_means=self.returns.mean()*mean_return_shock
+        shocked_means=self.returns.mean()*250*mean_return_shock
         
         corr_matrix=np.clip(corr_matrix,-1,1)
 
@@ -758,9 +758,8 @@ class RiskAnalysis(Portfolio):
             corr_matrix = cov_nearest(corr_matrix)
         
         cholesky=np.linalg.cholesky(corr_matrix)
-            
-            
-        drift=np.exp(-0.5*horizon*shocked_means*vol**2)
+        
+        drift = np.exp((shocked_means - 0.5 * vol**2) * horizon)        
         factors=spot*drift
         factors_vec=factors.to_numpy().reshape(num_asset,-1)
                 
