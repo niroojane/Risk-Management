@@ -699,7 +699,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             with constraint_output:
                 constraint_output.clear_output(wait=True)
                 display(display_scrollable_df(pd.DataFrame(constraints))) 
-
+            
+            reset_stress(None)
     def get_result(_):
         nonlocal constraint_container
         global rolling_optimization, performance_pct, performance_fund, dates_end, quantities
@@ -987,7 +988,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     rebalancing_frequency_pnl=widgets.Dropdown(description='Frequency:', options=['Yearly','Quarterly','Monthly'], value='Quarterly')
 
     #------------Rik Tab------------#
-    global var_scenarios, cvar_scenarios, fund_results
+    global var_scenarios, cvar_scenarios, fund_results,grid_stress,grid_mean_shock
     risk_output = widgets.Output()
     
     start_date_perf_risk = widgets.DatePicker(value=start_perf_date, layout=widgets.Layout(width='350px'))
@@ -1184,11 +1185,170 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     var_scenarios, cvar_scenarios, fund_results = {}, {}, {}
 
     stress_factor = widgets.BoundedFloatText(value=1.0, min=1.0, max=3.0, step=0.1, description='Stress Factor')
+    mean_factor = widgets.BoundedFloatText(value=1.0, min=0.0, max=3.0, step=0.1, description='Mean Factor')
     iterations = widgets.BoundedIntText(value=10000, min=1000, max=100000, step=1, description='Iterations')
     num_scenarios = widgets.BoundedIntText(value=100, min=1, max=1000, step=1, description='Scenarios')
     var_centile = widgets.BoundedFloatText(value=0.05, min=0, max=1, step=0.01, description='VaR Centile')
     loading_bar_var = widgets.IntProgress(description='Loading scenarios...',min=0, max=100,style={'description_width': '150px'})
+    
+    grid_stress = DataGrid(pd.DataFrame(),
+        editable=True,
+        layout={"height": "250px"}
+    )
+    
+    grid_mean_shock = DataGrid(pd.DataFrame(),
+        editable=True,
+        layout={"height": "250px"}
+                              )   
 
+    def update_stress_grid(change):
+    
+        global grid_stress
+    
+        grid_stress.unobserve(update_stress_grid)
+    
+        new_matrix = set_symmetric(grid_stress.data.to_numpy(), limit=2)
+    
+        new_dataframe = pd.DataFrame(
+            new_matrix,
+            columns=dataframe.columns,
+            index=dataframe.columns
+        )
+    
+        grid_stress.data = new_dataframe
+        grid_stress.observe(update_stress_grid)
+
+        grid_mean_shock.observe(update_stress_grid)
+
+        update_stress_data(None)
+        
+    def update_stress_data(_):
+         
+        try:
+            start_ts = pd.to_datetime(start_date_perf_risk.value)
+            end_ts = pd.to_datetime(end_date_perf_risk.value)
+        except Exception:
+            with var_output:
+                var_output.clear_output()   
+                print("⚠️ Invalid start or end date.")
+            return
+                   
+        start_ts = pd.to_datetime(start_date_perf_risk.value)
+        end_ts = pd.to_datetime(end_date_perf_risk.value)
+
+        range_prices=dataframe.loc[start_ts:end_ts]
+        range_returns=range_prices.pct_change(fill_method=None)
+        stress_vol_output = widgets.Output()
+        stress_mean_output = widgets.Output()
+
+        cov=range_returns.cov()
+        
+        stress_matrix=np.diag(np.diag(grid_stress.data))
+        stressed_cov = stress_matrix @ cov @ stress_matrix
+        stressed_std=np.sqrt(np.diag(stressed_cov))
+
+        vol = stressed_std*np.sqrt(250)
+        shocked_means=(range_returns.mean()*grid_mean_shock.data['Mean Shock'])*250
+        
+        corr_matrix = stressed_cov / np.outer(stressed_std, stressed_std)
+        corr_matrix=corr_matrix+np.tril(grid_stress.data)+np.tril(grid_stress.data).T
+        corr_matrix=np.clip(corr_matrix,-1,1)
+        corr_matrix=cov_nearest(corr_matrix)
+        
+        corr_dataframe=pd.DataFrame(corr_matrix,index=range_returns.columns,columns=range_returns.columns)
+        mean_shocked_dataframe=pd.concat([range_returns.mean()*250,shocked_means],axis=1)
+        mean_shocked_dataframe.columns=['Means','Shocked Means']
+
+        original_vol=range_returns.std()*np.sqrt(250)
+        vol_dataframe=pd.DataFrame(index=range_returns.columns)
+        
+        vol_dataframe['Vol']=original_vol
+        vol_dataframe['Shocked Vol']=vol
+
+        original_corr=range_returns.corr()
+        expected_data=pd.concat([mean_shocked_dataframe,vol_dataframe],axis=1)
+
+        correlation_output_old= widgets.Output()
+        correlation_output_new= widgets.Output()
+        mean_output= widgets.Output()
+        
+        with stress_grid_output:
+            stress_grid_output.clear_output(wait=True)
+
+            with stress_vol_output:
+                
+                display(Markdown('## Correlation Shock'))
+                display(grid_stress)
+            with stress_mean_output:
+                display(Markdown('## Returns Shock'))
+                display(grid_mean_shock)
+
+            with mean_output:
+                display(Markdown('## Mean and Vol Changes'))
+                display(display_scrollable_df(expected_data))
+            
+            with correlation_output_old:
+                display(Markdown('### Original Correlation'))
+                display(display_scrollable_df(original_corr))
+            
+            with correlation_output_new:
+                display(Markdown('### New Correlation'))
+                
+                display(display_scrollable_df(corr_dataframe))
+
+            ui_corr=widgets.HBox([correlation_output_old,correlation_output_new])
+            ui_mean=widgets.VBox([stress_vol_output,stress_mean_output,mean_output])
+
+            display(ui_mean)
+
+            display(Markdown('## Correlation Changes'))
+            display(ui_corr)
+            
+    def reset_stress(_):
+    
+        global grid_stress,grid_mean_shock
+
+        if returns_to_use.empty:
+            with stress_grid_output:
+                print("⚠️ Load Prices")
+            return
+
+        stress_vec=np.linspace(stress_factor.value,stress_factor.value,returns_to_use.shape[1])
+        stress_matrix = np.diag(stress_vec)
+        
+        stress_mean=np.linspace(mean_factor.value,mean_factor.value,returns_to_use.shape[1])
+
+        grid_stress = DataGrid(
+            pd.DataFrame(
+                stress_matrix,
+                columns=dataframe.columns,
+                index=dataframe.columns
+            ),
+            editable=True,
+            layout={"height": "250px"}
+        )
+        
+        grid_mean_shock = DataGrid(
+            pd.DataFrame(
+                stress_mean,
+                columns=['Mean Shock'],
+                index=dataframe.columns
+            ),
+            editable=True,
+            layout={"height": "250px"}
+        )
+        
+        grid_stress.observe(update_stress_grid)
+        grid_mean_shock.observe(update_stress_data)
+        
+        update_stress_data(None)
+        
+
+            
+    stress_grid_output = widgets.Output()
+    stress_grid_button = widgets.Button(description="Refresh")
+    stress_grid_button.on_click(reset_stress)
+    
     def get_var_metrics(_):
         global var_scenarios, cvar_scenarios, fund_results
         
@@ -1212,28 +1372,29 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if dataframe.empty or returns_to_use.empty or grid.data.empty:
                 print("⚠️ Please compute optimization results first.")
                 return
-
+                
             horizon = 1 / 250
             spot = dataframe.iloc[-1]
             theta = 2
-    
+            stress_matrix=grid_stress.data.to_numpy()
+            mean_shock_vec=grid_mean_shock.data['Mean Shock']
+            
             distrib_functions = {
-                'multivariate_distribution': (iterations.value, stress_factor.value),
-                'gaussian_copula': (iterations.value, stress_factor.value),
-                't_copula': (iterations.value, stress_factor.value),
-                'gumbel_copula': (iterations.value, theta),
-                'monte_carlo': (spot, horizon, iterations.value, stress_factor.value)
+                'multivariate_distribution': (iterations.value, stress_matrix,mean_shock_vec),
+                'gaussian_copula': (iterations.value, stress_matrix,mean_shock_vec),
+                't_copula': (iterations.value, stress_matrix,mean_shock_vec),
+                'gumbel_copula': (iterations.value, theta,stress_factor.value,mean_shock_vec),
+                'monte_carlo': (spot, horizon, iterations.value, stress_matrix,mean_shock_vec)
             }
-    
             
             range_prices=dataframe.loc[start_ts:end_ts]
             range_returns=range_prices.pct_change(fill_method=None)
             
             portfolio = RiskAnalysis(range_returns)
-            
             var_scenarios, cvar_scenarios, fund_results = {}, {}, {}
 
             display(loading_bar_var)
+            
             def process_index(index):
                 vs, cvs = {}, {}
                 for func_name, args in distrib_functions.items():
@@ -1283,6 +1444,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         display_var_results(selected_fund_var.value)
         loading_bar_var.value=0
 
+        
     def display_var_results(fund_name):
         if fund_name not in var_scenarios:
             with var_output:
@@ -1302,6 +1464,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         with var_output:
             var_output.clear_output(wait=True)
             
+            display(Markdown(f"### Summary"))
+
             display(display_scrollable_df(fund_results_dataframe))
 
             display(Markdown(f"### VaR Results for **{fund_name}**"))
@@ -1329,8 +1493,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         ex_ante_output
     ])
 
-    var_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk]),
-        widgets.VBox([selected_fund_var, stress_factor, iterations, num_scenarios,var_centile, get_var_button]),
+    var_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk,stress_grid_button]),
+        widgets.VBox([selected_fund_var, stress_factor,mean_factor,iterations, num_scenarios,var_centile,stress_grid_output,widgets.HBox([get_var_button])]),
         var_output
     ])
 
@@ -1435,7 +1599,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     end_date_market_risk.observe(get_market_risk_metrics)
 
     asset_output_corr = widgets.Output()
-
     button_corr = widgets.Button(description="Show Correlation", button_style="success")
     
     window_corr=widgets.IntText(
@@ -1482,6 +1645,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         rolling_corr_output=widgets.Output()
         correlation_matrix=widgets.Output()
         pca_overtime_output=widgets.Output()
+        mean_returns_output=widgets.Output()
         
         with asset_output_corr:
             asset_output_corr.clear_output(wait=True)
@@ -1490,6 +1654,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 range_returns[dropdown_asset2.value]
             ).dropna()
 
+            rolling_mean_returns=range_returns.rolling(window_corr.value).mean().dropna()*252
+            
             with rolling_corr_output:
                 fig = px.line(rolling_correlation, title=f"{dropdown_asset1.value}/{dropdown_asset2.value} Correlation", render_mode = 'svg')
                 fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
@@ -1508,8 +1674,15 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
                 fig3.update_layout(xaxis_title=None, yaxis_title=None)
                 fig3.show()
+
+            with mean_returns_output:
+                fig4=px.line(rolling_mean_returns,title='Mean Return', render_mode = 'svg')
+                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig4.update_layout(xaxis_title=None, yaxis_title=None)
+                fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in [dropdown_asset1.value,dropdown_asset2.value])
+                fig4.show()
                 
-            ui=widgets.HBox([rolling_corr_output,pca_overtime_output,correlation_matrix])
+            ui=widgets.HBox([widgets.VBox([rolling_corr_output,mean_returns_output]),widgets.VBox([pca_overtime_output,correlation_matrix])])
             display(ui)
             
     selected_components=widgets.Dropdown(options=['PC1'],description='Select PCA',style={'description_width': '150px'})
@@ -1536,7 +1709,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         disabled=False,style={'description_width': '150px'})
     
     market_factor_output=widgets.Output()
-    
     market_factors_button=widgets.Button(description="Get Market Drivers", button_style="info",style={'description_width': '150px'})
     
     def get_market_factors(_):
@@ -1562,8 +1734,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
                 print("⚠️ Error with date range.")
                 return 
-        
-
+                
         results={}
         
         range_prices=dataframe.loc[start_ts:end_ts]
@@ -1606,7 +1777,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             print("⚠️ No valid Eigen values computed.")
             return
         
-
         weights=pd.DataFrame(results).T
         
         quantities_eigen=rebalanced_dynamic_quantities(range_prices,weights)
@@ -1744,7 +1914,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             quantities_holding=quantities_holding.loc[~quantities_holding.index.duplicated(),:]
         
             quantities_holding=quantities_holding.sort_index()
-
             start_date_perf_ex_post.value=positions.index[0].date()
             
     start_date_perf_ex_post = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
@@ -2129,7 +2298,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
                     correlation_contrib=get_correlation_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
                     idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_risk.value)
-                    # contribution_to_vol_pct=get_ex_ante_vol_contribution_in_pct(series_weights,current_underlying_returns.loc[series_weights.index],window_risk.value)
                     
                 with output1:
                     
@@ -2143,17 +2311,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Idiosyncratic Vol"])
-    
                     fig4.show()   
                         
                 with output2:
                     
-                        
                     fig2 = px.line(contribution_to_vol, title='Volatility Contribution', width=800, height=400, render_mode = 'svg')
                     fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Vol'])
-                    
                     fig2.show()
                     
                     fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
@@ -2326,7 +2491,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     contribution_to_vol=get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_te.value)
                     correlation_contrib=get_correlation_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_te.value)
                     idiosyncratic_contrib=get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts],current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts],window_te.value)
-                    # contribution_to_vol_pct=get_ex_ante_vol_contribution_in_pct(series_weights,current_underlying_returns.loc[series_weights.index],window_risk.value)
                     
                 with output1:
                     
@@ -2629,7 +2793,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     market_risk_subtabs.set_title(0, 'Market Risk')
     market_risk_subtabs.set_title(1, 'Correlation')
     market_risk_subtabs.set_title(2, 'Market Drivers')
-    
 
     with market_risk_tab:
         display(market_risk_subtabs)
