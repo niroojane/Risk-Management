@@ -98,8 +98,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     output_returns = widgets.Output()
     constraint_output = widgets.Output()
     
-    dropdown_asset1 = widgets.Dropdown(description='Asset 1',style={'description_width': '150px'})
-    dropdown_asset2 = widgets.Dropdown(description='Asset 2',style={'description_width': '150px'} )
+    dropdown_asset1 = widgets.Dropdown(description='Asset 1:',style={'description_width': '150px'})
+    dropdown_asset2 = widgets.Dropdown(description='Asset 2:',style={'description_width': '150px'} )
 
     
     def scope_update(n):
@@ -1184,11 +1184,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     var_output = widgets.Output()
     var_scenarios, cvar_scenarios, fund_results = {}, {}, {}
 
-    stress_factor = widgets.BoundedFloatText(value=1.0, min=1.0, max=3.0, step=0.1, description='Stress Factor')
-    mean_factor = widgets.BoundedFloatText(value=1.0, min=0.0, max=3.0, step=0.1, description='Mean Factor')
-    iterations = widgets.BoundedIntText(value=10000, min=1000, max=100000, step=1, description='Iterations')
-    num_scenarios = widgets.BoundedIntText(value=100, min=1, max=1000, step=1, description='Scenarios')
-    var_centile = widgets.BoundedFloatText(value=0.05, min=0, max=1, step=0.01, description='VaR Centile')
+    stress_factor = widgets.BoundedFloatText(value=1.0, min=1.0, max=3.0, step=0.1, description='Stress Factor:')
+    mean_factor = widgets.BoundedFloatText(value=1.0, min=0.0, max=3.0, step=0.1, description='Mean Factor:')
+    iterations = widgets.BoundedIntText(value=10000, min=1000, max=100000, step=1, description='Iterations:')
+    num_scenarios = widgets.BoundedIntText(value=100, min=1, max=1000, step=1, description='Scenarios:')
+    var_centile = widgets.BoundedFloatText(value=0.05, min=0, max=1, step=0.01, description='VaR Centile:')
     loading_bar_var = widgets.IntProgress(description='Loading scenarios...',min=0, max=100,style={'description_width': '150px'})
     
     grid_stress = DataGrid(pd.DataFrame(),
@@ -1373,7 +1373,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 print("⚠️ Please compute optimization results first.")
                 return
                 
-            horizon = 1 / 250
+            horizon = 1/250
             spot = dataframe.iloc[-1]
             theta = 2
             stress_matrix=grid_stress.data.to_numpy()
@@ -1494,7 +1494,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     ])
 
     var_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk,stress_grid_button]),
-        widgets.VBox([selected_fund_var, stress_factor,mean_factor,iterations, num_scenarios,var_centile,stress_grid_output,widgets.HBox([get_var_button])]),
+        widgets.VBox([selected_fund_var, stress_factor,mean_factor,iterations,num_scenarios,var_centile,stress_grid_output,widgets.HBox([get_var_button])]),
         var_output
     ])
 
@@ -1685,9 +1685,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             ui=widgets.HBox([widgets.VBox([rolling_corr_output,mean_returns_output]),widgets.VBox([pca_overtime_output,correlation_matrix])])
             display(ui)
             
-    selected_components=widgets.Dropdown(options=['PC1'],description='Select PCA',style={'description_width': '150px'})
-    num_components=widgets.BoundedIntText(min=1,max=5,value=5,description='PCA Components',style={'description_width': '150px'})
-    num_closest_to_pca=widgets.BoundedIntText(min=1,max=20,value=5,description='PCA Closest',style={'description_width': '150px'})
+    selected_components=widgets.Dropdown(options=['PC1'],description='Select PCA:',style={'description_width': '150px'})
+    num_components=widgets.BoundedIntText(min=1,max=5,value=5,description='PCA Components:',style={'description_width': '150px'})
+    num_closest_to_pca=widgets.BoundedIntText(min=1,max=20,value=5,description='PCA Closest:',style={'description_width': '150px'})
     market_button=widgets.Button(description='Market Risk Analysis',button_style='info',style={'description_width': '150px'})
     market_button.on_click(get_market_risk_metrics)    
     correlation_button=widgets.Button(description='Get Correlation',button_style='info',style={'description_width': '150px'})
@@ -1921,9 +1921,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     ex_post_perf=widgets.Output()
     ex_post_calendar=widgets.Output()
     
-    fund_ex_post=widgets.Dropdown(value='Historical Portfolio',options=['Historical Portfolio','Fund'],description='Select Fund',style={'description_width': '150px'})
-    benchmark_ex_post=widgets.Dropdown(value='Historical Portfolio',options=['Historical Portfolio','Fund'],description='Select Benchmark',style={'description_width': '150px'})
-    frequency_graph_ex_post=widgets.Dropdown(options=['Year','Month'],value='Year',description='Select Frequency',style={'description_width': '150px'})
+    fund_ex_post=widgets.Dropdown(value='Historical Portfolio',options=['Historical Portfolio','Fund'],description='Select Fund:',style={'description_width': '150px'})
+    benchmark_ex_post=widgets.Dropdown(value='Historical Portfolio',options=['Historical Portfolio','Fund'],description='Select Benchmark:',style={'description_width': '150px'})
+    frequency_graph_ex_post=widgets.Dropdown(options=['Year','Month'],value='Year',description='Select Frequency:',style={'description_width': '150px'})
     calendar_button_ex_post=widgets.Button(description='Update', button_style='info')
     
     def show_graph_ex_post(_):
