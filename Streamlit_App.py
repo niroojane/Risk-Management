@@ -1527,7 +1527,7 @@ with main_tabs[4]:
             window_corr=st.number_input("Window Correlation",min_value=0,value=252)
     
             mask = (dataframe.index >= selmind) & (dataframe.index <= selmaxd)
-            col1, col2, col3 = st.columns([1, 1, 1])
+            col1, col2 = st.columns([1, 1])
 
             
             range_prices=dataframe.loc[mask].copy()
@@ -1539,6 +1539,8 @@ with main_tabs[4]:
                 range_returns[dropdown_asset2]
             ).dropna()
             
+            rolling_mean_returns=range_returns.rolling(window_corr).mean().dropna()*252
+
             fig = px.line(rolling_correlation, title=f"{dropdown_asset1}/{dropdown_asset2} Correlation", render_mode = 'svg')
             fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400)
             fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
@@ -1553,13 +1555,18 @@ with main_tabs[4]:
             fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
             fig3.update_layout(xaxis_title=None, yaxis_title=None)
 
+            fig4=px.line(rolling_mean_returns,title='Mean Return', render_mode = 'svg')
+            fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+            fig4.update_layout(xaxis_title=None, yaxis_title=None)
+            fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in [dropdown_asset1,dropdown_asset2])
+            
             with col1:
                 st.plotly_chart(fig,width='content')
+                st.plotly_chart(fig4,width='content')
+
             with col2:
                 st.plotly_chart(fig3,width='content')
-            with col3:
                 st.plotly_chart(fig2,width='content')
-        
         
         with sub_tabs_market[2]:
 
