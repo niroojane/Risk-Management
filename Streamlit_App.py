@@ -1524,7 +1524,7 @@ with main_tabs[4]:
 
             dropdown_asset2=st.selectbox("Asset 2:",options=range_returns.columns,index=1)
                     
-            window_corr=st.number_input("Window Correlation",min_value=0,value=252)
+            window_corr=st.number_input("Window Correlation:",min_value=0,value=252)
     
             mask = (dataframe.index >= selmind) & (dataframe.index <= selmaxd)
             col1, col2 = st.columns([1, 1])
