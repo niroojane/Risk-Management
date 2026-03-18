@@ -58,8 +58,6 @@ def get_expected_metrics(returns,dataframe):
     for idx in dataframe.index:
         allocation_dict[idx]=dataframe.loc[idx].to_numpy()
 
-
-    
     metrics={}
     metrics['Expected Returns']={}
     metrics['Expected Volatility']={}
