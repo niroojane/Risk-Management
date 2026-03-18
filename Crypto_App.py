@@ -19,17 +19,16 @@ import ipywidgets as widgets
 from ipydatagrid import DataGrid, TextRenderer
 from IPython.display import display,Markdown
 from IPython.display import HTML
-
 import plotly.express as px
 import plotly.graph_objects as go
 
-from Git import *
-from Binance_API import BinanceAPI
-from RiskMetrics import *
-from PnL_Computation import PnL
-from Stock_Data import get_close
-from Rebalancing import *
-from Metrics import *
+from src import GitHub
+from src import BinanceAPI
+from src.RiskMetrics import *
+from src import PnL
+from src import get_close
+from src.Rebalancing import *
+from src.Metrics import *
 
 def display_crypto_app(Binance,Pnl_calculation,git):
     # --- strategy dictionary ---

@@ -6,24 +6,29 @@ import streamlit as st
 import pandas as pd
 import random
 import numpy as np
-import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-import seaborn as sns
 import matplotlib.pyplot as plt
-from matplotlib import colors
+import datetime
+import seaborn as sns
+import requests
+from scipy.stats import norm, chi2,gumbel_l
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing import Pool, cpu_count
 
+import ipywidgets as widgets
+from ipydatagrid import DataGrid, TextRenderer
+from IPython.display import display,Markdown
+from IPython.display import HTML
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
-from RiskMetrics import *
-from Stock_Data import get_close
-from Binance_API import *
-from PnL_Computation import *
-
-from Git import *
-from Metrics import *
+from src import GitHub
+from src import BinanceAPI
+from src.RiskMetrics import *
+from src import PnL
+from src import get_close
+from src.Rebalancing import *
+from src.Metrics import *
+from keys import *
 
 st.set_page_config(layout="wide")
 
