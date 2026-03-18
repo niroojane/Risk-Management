@@ -1493,8 +1493,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         ex_ante_output
     ])
 
-    var_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk,stress_grid_button]),
-        widgets.VBox([selected_fund_var, stress_factor,mean_factor,iterations,num_scenarios,var_centile,stress_grid_output,widgets.HBox([get_var_button])]),
+    var_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk]),
+        widgets.VBox([selected_fund_var, stress_factor,mean_factor,iterations,num_scenarios,var_centile,stress_grid_output,widgets.HBox([get_var_button,stress_grid_button])]),
         var_output
     ])
 
