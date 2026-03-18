@@ -13,7 +13,7 @@ import pandas as pd
 import requests
 import datetime
 import numpy as np
-from Binance_API import BinanceAPI
+from .Binance_API import BinanceAPI
 
 
 # In[2]:
