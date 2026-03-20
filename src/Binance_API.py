@@ -172,7 +172,7 @@ class BinanceAPI:
         crypto=quantities.columns
 
         prices=self.get_price(crypto,startdate)
-        
+        prices=prices.loc[~prices.index.duplicated(keep='last')]
         positions=pd.DataFrame()
         
         for col in crypto:
