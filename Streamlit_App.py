@@ -2266,7 +2266,7 @@ with main_tabs[2]:
                     fig4.update_layout(xaxis_title=None, yaxis_title=None,showlegend=False)
                     st.plotly_chart(fig4,width='content')
                 
-                st.dataframe(pnl_contribution.round(2), width='content')
+                st.dataframe(pnl_contribution.round(2), width='stretch')
 
                 push_button=st.button('Upload Files')
 
