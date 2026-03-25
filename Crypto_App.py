@@ -310,7 +310,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     data_button.on_click(get_prices)
     start_date.observe(lambda ch: get_prices() if ch['name'] == 'value' and ch['new'] else None, names='value')
     
-
     # --- constraint UI ---
     dropdown_asset = widgets.Dropdown(description='Asset:', options=['All'], value=None)
     dropdown_sign = widgets.Dropdown(description='Sign:', options=["=", "≥", "≤"])
@@ -477,7 +476,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 frontier_output.clear_output()
                 
             return
-
+            
+        constraint_df = pd.DataFrame(constraints)
+        cons = None
+        if not constraint_df.empty:
+            try:
+                cons = build_constraint(dataframe, constraint_df.to_numpy())
+            except Exception as e:
+                print("Error building constraints:", e)
 
         performance_pct.index = pd.to_datetime(performance_pct.index)
 
@@ -492,8 +498,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             return
 
         # cumulative_performance = cumulative_performance.copy()
-
-            
+        
         cumulative_performance.iloc[0] = 0
         cumulative_results = (1 + cumulative_performance).cumprod() * 100
         
@@ -503,9 +508,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 
         drawdown = (cumulative_results - cumulative_results.cummax()) / cumulative_results.cummax()
         rolling_vol_ptf=cumulative_results.pct_change(fill_method=None).rolling(window_vol.value).std()*np.sqrt(260)
-        frontier_indicators, fig4 = get_frontier(range_returns, grid.data)
+        frontier_indicators, fig4 = get_frontier(range_returns,grid.data,cons)
         update_dropdown_options()
         
+
 
         with output_returns:
             output_returns.clear_output(wait=True)
@@ -641,6 +647,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if dataframe.empty or returns_to_use.empty:
                 print("⚠️ Load price data before optimizing.")
                 return
+            
             constraint_df = pd.DataFrame(constraints)
             cons = None
             if not constraint_df.empty:
@@ -679,7 +686,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if set(current_weights.index).issubset(dataframe.columns):
                 allocation_df = allocation_df.combine_first(current_weights.T).fillna(0)
             
-            constraint_container = {'constraints': constraints, 'allocation_df': allocation_df}
+            constraint_container = {'constraints_dataframe': constraints,'constraints':cons, 'allocation_df': allocation_df}
             grid.data = allocation_df
             
             benchmark_tracking_error.options=grid.data.index
@@ -691,7 +698,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             selected_bench.options=grid.data.index
             selected_bench.value=grid.data.index[0]
     
-            
             selected_fund_var.options=grid.data.index
             selected_fund_var.value=grid.data.index[0]
             
@@ -700,6 +706,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 display(display_scrollable_df(pd.DataFrame(constraints))) 
             
             reset_stress(None)
+            
     def get_result(_):
         nonlocal constraint_container
         global rolling_optimization, performance_pct, performance_fund, dates_end, quantities
@@ -822,6 +829,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     positions_output=widgets.Output()
     holding_output=widgets.Output()
     loading_bar_pnl = widgets.IntProgress(description='Loading P&L...',min=0, max=100,style={'description_width': '150px'})
+    
     def get_holdings(_):
 
         global holding_tickers,current_weights,pnl
