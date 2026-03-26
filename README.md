@@ -128,6 +128,7 @@ GITHUB_TOKEN=your_token
 ```
 
 > ⚠️ Never expose your API keys publicly.
+> ⚠️ Make sure to have the relevant Excel Files to Analyze your P&L and Positioning through time
 
 ---
 
@@ -144,7 +145,6 @@ streamlit run Streamlit_App.py
 ```bash
 jupyter notebook Crypto_App.ipynb
 ```
-
 ---
 
 ## 📦 Dependencies
@@ -178,6 +178,9 @@ Core libraries:
 ├── Crypto_App.py             # Ipywidgets script
 ├── Streamlit_App.py          # Streamlit application
 ├── requirements.txt
+├── Trade_History.xlsx        # Trades Excel File
+├── Positions.xlsx            # Marke To Market History
+├── Quantities.xlsx           # Historical Quantities
 ├── .streamlit/
 └── README.md
 ```
@@ -191,16 +194,6 @@ Core libraries:
 * Strategy comparison (Buy & Hold vs Rebalancing)
 * Crypto asset allocation research
 * Educational tool for quantitative finance
-
----
-
-## 🔮 Future Improvements
-
-* Backtesting engine with transaction costs
-* Advanced volatility models (e.g., GARCH)
-* Multi-asset support (equities, ETFs)
-* Scenario and stress testing
-* Machine learning-based allocation strategies
 
 ---
 
