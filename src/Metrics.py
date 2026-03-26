@@ -445,25 +445,33 @@ def get_frontier(returns,dataframe,cons=None):
             x=[metrics["Volatility"][key]],
             y=[metrics["Returns"][key]],
             mode="markers",
+            text=[key],  # 👈 pass it here
             customdata=[[metrics['Sharpe Ratio'][key]]],
             hovertemplate=
                 "Volatility: %{x}<br>" +
                 "Returns: %{y}<br>" +
-                "Sharpe: %{customdata[0]:.2f}<extra></extra>",
+                "Sharpe: %{customdata[0]:.2f}<br>" +
+                "Portfolio: %{text}<extra></extra>",
             marker=dict(color="orange", size=8, symbol="x"),
             name=key,
             showlegend=False
         )
-    
     fig.add_scatter(
         x=[metrics["Volatility"]['Optimal Portfolio']],
         y=[metrics["Returns"]['Optimal Portfolio']],
         mode="markers",
+        text=['Optimal Portfolio'],  # 👈 pass it here
+        customdata=[[metrics['Sharpe Ratio']['Optimal Portfolio']]],
+        hovertemplate=
+            "Volatility: %{x}<br>" +
+            "Returns: %{y}<br>" +
+            "Sharpe: %{customdata[0]:.2f}<br>" +
+            "Portfolio: %{text}<extra></extra>",
         marker=dict(color="red", size=8, symbol="x"),
-        name='Optimal Portfolio',
+        name=key,
         showlegend=False
     )
-    
+
     fig.update_layout(
         showlegend=False, 
         hoverlabel_namelength=-1,
