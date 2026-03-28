@@ -43,7 +43,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     # --- globals ---
     global tickers_dataframe, tickers, dataframe, returns_to_use, prices
-    global rolling_optimization, performance_pct, performance_fund, dates_end,quantities,cumulative_results,global_returns
+    global rolling_optimization, performance_pct, performance_fund, dates_end,quantities,quantities_core,quantities_overlay,cumulative_results,global_returns
     global book_cost,realized_pnl,profit_and_loss,holding_tickers,current_weights,fund_names,grid,trades
     
     tickers_dataframe = Binance.get_market_cap().set_index('Ticker')
@@ -66,6 +66,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     rolling_optimization = pd.DataFrame()
     quantities=pd.DataFrame()
+    quantities_core=pd.DataFrame()
+    quantities_overlay=pd.DataFrame()
     
     performance_pct = pd.DataFrame()
     performance_fund = pd.DataFrame()
@@ -322,7 +324,35 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     selected_fund = widgets.Dropdown(description="Fund:")
     selected_bench = widgets.Dropdown(description="Bench:")
     selected_fund_var = widgets.Dropdown(description="Fund:")
+
     
+    add_strategy_btn = widgets.Button(description='Add Strategy',style={'description_width': '150px'} )
+    clear_strategy_btn = widgets.Button(description='Clear Strategy',style={'description_width': '150px'} )
+    dropdown_strategy_limit = widgets.FloatText(description='Overlay Limit',style={'description_width': '150px'} )
+    strat_overlay = widgets.Dropdown(description='Strategy Overlay', options=options_strat, value='Minimum Variance',style={'description_width': '150px'} )
+
+    overlays=[]
+    overlay_output=widgets.Output()
+    
+    def on_add_overlays(_):
+        overlays.append({
+            'Strategy': strat_overlay.value,
+            'Limit': dropdown_strategy_limit.value
+        })
+        
+        with overlay_output:
+            overlay_output.clear_output(wait=True)
+            display(display_scrollable_df(pd.DataFrame(overlays)))
+            
+    def on_clear_overlays(_):
+        overlays.clear()
+        with overlay_output:
+            overlay_output.clear_output(wait=True)
+            display(display_scrollable_df(pd.DataFrame(columns=['Strategy', 'Limit'])))  
+
+    add_strategy_btn.on_click(on_add_overlays)
+    clear_strategy_btn.on_click(on_clear_overlays)
+
     def on_add_constraint_clicked(_):
         constraints.append({
             'Asset': dropdown_asset.value,
@@ -333,6 +363,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             constraint_output.clear_output(wait=True)
             display(display_scrollable_df(pd.DataFrame(constraints)))
 
+    
     def on_clear_constraints(_):
         constraints.clear()
         with constraint_output:
@@ -709,7 +740,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
     def get_result(_):
         nonlocal constraint_container
-        global rolling_optimization, performance_pct, performance_fund, dates_end, quantities
+        global rolling_optimization, performance_pct, performance_fund, dates_end, quantities,quantities_core,quantities_overlay
     
         with strategy_output:
             strategy_output.clear_output(wait=True)
@@ -748,12 +779,24 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
             # Prepare tasks
             strategy_key = dico_strategies[strat.value]
-            tasks = [(returns_to_use.loc[dates_end[i]:dates_end[i+1]],dates_end[i], dates_end[i+1]) for i in range(len(dates_end)-1)]
-    
+            tasks = [(returns_to_use.loc[dates_end[i]:dates_end[i+1]],dates_end[i], dates_end[i+1],strategy_key) for i in range(len(dates_end)-1)]
+            overlays_tasks = [
+                (
+                    returns_to_use.loc[dates_end[i]:dates_end[i+1]],
+                    dates_end[i],
+                    dates_end[i+1],
+                    dico_strategies[row['Strategy']]
+                )
+                for i in range(len(dates_end)-1)
+                for row in overlays
+            ]
+            
+            # Combine all tasks
+            all_tasks = tasks + overlays_tasks
             # Run with threads
+            global results
             results = {}
-            def worker(subset,start, end):
-
+            def worker(subset,start, end,strategy_key):
                 if subset.empty or len(subset) < 2:
                     return None
                 try:
@@ -762,27 +805,86 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                         opt = risk.optimize(objective=strategy_key, constraints=cons)
                     else:
                         opt = risk.optimize(objective=strategy_key)
-                    return subset.index[-1], np.round(opt, 6)
+                    return subset.index[-1], np.round(opt, 6),strategy_key
                 except Exception:
                     return None
-    
+
             with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-                futures = {executor.submit(worker,subset, start, end): (subset,start, end) for subset,start, end in tasks}
+                futures = {
+                    executor.submit(worker, subset, start, end, strat): (subset, start, end, strat)
+                    for subset, start, end, strat in all_tasks
+                }
+            
                 for future in as_completed(futures):
                     out = future.result()
                     if out is not None:
-                        date_key, weights = out
-                        results[date_key] = weights
-            if not results:
-                print("⚠️ No valid optimizations computed.")
-                return
-    
-            rolling_optimization = pd.DataFrame(results, index=dataframe.columns).T.sort_index()
+                        date_key, weights, strategy_selected = out
+            
+                        if strategy_selected not in results:
+                            results[strategy_selected] = {}
+            
+                        results[strategy_selected][date_key] = weights
+            
+            # rolling_optimization = pd.DataFrame(results[strategy_key], index=dataframe.columns).T.sort_index()
+            rolling_optimization=pd.DataFrame(results[strategy_key], index=dataframe.columns).T.sort_index()
+            total_overlay = pd.DataFrame(0, index=rolling_optimization.index, columns=rolling_optimization.columns)
+            core_weights = 1
+            overlays_df = pd.DataFrame(overlays)
+            core_strat = rolling_optimization.copy()  # keep copy of core strategy
+            
+            # Accumulate overlays
+            for _, row in overlays_df.iterrows():
+                strat_key = dico_strategies[row['Strategy']]
+                overlay_df = (
+                    pd.DataFrame(results[strat_key], index=dataframe.columns)
+                    .T
+                    .sort_index()
+                    * row['Limit']
+                )
+            
+                # Add overlay to total_overlay
+                total_overlay = total_overlay.add(overlay_df, fill_value=0)
+            
+                # Update remaining core weight
+                core_weights -= row['Limit']
+            
+            # Safety check
+            if core_weights < 0:
+                raise ValueError("⚠️ Overlay weights exceed 100%")
+            
+            # Combine core + overlays
+            rolling_optimization = rolling_optimization * core_weights + total_overlay
+            
             if not rolling_optimization.empty:
                 first_row = pd.Series(1 / len(dataframe.columns), index=dataframe.columns, name=dates_end[0])
                 rolling_optimization = pd.concat([pd.DataFrame([first_row]), rolling_optimization])
-    
-            display(display_scrollable_df(rolling_optimization))
+                core_strat= pd.concat([pd.DataFrame([first_row]), core_strat])
+                total_overlay= pd.concat([pd.DataFrame([first_row]), total_overlay/(1-core_weights)])
+                
+            core_output=widgets.Output()
+            overlay_weights_output=widgets.Output()
+            final_weights_output=widgets.Output()
+
+            with core_output:
+                display(Markdown("### Core Strategy"))
+
+                display(display_scrollable_df(core_strat))
+            with overlay_weights_output:
+
+                display(Markdown("### Tactical Allocation"))
+
+                display(display_scrollable_df(total_overlay))   
+                
+            with final_weights_output:
+
+                display(Markdown("### Final Strategy"))
+
+                display(display_scrollable_df(rolling_optimization)),
+
+            strategies_decomposition = widgets.HBox([final_weights_output,core_output,overlay_weights_output
+            ])
+            
+            display(strategies_decomposition)
             
             model=pd.DataFrame(rolling_optimization.iloc[-2])
             model.columns=['Model']
@@ -790,7 +892,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 grid.data=pd.concat([grid.data,model.T],axis=0)
                 
             quantities = rebalanced_dynamic_quantities(dataframe, rolling_optimization)
-            performance_fund = pd.DataFrame({'Fund': (quantities * dataframe).sum(axis=1)})
+            quantities_core = rebalanced_dynamic_quantities(dataframe, core_strat)
+            quantities_overlay = rebalanced_dynamic_quantities(dataframe, total_overlay)
+
+            performance_fund = pd.DataFrame({'Fund': (quantities * dataframe).sum(axis=1),
+                                             'Core':(quantities_core * dataframe).sum(axis=1),
+                                             'Overlay':(quantities_overlay * dataframe).sum(axis=1)})
+            
             if 'BTCUSDT' in dataframe.columns:
                 performance_fund['Bitcoin'] = dataframe['BTCUSDT']
             performance_pct = performance_fund.pct_change(fill_method=None)
@@ -800,24 +908,25 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             date_drawdown=drawdown.idxmin().dt.date
             max_drawdown=drawdown.min()
             
-            metrics={}
-            metrics['Tracking Error']=(performance_pct['Fund']-performance_pct['Bitcoin']).std()*np.sqrt(252)
-            metrics['Fund Vol']=performance_pct['Fund'].std()*np.sqrt(252)
-            metrics['Bitcoin Vol']=performance_pct['Bitcoin'].std()*np.sqrt(252)
-            metrics['Fund Return']=performance_fund['Fund'].iloc[-2]/performance_fund['Fund'].iloc[0]
-            metrics['Bitcoin Return']=performance_fund['Bitcoin'].iloc[-2]/performance_fund['Bitcoin'].iloc[0]
-            metrics['Sharpe Ratio']=(1+metrics['Fund Return'])**(1/len(set(returns_to_use.index.year)))/metrics['Fund Vol']
-            metrics['Bitcoin Sharpe Ratio']=(1+metrics['Bitcoin Return'])**(1/len(set(returns_to_use.index.year)))/metrics['Bitcoin Vol']
 
-            metrics['Fund Drawdown']=max_drawdown['Fund']
-            metrics['Bitcoin Drawdown']=max_drawdown['Bitcoin']
+            metrics=pd.DataFrame()
+            metrics['Returns']=performance_fund.iloc[-2]/performance_fund.iloc[0]
+            metrics['Volatility']=performance_pct.std()*np.sqrt(252)
+            metrics['Sharpe Ratio']=(1+metrics['Returns'])**(1/len(set(returns_to_use.index.year)))/metrics['Volatility']
+            metrics['Drawdown']=max_drawdown
+            metrics['Date Drawdown']=date_drawdown
+            excess_returns_to_btc = performance_pct.loc[:, performance_pct.columns != 'Bitcoin'].sub(
+                performance_pct['Bitcoin'], axis=0
+            )
+            metrics['Tracking Error to Bitcoin']=(excess_returns_to_btc).std()*np.sqrt(252)
             
-            metrics['Fund Date Drawdown']=date_drawdown['Fund']
-            metrics['Bitcoin Date Drawdown']=date_drawdown['Bitcoin']
-            
-            indicators=pd.DataFrame(metrics.values(),index=metrics.keys(),columns=['Indicators'])
-            # show results
-            display(display_scrollable_df(indicators.round(4)))
+            excess_returns_to_core = performance_pct.loc[:, performance_pct.columns != 'Core'].sub(
+                performance_pct['Core'], axis=0
+            )
+            metrics['Tracking Error to Core']=(excess_returns_to_core).std()*np.sqrt(252)
+            metrics=metrics.fillna(0).T
+
+            display(display_scrollable_df(metrics.round(4)))
             updated_cumulative_perf(None)
             show_graph(None)
             get_holdings(None)
@@ -967,13 +1076,17 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     position_button.on_click(get_holdings)
     
     # --- layout ---
+    overlay_ui=widgets.VBox([widgets.HBox([widgets.VBox([strat_overlay,dropdown_strategy_limit]),
+                                           widgets.VBox([add_strategy_btn,clear_strategy_btn])]),
+                                           overlay_output])
 
     allocation_ui=widgets.VBox([widgets.HBox([
             widgets.VBox([dropdown_asset, dropdown_sign, dropdown_limit]),
             widgets.VBox([add_constraint_btn, clear_constraints_btn, optimize_btn])]),
                                 constraint_output,
-        grid,
+        grid,overlay_ui,
         widgets.HBox([button_add,button_clear,results_button])])
+
 
     constraint_ui = widgets.VBox([widgets.HBox([start_date_perf, end_date_perf,refresh_perf_button]),
                                                main_output,
@@ -2392,6 +2505,16 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             portfolio=quantities*dataframe
             model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
             series_dict['Fund']=model_weights.loc[start_ts:end_ts]
+            
+        if not quantities_core.empty:
+            portfolio=quantities_core*dataframe
+            model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+            series_dict['Core']=model_weights.loc[start_ts:end_ts]
+
+        if not quantities_overlay.empty:
+            portfolio=quantities_overlay*dataframe
+            model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+            series_dict['Overlay']=model_weights.loc[start_ts:end_ts]
 
         tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
         tickers_combined=list(set(tickers_combined))
@@ -2587,7 +2710,17 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             portfolio=quantities*dataframe
             model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
             series_dict['Fund']=model_weights.loc[start_ts:end_ts]
+            
+        if not quantities_core.empty:
+            portfolio=quantities_core*dataframe
+            model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+            series_dict['Core']=model_weights.loc[start_ts:end_ts]
 
+        if not quantities_overlay.empty:
+            portfolio=quantities_overlay*dataframe
+            model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+            series_dict['Overlay']=model_weights.loc[start_ts:end_ts]
+            
         tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
         tickers_combined=list(set(tickers_combined))
         
