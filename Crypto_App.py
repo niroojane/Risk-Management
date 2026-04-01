@@ -1048,7 +1048,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         global book_cost,realized_pnl,profit_and_loss,trades
         
         url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Trade%20History%20Reconstructed.xlsx'
-        trade_history = read_excel_from_url(url)
+        trade_history = read_excel_from_url(url,index_col=0)
         
         if trade_history is None:
             raise FileNotFoundError("Trade history could not be loaded. Execution stopped.")  
