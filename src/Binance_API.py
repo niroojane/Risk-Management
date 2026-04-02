@@ -109,9 +109,7 @@ class BinanceAPI:
         return inventory.sort_values(by='Weights',ascending=False)
     
     def get_positions_history(self,enddate=datetime.datetime.today()):
-    
-    #,startdate=datetime.datetime(2024,5,5)):
-        
+            
         dt = enddate
         startdate=enddate-datetime.timedelta(30)
 
@@ -121,18 +119,6 @@ class BinanceAPI:
         snapshots=self.binance_api.account_snapshot(type='SPOT',limit=30,endTime=timestamp_end)
         all_key=snapshots['snapshotVos']  
         
-        #snapshots=[]
-
-        #for date in daterange(startdate,enddate):
-
-        #    print(date)
-
-        #    timestamp_sec = date.timestamp()
-        #    timestamp_end = int(timestamp_sec * 1000)
-        #    snapshot=self.binance_api.account_snapshot(type='SPOT',limit=30,startTime=timestamp_end)
-        #    snapshots.extend(snapshot['snapshotVos'])
-        
-        #all_key=(snapshots)
         history={}
         tickers=set()
 
@@ -158,15 +144,10 @@ class BinanceAPI:
 
                 temp[history[key][i]['asset']]=float(history[key][i]['free'])+float(history[key][i]['locked'])
 
-            #holdings[key]=temp
-
             holdings[date_key]=temp
 
         quantities=pd.DataFrame(holdings).T
-        #quantities.index=pd.to_datetime(quantities.index,unit="ms").strftime(date_format='%Y-%m-%d')
-        #quantities.index=pd.to_datetime(quantities.index)
         quantities.columns=quantities.columns+'USDT'
-        #quantities=quantities.astype(float)
 
 
         crypto=quantities.columns
@@ -174,15 +155,10 @@ class BinanceAPI:
         prices=self.get_price(crypto,startdate)
         prices=prices.loc[~prices.index.duplicated(keep='last')]
         positions=pd.DataFrame()
+
+        positions = quantities * prices.loc[quantities.index]
+        positions=positions.groupby(level=0).sum()
         
-        for col in crypto:
-            
-            try:
-                positions[col]=quantities[col]*prices.loc[quantities.index][col]
-            except Exception as e:
-            
-                print(col)
-                
         return positions,quantities
     
 
