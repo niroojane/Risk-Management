@@ -331,7 +331,7 @@ with st.sidebar:
             raise FileNotFoundError("Trade history could not be loaded. Execution stopped.")  
             print('Trades Not Found in Repository')
         files_status.success('Files Retrieved')
-        
+
     except Exception as e:
         files_status.error(f"❌ Files were not retrieved: {e}")
     
@@ -969,7 +969,8 @@ with main_tabs[3]:
     else:
         
         sub_tabs_risk=st.tabs(['Risk Analysis','Value at Risk'])
-        
+        check_connection(position_url,quantities_url,trades_url)
+
         with sub_tabs_risk[0]:
             
             risk_decomposition_tab=st.tabs(['Risk Decomposition','Risk Trajectory','Tracking Error Trajectory'])
@@ -1070,13 +1071,15 @@ with main_tabs[3]:
 
             with risk_decomposition_tab[1]:
                 
+                
                 dataframe = st.session_state.dataframe
                 returns_to_use = st.session_state.returns_to_use
                 res=st.session_state.results
+                positions=st.session_state.positions
+
                 allocation_dataframe=res["alloc_df"]
                 
                 quantities=res['quantities']
-                positions=st.session_state.positions
                 quantities_core=res['quantities_core']
                 quantities_overlay=res['quantities_overlay']
                 
@@ -2038,6 +2041,8 @@ with main_tabs[2]:
             
         col1, col2, _ = st.columns([1, 1, 10])
         
+        check_connection(position_url,quantities_url,trades_url)
+
         with col1:
             
             get_positions_button=st.button("Get Positions",key='position_button')
@@ -2173,8 +2178,6 @@ with main_tabs[2]:
                 st.dataframe(trades,width='stretch')
         
     with sub_tabs_ex_post[1]:
-
-        check_connection(position_url,quantities_url,trades_url)
         
         quantities_holding=st.session_state.quantities_holding
         positions=st.session_state.positions
