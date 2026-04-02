@@ -1360,7 +1360,7 @@ with main_tabs[3]:
                         
                         mask = (current_underlying_returns.index >= selmind) & (current_underlying_returns.index <= selmaxd)
     
-                        tasks.append(('Historical Portfolio',spread_ex_post,current_underlying_returns.loc[mask],window_te))
+                        tasks.append(('Historical Portfolio',spread_ex_post,current_underlying_returns.loc[spread_ex_post.index],window_te))
                                 
                         results_dict = {}
                         
