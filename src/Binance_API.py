@@ -83,6 +83,7 @@ class BinanceAPI:
                 pass
 
         price.index=pd.to_datetime(price.index).strftime('%Y-%m-%d')
+        
         prices=prices.groupby(level=0).sum()
         prices=price.sort_index()
         
