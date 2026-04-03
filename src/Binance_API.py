@@ -84,9 +84,6 @@ class BinanceAPI:
 
         price.index=pd.to_datetime(price.index).strftime('%Y-%m-%d')
         
-        price=price.groupby(level=0).sum()
-        price=price.sort_index()
-        
         return price
 
     def get_inventory(self):
@@ -158,7 +155,12 @@ class BinanceAPI:
         prices=self.get_price(crypto,startdate)
         prices=prices.loc[~prices.index.duplicated(keep='last')]
         positions=pd.DataFrame()
+        # for col in crypto:
+        #     try:
+        #         positions[col]=quantities[col]*prices.loc[quantities.index][col]
+        #     except Exception as e:
 
+        #         print(col)
         positions = quantities * prices.loc[quantities.index]
         positions=positions.groupby(level=0).sum()
         
