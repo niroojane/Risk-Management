@@ -1620,11 +1620,16 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
 
     # ---------- Market Risk Metrics ----------
+    global quantities_eigen,perf_index_eigen
 
     pca_output=widgets.Output()
     pca_components=widgets.Output()
     start_date_market_risk = widgets.DatePicker(value=start_perf_date, layout=widgets.Layout(width='350px'))
     end_date_market_risk = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
+
+
+    quantities_eigen=pd.DataFrame()
+    perf_index_eigen=pd.DataFrame()
 
     
     def get_market_risk_metrics(_):
@@ -1830,9 +1835,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     market_factor_output=widgets.Output()
     market_factors_button=widgets.Button(description="Get Market Drivers", button_style="info",style={'description_width': '150px'})
-    
-    def get_market_factors(_):
-        
+
+
+    def show_market_graph(_):
         try:
             start_ts = pd.to_datetime(start_date_market_risk.value)
             end_ts = pd.to_datetime(end_date_market_risk.value)
@@ -1846,6 +1851,113 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         if returns_to_use.empty:
             with market_factor_output:
                 asset_output_corr.clear_output()
+                print('⚠️Load Prices.')
+                return
+        if quantities_eigen.empty:
+            with market_factor_output:
+                market_factor_output.clear_output()
+                print('⚠️Load Prices.')
+                return
+        with market_factor_output:
+            market_factor_output.clear_output()
+            if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
+                print("⚠️ Error with date range.")
+                return 
+                
+        range_prices=dataframe.loc[start_ts:end_ts]
+        range_returns=returns_to_use.loc[start_ts:end_ts]
+        
+        market_portfolio=(quantities_eigen.loc[range_prices.index]*range_prices)
+        
+        market_index=market_portfolio.sum(axis=1).to_frame()
+        market_index.columns=['Market Index']
+        market_cost=rebalanced_book_cost(range_prices,quantities_eigen.loc[range_prices.index])
+        
+        weights_series=market_portfolio.copy()
+        weights_series=weights_series.apply(lambda x: x/market_portfolio.sum(axis=1))
+        
+        updated_perf_index_eigen=perf_index_eigen.copy()
+        updated_perf_index_eigen=updated_perf_index_eigen.loc[start_ts:end_ts]
+        
+        updated_perf_index_eigen.iloc[0]=0
+    
+        market_results=(1+updated_perf_index_eigen).cumprod()*100
+    
+        market_pnl=market_portfolio-rebalanced_book_cost(range_prices,quantities_eigen.loc[range_prices.index])
+        market_pnl['Market Index']=market_pnl.sum(axis=1)
+    
+        vol_contribution=get_ex_ante_vol_contribution(weights_series,range_returns,window=market_vol_window.value)
+        correlation_contribution=get_correlation_contribution(weights_series,range_returns,window=market_vol_window.value)
+        idiosyncratic_contribution=get_idiosyncratic_contribution(weights_series,range_returns,window=market_vol_window.value)
+            
+        output1=widgets.Output()
+        output2=widgets.Output()
+        
+        with market_factor_output:
+            
+            market_factor_output.clear_output(wait=True)
+            
+            with output1:
+            
+                fig = px.line(market_results, title='Performance Comparison', width=800, height=400, render_mode = 'svg')
+                fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Market Index","Fund","Bitcoin","Historical Portfolio"])
+                fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig.show()
+                
+                fig2 = px.line(market_pnl, title='Market Drivers', width=800, height=400, render_mode = 'svg')
+                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Market Index"])
+                fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig2.show()
+                
+                fig3 = px.line(correlation_contribution, title='Market Correlation', width=800, height=400, render_mode = 'svg')
+                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Correlation"])
+                fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig3.show()
+                
+                
+            with output2:
+                
+        
+                fig4 = px.line(vol_contribution, title='Market Volatility', width=800, height=400, render_mode = 'svg')
+                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
+                fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig4.show()    
+                
+                fig5 = px.line(idiosyncratic_contribution, title='Market Intrinsic Volatility', width=800, height=400, render_mode = 'svg')
+                fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Idiosyncratic Vol"])
+                fig5.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig5.show()
+                
+                fig6 = px.line(weights_series, title='Market Weights', width=800, height=400, render_mode = 'svg')
+                fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig6.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
+                fig6.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                fig6.show()    
+                
+            ui=widgets.HBox([output1,output2])
+        
+            display(ui)
+        
+    def get_market_factors(_):
+        global quantities_eigen,perf_index_eigen
+        try:
+            start_ts = pd.to_datetime(start_date_market_risk.value)
+            end_ts = pd.to_datetime(end_date_market_risk.value)
+            
+        except Exception:
+            with market_factor_output:
+                market_factor_output.clear_output()
+                print("⚠️ Invalid start or end date.")
+            return
+            
+        if returns_to_use.empty:
+            with market_factor_output:
+                market_factor_output.clear_output()
                 print('⚠️Load Prices.')
                 return
             
@@ -1921,72 +2033,15 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         else:
             perf_index_eigen=market_index.pct_change(fill_method=None)
     
-        perf_index_eigen.iloc[0]=0
-    
-        market_results=(1+perf_index_eigen).cumprod()*100
-    
-        market_pnl=market_portfolio-rebalanced_book_cost(range_prices,quantities_eigen)
-        market_pnl['Market Index']=market_pnl.sum(axis=1)
-    
-        vol_contribution=get_ex_ante_vol_contribution(weights_series,range_returns,window=market_vol_window.value)
-        correlation_contribution=get_correlation_contribution(weights_series,range_returns,window=market_vol_window.value)
-        idiosyncratic_contribution=get_idiosyncratic_contribution(weights_series,range_returns,window=market_vol_window.value)
-            
-        output1=widgets.Output()
-        output2=widgets.Output()
-        
-        with market_factor_output:
-            
-            market_factor_output.clear_output(wait=True)
-            
-            with output1:
-            
-                fig = px.line(market_results, title='Performance Comparison', width=800, height=400, render_mode = 'svg')
-                fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Market Index","Fund","Bitcoin","Historical Portfolio"])
-                fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                fig.show()
-                
-                fig2 = px.line(market_pnl, title='Market Drivers', width=800, height=400, render_mode = 'svg')
-                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Market Index"])
-                fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                fig2.show()
-                
-                fig3 = px.line(correlation_contribution, title='Market Correlation', width=800, height=400, render_mode = 'svg')
-                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Correlation"])
-                fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                fig3.show()
-                
-                
-            with output2:
-                
-        
-                fig4 = px.line(vol_contribution, title='Market Volatility', width=800, height=400, render_mode = 'svg')
-                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
-                fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                fig4.show()    
-                
-                fig5 = px.line(idiosyncratic_contribution, title='Market Intrinsic Volatility', width=800, height=400, render_mode = 'svg')
-                fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Idiosyncratic Vol"])
-                fig5.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                fig5.show()
-                
-                fig6 = px.line(weights_series, title='Market Weights', width=800, height=400, render_mode = 'svg')
-                fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
-                fig6.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
-                fig6.update_traces(textfont=dict(family="Arial Narrow", size=15))
-                fig6.show()    
-                
-            ui=widgets.HBox([output1,output2])
-        
-            display(ui)
+        show_market_graph(None)
 
+    show_market_graph(None)
+
+    refresh_market_dates_button=widgets.Button(description='Refresh')
     market_factors_button.on_click(get_market_factors)
-    market_factors_ui=widgets.VBox([widgets.HBox([start_date_market_risk,end_date_market_risk,market_factors_button]),
+    refresh_market_dates_button.on_click(show_market_graph)
+    
+    market_factors_ui=widgets.VBox([widgets.HBox([start_date_market_risk,end_date_market_risk,market_factors_button,refresh_market_dates_button]),
                                     widgets.VBox([frequency_eigen,selected_pca_market,market_vol_window,market_factor_output])])
     
     global daily_pnl,pnl_history,historical_ptf,performance_ex_post,positions,quantities_holding
@@ -2323,12 +2378,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         update_ex_post_chart(None)
         show_graph_ex_post(None)
     
+    
     ex_post_button=widgets.Button(description='Get P&L',button_style='info')
     ex_post_button.on_click(get_ex_post_returns)
-    start_date_perf_ex_post.observe(update_ex_post_chart)
-    end_date_perf_ex_post.observe(update_ex_post_chart)
+    refresh_ex_post_button=widgets.Button(description='Refresh')
+    refresh_ex_post_button.on_click(update_ex_post_chart)
     
-    ex_post_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button]),ex_post_perf])    
+    ex_post_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button,refresh_ex_post_button]),ex_post_perf])    
     calendar_ui_ex_post=widgets.VBox([widgets.HBox([frequency_graph_ex_post,fund_ex_post,benchmark_ex_post,calendar_button_ex_post]),ex_post_calendar])
 
 
