@@ -12,6 +12,8 @@ from binance.spot import Spot
 import pandas as pd
 import requests
 import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing import Pool, cpu_count
 
 
 # In[3]:
@@ -29,7 +31,7 @@ class BinanceAPI:
         self.binance_api_secret=binance_api_secret
         
         self.binance_api=Spot(self.binance_api_key,self.binance_api_secret)
-        
+
         #self.binance_api_client=Client(self.binance_api_key,self.binance_api_secret)
         
     def get_market_cap(self,quote="USDT"):
@@ -85,7 +87,58 @@ class BinanceAPI:
         price.index=pd.to_datetime(price.index).strftime('%Y-%m-%d')
         
         return price
+        
+    def get_price_threading(self,tickers,start_date):
+            
+        today = datetime.date.today()
+        days_total = (today - start_date).days
+        if days_total <= 0:
+            print("Start date must be in the past.")
+            return
 
+        remaining = days_total % 500
+        numbers_of_table = days_total // 500
+        
+        start_dt= datetime.datetime.combine(start_date, datetime.time())
+        end_dates = [
+                start_dt + datetime.timedelta(days=500 * i)
+                for i in range(numbers_of_table + 1)
+            ]
+    
+        end_dates.append(
+            datetime.datetime.combine(
+                today - datetime.timedelta(days=remaining),
+                datetime.time()
+            )
+        )
+
+        def fetch_prices(end_date):
+            return self.get_price(tickers, end_date)
+
+        price = None
+
+        try:
+            with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
+                futures = [executor.submit(fetch_prices, d) for d in end_dates]
+
+                for future in as_completed(futures):
+                    data = future.result()
+
+                    if price is None:
+                        price = data
+                    else:
+                        price = price.combine_first(data)
+
+        except Exception as e:
+            print("❌ Error while fetching prices:", e)
+            return
+
+        price = price.sort_index()
+        price = price[~price.index.duplicated(keep="first")]
+        price.index = pd.to_datetime(price.index)
+        
+        return price
+        
     def get_inventory(self):
         
         
