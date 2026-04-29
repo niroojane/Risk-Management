@@ -2035,8 +2035,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
         show_market_graph(None)
 
-    show_market_graph(None)
-
     refresh_market_dates_button=widgets.Button(description='Refresh')
     market_factors_button.on_click(get_market_factors)
     refresh_market_dates_button.on_click(show_market_graph)
