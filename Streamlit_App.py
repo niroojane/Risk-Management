@@ -48,48 +48,7 @@ st.markdown(
     
 def load_data(tickers,start=datetime.datetime(2023,1,1),today=None):
 
-    if today is None:
-        today = datetime.date.today()
-    days_total = (today - start).days
-    if days_total <= 0:
-        print("Start date must be in the past.")
-        return
-
-    remaining = days_total % 500
-    numbers_of_table = days_total // 500
-    start_dt = datetime.datetime.combine(start, datetime.time())
-    
-    end_dates = [
-        start_dt + datetime.timedelta(days=500 * i)
-        for i in range(numbers_of_table + 1)
-    ]
-
-    end_dates.append(
-        datetime.datetime.combine(
-            today - datetime.timedelta(days=remaining),
-            datetime.time()
-        )
-    )
-
-
-    scope_prices = None
-
-    try:
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(Binance.get_price, tickers,d) for d in end_dates]
-
-            for future in as_completed(futures):
-                data = future.result()
-
-                if scope_prices is None:
-                    scope_prices = data
-                else:
-                    scope_prices = scope_prices.combine_first(data)
-
-    except Exception as e:
-        print("❌ Error while fetching prices:", e)
-        return
-
+    scope_prices=Binance.get_price_threading(tickers,start)
     scope_prices = scope_prices.sort_index()
     scope_prices = scope_prices[~scope_prices.index.duplicated(keep='first')]
     scope_prices.index = pd.to_datetime(scope_prices.index)
@@ -107,50 +66,6 @@ def load_data(tickers,start=datetime.datetime(2023,1,1),today=None):
     st.session_state.dataframe = dataframe.ffill()
     st.session_state.returns_to_use = returns_to_use.fillna(0)
     
-def get_price_threading(tickers,start_date):
-    today = datetime.date.today()
-
-    days=(today-start_date).days
-
-    remaining = days % 500
-    numbers_of_table = days // 500
-    start_dt = datetime.datetime.combine(start_date, datetime.time())
-    
-    end_dates = [
-        start_dt + datetime.timedelta(days=500 * i)
-        for i in range(numbers_of_table + 1)
-    ]
-
-    end_dates.append(
-        datetime.datetime.combine(
-            today - datetime.timedelta(days=remaining),
-            datetime.time()
-        )
-    )
-
-    price = None
-
-    try:
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = [executor.submit(Binance.get_price,tickers,d) for d in end_dates]
-
-            for future in as_completed(futures):
-                data = future.result()
-
-                if price is None:
-                    price = data
-                else:
-                    price = price.combine_first(data)
-
-    except Exception as e:
-        print("❌ Error while fetching prices:", e)
-
-    price=price.sort_index()
-    price = price[~price.index.duplicated(keep='first')]
-    price.index=pd.to_datetime(price.index)
-
-    return price
-
     
 def get_positions():
     
@@ -1181,7 +1096,7 @@ with main_tabs[3]:
                                             
                         start_date=weights_ex_post.index[0].date()
                         
-                        current_underlying_prices=get_price_threading(tickers_combined,start_date)
+                        current_underlying_prices=Binance.get_price_threading(tickers_combined,start_date)
                         current_underlying_returns=current_underlying_prices.pct_change(fill_method=None)
                         
                         tasks=[(key,series_dict[key],range_returns,window_risk) for key in series_dict if key!='Historical Portfolio']
@@ -1192,7 +1107,7 @@ with main_tabs[3]:
                                 
                         results_dict = {}
                         
-                        with ThreadPoolExecutor(max_workers=8) as executor:
+                        with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
                             futures = {
                                 executor.submit(get_ex_ante_vol, weights, returns, window): name
                                 for name, weights, returns, window in tasks
@@ -1373,7 +1288,7 @@ with main_tabs[3]:
                                             
                         start_date=weights_ex_post.index[0].date()
                         
-                        current_underlying_prices=get_price_threading(tickers_combined,start_date)
+                        current_underlying_prices=Binance.get_price_threading(tickers_combined,start_date)
                         current_underlying_returns=current_underlying_prices.pct_change(fill_method=None)
                         
                         tasks=[(key,spread_weights[key],range_returns.loc[spread_weights[key].index],window_te) for key in series_dict if key!='Historical Portfolio']
@@ -1384,7 +1299,7 @@ with main_tabs[3]:
                                 
                         results_dict = {}
                         
-                        with ThreadPoolExecutor(max_workers=8) as executor:
+                        with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
                             futures = {
                                 executor.submit(get_ex_ante_vol, weights, returns, window): name
                                 for name, weights, returns, window in tasks
@@ -1663,7 +1578,7 @@ with main_tabs[3]:
                     cvar_scenarios = {}
                     fund_results = {}
                     
-                    with ThreadPoolExecutor(max_workers=8) as executor:
+                    with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
                         futures = {
                             executor.submit(process_index, *task): task[0]
                             for task in tasks
@@ -1939,7 +1854,7 @@ with main_tabs[4]:
                         except Exception:
                             return None
             
-                    with ThreadPoolExecutor(max_workers=8) as executor:
+                    with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
                         futures = {executor.submit(worker,subset, start, end): (subset,start, end) for subset,start, end in tasks}
                         for future in as_completed(futures):
                             out = future.result()
@@ -2262,7 +2177,7 @@ with main_tabs[2]:
                     
                     start_date=weights_ex_post.index[0].date()
                     
-                    binance_data=get_price_threading(historical_quantities_tickers,start_date)
+                    binance_data=Binance.get_price_threading(historical_quantities_tickers,start_date)
                     binance_data=binance_data.sort_index()
                     binance_data=binance_data.loc[~binance_data.index.duplicated(keep='last')]
                     
