@@ -1856,7 +1856,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         if quantities_eigen.empty:
             with market_factor_output:
                 market_factor_output.clear_output()
-                print('⚠️Load Prices.')
+                print('⚠️Load Factors.')
                 return
         with market_factor_output:
             market_factor_output.clear_output()
@@ -1878,7 +1878,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         updated_perf_index_eigen=perf_index_eigen.copy()
         updated_perf_index_eigen=updated_perf_index_eigen.loc[start_ts:end_ts]
-        
         updated_perf_index_eigen.iloc[0]=0
     
         market_results=(1+updated_perf_index_eigen).cumprod()*100
@@ -2017,24 +2016,17 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         market_index=market_portfolio.sum(axis=1).to_frame()
         market_index.columns=['Market Index']
-        market_cost=rebalanced_book_cost(range_prices,quantities_eigen)
-        
-        weights_series=market_portfolio.copy()
-        weights_series=weights_series.apply(lambda x: x/market_portfolio.sum(axis=1))
-        
+        perf_index_eigen=market_index.pct_change(fill_method=None)
+
         if not performance_ex_post.empty:
-            perf_index_eigen=market_index.pct_change(fill_method=None)
-            perf_index_eigen=pd.concat([perf_index_eigen,performance_ex_post.loc[start_ts:end_ts]])
+            perf_index_eigen=pd.concat([perf_index_eigen,performance_ex_post],axis=1)
     
         elif not global_returns.empty:
-            perf_index_eigen=market_index.pct_change(fill_method=None)
-            perf_index_eigen=pd.concat([perf_index_eigen,global_returns.loc[start_ts:end_ts]])
+            perf_index_eigen=pd.concat([perf_index_eigen,global_returns],axis=1)
     
-        else:
-            perf_index_eigen=market_index.pct_change(fill_method=None)
     
         show_market_graph(None)
-
+    
     refresh_market_dates_button=widgets.Button(description='Refresh')
     market_factors_button.on_click(get_market_factors)
     refresh_market_dates_button.on_click(show_market_graph)
