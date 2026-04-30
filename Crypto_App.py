@@ -31,7 +31,7 @@ from src.Rebalancing import *
 from src.Metrics import *
 
 def display_crypto_app(Binance,Pnl_calculation,git):
-    # --- strategy dictionary ---
+     # --- strategy dictionary ---
     dico_strategies = {
         'Minimum Variance': 'minimum_variance',
         'Risk Parity': 'risk_parity',
@@ -1718,10 +1718,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
             fig3.show()
             fig4.show()
-
-
-    start_date_market_risk.observe(get_market_risk_metrics)
-    end_date_market_risk.observe(get_market_risk_metrics)
 
     asset_output_corr = widgets.Output()
     button_corr = widgets.Button(description="Show Correlation", button_style="success")
