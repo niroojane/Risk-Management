@@ -31,12 +31,13 @@ from src.Rebalancing import *
 from src.Metrics import *
 
 def display_crypto_app(Binance,Pnl_calculation,git):
-     # --- strategy dictionary ---
+    # --- strategy dictionary ---
     dico_strategies = {
         'Minimum Variance': 'minimum_variance',
         'Risk Parity': 'risk_parity',
         'Sharpe Ratio': 'sharpe_ratio',
-        'Maximum Diversification':'maximum_diversification'}
+        'Maximum Diversification':'maximum_diversification',
+        'Eigen Strategy':'eigenportfolio'}
     
     
     options_strat = list(dico_strategies.keys())
@@ -693,14 +694,16 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             rp = portfolio.optimize("risk_parity")
             max_div=portfolio.optimize("maximum_diversification")
             
-            sharpe_c = minvar_c = rp_c =max_div_c= None
+            sharpe_c = minvar_c = rp_c =max_div_c=eigen_portfolio_c= None
             equal_weights = np.ones(returns_to_use.shape[1]) / returns_to_use.shape[1]
+            eigen_portfolio=portfolio.optimize("eigenportfolio")
             
             if cons is not None:
                 sharpe_c = portfolio.optimize("sharpe_ratio", constraints=cons)
                 minvar_c = portfolio.optimize("minimum_variance", constraints=cons)
                 rp_c = portfolio.optimize("risk_parity", constraints=cons)
                 max_div_c=portfolio.optimize("maximum_diversification",constraints=cons)
+                eigen_portfolio_c=portfolio.optimize("eigenportfolio",constraints=cons)
                 
             allocation = {
                 'Optimal Portfolio': sharpe.tolist(),
@@ -711,6 +714,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 'Max Diversification Constrained':max_div_c.tolist() if max_div_c is not None else max_div.tolist(),
                 'Risk Parity': rp.tolist(),
                 'Constrained RP': rp_c.tolist() if rp_c is not None else rp.tolist(),
+                'Eigen Portfolio':eigen_portfolio.tolist(),
+                'Eigen Portfolio Constrained': eigen_portfolio_c.tolist() if eigen_portfolio_c is not None else eigen_portfolio.tolist(),
                 'Equal Weighted':equal_weights.tolist()}
 
             allocation_df = pd.DataFrame(allocation, index=dataframe.columns).T.round(4)
@@ -1048,7 +1053,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         global book_cost,realized_pnl,profit_and_loss,trades
         
         url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Trade%20History%20Reconstructed.xlsx'
-        trade_history = read_excel_from_url(url,index_col=0)
+        trade_history = read_excel_from_url(url)
         
         if trade_history is None:
             raise FileNotFoundError("Trade history could not be loaded. Execution stopped.")  

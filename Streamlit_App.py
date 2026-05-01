@@ -392,10 +392,11 @@ with main_tabs[1]:
 
     
     dico_strategies = {
-    'Minimum Variance': 'minimum_variance',
-    'Risk Parity': 'risk_parity',
-    'Sharpe Ratio': 'sharpe_ratio',
-    'Maximum Diversification':'maximum_diversification'}
+        'Minimum Variance': 'minimum_variance',
+        'Risk Parity': 'risk_parity',
+        'Sharpe Ratio': 'sharpe_ratio',
+        'Maximum Diversification':'maximum_diversification',
+        'Eigen Strategy':'eigenportfolio'}
     
     if "dataframe" not in st.session_state:
         st.info("Load data first ⬅️")
@@ -498,11 +499,14 @@ with main_tabs[1]:
             minvar_weights_constraint = portfolio.optimize(objective="minimum_variance",constraints=constraints)
             risk_parity_weights_constraint = portfolio.optimize(objective="risk_parity",constraints=constraints)
             max_diversification_weights_constraint=portfolio.optimize("maximum_diversification",constraints=constraints)
-            
+            eigen_portfolio__constraint=portfolio.optimize("eigenportfolio",constraints=constraints)
+
             optimized_weights = portfolio.optimize(objective="sharpe_ratio")
             minvar_weights = portfolio.optimize(objective="minimum_variance")
             risk_parity_weights = portfolio.optimize(objective="risk_parity")
             max_diversification=portfolio.optimize(objective="maximum_diversification")
+            eigen_portfolio=portfolio.optimize("eigenportfolio")
+
             equal_weights = np.ones(returns_to_use.shape[1]) / returns_to_use.shape[1]
     
             allocation['Optimal Portfolio']=optimized_weights.tolist()
@@ -516,8 +520,11 @@ with main_tabs[1]:
             
             allocation['Risk Parity Portfolio']=risk_parity_weights.tolist()
             allocation['Risk Parity Constrained Portfolio']=risk_parity_weights_constraint.tolist()
-            allocation['Equal Weighted']=equal_weights.tolist()
             
+            allocation['Eigen Portfolio']= eigen_portfolio.tolist()
+            allocation['Eigen Portfolio Constrained']= eigen_portfolio__constraint.tolist()
+            
+            allocation['Equal Weighted']=equal_weights.tolist()
             
             allocation_dataframe = pd.DataFrame(
                     allocation,
