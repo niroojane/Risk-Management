@@ -1063,6 +1063,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             display(loading_bar_pnl)
             
         trades=Pnl_calculation.get_trade_in_usdt(trade_history)
+        
         loading_bar_pnl.value+=100/3
         book_cost=Pnl_calculation.get_book_cost(trades)
         book_cost['MANTRAUSDT']=book_cost['OMUSDT']/4
@@ -2229,7 +2230,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 quantities_holding.to_excel('Quantities.xlsx',index=True)
                 positions.to_excel('Positions.xlsx',index=True)
                 if not trades.empty:
-                    trades.to_excel('Trade History Reconstructed.xlsx',index=False)
+                    trades.to_excel('Trade History Reconstructed.xlsx',index=True)
                     git.push_or_update_file(trades,'Trade History Reconstructed')
 
                 git.push_or_update_file(positions,'Positions')
