@@ -192,7 +192,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         price = None
 
         try:
-            with ThreadPoolExecutor(max_workers=8) as executor:
+            with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
                 futures = [executor.submit(fetch_prices, d) for d in end_dates]
 
                 for future in as_completed(futures):
@@ -2581,7 +2581,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         results_dict = {}
         
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
             futures = {
                 executor.submit(get_ex_ante_vol, weights, returns, window): name
                 for name, weights, returns, window in tasks
@@ -2803,7 +2803,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         results_dict = {}
         
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
             futures = {
                 executor.submit(get_ex_ante_vol, weights, returns, window): name
                 for name, weights, returns, window in tasks
