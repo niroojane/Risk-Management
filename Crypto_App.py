@@ -1470,10 +1470,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         update_stress_data(None)
         
 
-            
     stress_grid_output = widgets.Output()
     stress_grid_button = widgets.Button(description="Refresh")
     stress_grid_button.on_click(reset_stress)
+
     
     def get_var_metrics(_):
         global var_scenarios, cvar_scenarios, fund_results
@@ -1569,8 +1569,300 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
         display_var_results(selected_fund_var.value)
         loading_bar_var.value=0
+        
+    
+    global result_var,result_cvar
+    
+    var_function_names={'Multivariate':'multivariate_distribution',
+                   'Gaussian Copula':'gaussian_copula',
+                   'Monte Carlo':'monte_carlo',
+                   'Gumbel Copula':'gumbel_copula',
+                   'T-Copula':'t_copula'}
+    
+    result_var=pd.DataFrame()
+    result_cvar=pd.DataFrame()
+    
+    value_at_risk_trajectory_output=widgets.Output()
+    selected_fund_to_decompose_var=widgets.Dropdown(options=['Fund','Historical Portfolio'],value='Fund',description='Fund:')
+    var_risk_trajectory_refresh_button=widgets.Button(description='Refresh')
+    var_trajectory_button=widgets.Button(description='Get VaR',button_style='success')
+    func_name=widgets.Dropdown(description='Method',options=list(var_function_names.keys()),value='Gumbel Copula')
+
+    window_var=widgets.IntText(
+    value=252,
+    description='Window:',
+    disabled=False)
+    
+    def value_at_risk_trajectory(_):
+        
+        global result_var,result_cvar,series_dict,current_underlying_returns
 
         
+        try:
+            start_ts = pd.to_datetime(start_date_perf_risk.value)
+            end_ts = pd.to_datetime(end_date_perf_risk.value)
+        except Exception:
+            with value_at_risk_trajectory_output:
+                value_at_risk_trajectory_output.clear_output(wait=True)
+                print("⚠️ Invalid start or end date.")
+            return
+            
+        with value_at_risk_trajectory_output:
+            value_at_risk_trajectory_output.clear_output(wait=True)
+
+            if dataframe.empty:
+                print('⚠️Load Prices.')
+                return
+            if dataframe.empty or returns_to_use.empty or grid.data.empty:
+                print("⚠️ Please compute optimization results first.")
+                return
+            
+            if len(returns_to_use.loc[start_ts:end_ts]) < window_risk.value:
+                print("⚠️ Date range is shorter than rolling window.")
+                return    
+            else:
+                display(loading_bar)
+                display(loading_bar_risk)
+                
+        range_prices=dataframe.loc[start_ts:end_ts]
+        range_returns=range_prices.pct_change(fill_method=None)
+        series_dict={}
+
+        for key in grid.data.index:
+            
+            rebalanced_series=rebalanced_portfolio(dataframe,grid.data.loc[key])
+            rebalanced_series_weights=rebalanced_series.apply(lambda x: x/rebalanced_series.sum(axis=1))
+            buy_and_hold_series=buy_and_hold(dataframe,grid.data.loc[key])
+            buy_and_hold_series_weights=buy_and_hold_series.apply(lambda x: x/buy_and_hold_series.sum(axis=1))
+            series_dict['Rebalanced '+key]=rebalanced_series_weights.loc[start_ts:end_ts]
+            series_dict['Buy and Hold '+key]=buy_and_hold_series_weights.loc[start_ts:end_ts]
+        
+        weights_ex_post=positions.copy()
+        weights_ex_post=weights_ex_post.drop(columns=['USDTUSDT'])
+        weights_ex_post=weights_ex_post.apply(lambda x: x/weights_ex_post['Total'])
+        weights_ex_post=weights_ex_post.drop(columns=['Total'])
+        weights_ex_post=weights_ex_post.fillna(0.0)
+        
+        if not quantities.empty:
+            portfolio=quantities*dataframe
+            model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+            series_dict['Fund']=model_weights.loc[start_ts:end_ts]
+            
+        if not quantities_core.empty:
+            portfolio=quantities_core*dataframe
+            model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+            series_dict['Core']=model_weights.loc[start_ts:end_ts]
+
+        if not quantities_overlay.empty:
+            portfolio=quantities_overlay*dataframe
+            model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+            series_dict['Overlay']=model_weights.loc[start_ts:end_ts]
+
+        tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
+        tickers_combined=list(set(tickers_combined))
+        
+        current_underlying_prices=get_price_threading(tickers_combined,weights_ex_post.index[0].date())    
+        current_underlying_returns=current_underlying_prices.pct_change(fill_method=None)
+
+        horizon = 1/250
+        spot = dataframe.iloc[-1]
+        theta = 2
+        stress_matrix=grid_stress.data.to_numpy()
+        mean_shock_vec=grid_mean_shock.data['Mean Shock']
+
+        distrib_functions = {
+        'multivariate_distribution': (iterations.value, stress_factor.value,mean_factor.value),
+        'gaussian_copula': (iterations.value, stress_factor.value,mean_factor.value),
+        't_copula': (iterations.value, stress_factor.value,mean_factor.value),
+        'gumbel_copula': (iterations.value, theta,stress_factor.value,mean_factor.value),
+        'monte_carlo': (spot, horizon, iterations.value, stress_factor.value,mean_factor.value)}
+        
+        method=var_function_names[func_name.value]
+        args=distrib_functions[method]      
+
+        tasks=[(key,method,args,returns_to_use.loc[start_ts:end_ts],series_dict[key],window_var.value,var_centile.value) for key in series_dict]
+
+        series_dict['Historical Portfolio']=weights_ex_post.loc[start_ts:end_ts]
+        
+        if method in ['gumbel_copula']:
+            tasks.append(
+             (
+              'Historical Portfolio',
+              method,
+              args,
+              current_underlying_returns.loc[weights_ex_post.index].loc[start_ts:end_ts],
+              weights_ex_post.loc[start_ts:end_ts],
+              window_var.value,
+              var_centile.value
+             )
+            )
+            
+        results_dict_var={}
+        results_dict_cvar={}
+        
+        loading_bar_risk.value = 0
+        loading_bar_risk.max=len(tasks)
+        
+        for name,func,arg,returns,weight,window,centile in tasks:
+
+            common_col=returns.columns.intersection(weight.columns)
+            common_index=returns.index.intersection(weight.index)
+            
+            var_data,cvar_data=get_var_contribution(func,arg,returns.loc[common_index,common_col],weight.loc[common_index,common_col],window,centile)
+            results_dict_var[name]=var_data['Portfolio']
+            results_dict_cvar[name] =cvar_data['Portfolio']
+            
+            loading_bar_risk.value += 1
+                        
+        loading_bar_risk.value = loading_bar_risk.max
+        
+        with value_at_risk_trajectory_output:
+
+            if not results_dict_var or not results_dict_cvar:
+                print("⚠️ No risk results were computed.")
+                return
+            
+            result_var = pd.concat(results_dict_var.values(), axis=1)
+            result_cvar = pd.concat(results_dict_cvar.values(), axis=1)
+            
+            if result_var.shape[1] == 0 or result_cvar.shape[1] == 0:                
+                print("⚠️ Risk results are empty.")
+                return  
+
+        result_var.columns=results_dict_var.keys()
+        result_cvar.columns=results_dict_cvar.keys()
+
+        selected_fund_to_decompose_var.options=result_var.columns
+        selected_fund_to_decompose_var.value='Fund'
+        
+        show_var_graph(None)
+        
+    var_trajectory_button.on_click(value_at_risk_trajectory)
+    
+    def show_var_graph(_):
+        
+        global result_var,result_cvar
+        
+        try:
+            start_ts = pd.to_datetime(start_date_perf_risk.value)
+            end_ts = pd.to_datetime(end_date_perf_risk.value)
+        except Exception:
+            with value_at_risk_trajectory_output:
+                value_at_risk_trajectory_output.clear_output(wait=True)
+                print("⚠️ Invalid start or end date.")
+            return
+            
+        output1=widgets.Output()
+        output2=widgets.Output()
+        
+        with value_at_risk_trajectory_output:
+            
+            value_at_risk_trajectory_output.clear_output(wait=True)
+            
+            if dataframe.empty:
+                print('⚠️Load Prices.')
+                return
+            if dataframe.empty or returns_to_use.empty or grid.data.empty or global_returns.empty:
+                print("⚠️ Please compute optimization results first.")
+                return
+            if performance_ex_post.empty:
+                print("⚠️ Historical Portfolio not loaded.")
+                selected_fund_to_decompose_var.options=global_returns.columns
+                selected_fund_to_decompose_var.value='Fund'
+                
+            if result_var.empty or result_cvar.empty:
+                print("⚠️ Load VaR History.")
+                return
+            
+            if len(returns_to_use.loc[start_ts:end_ts]) < window_risk.value:
+                print("⚠️ Date range is shorter than rolling window.")
+                return    
+                
+            if not series_dict:
+                print("⚠️ Weights Empty.")
+                return
+            else:
+
+                horizon = 1/250
+                spot = dataframe.iloc[-1]
+                theta = 2
+                stress_matrix=grid_stress.data.to_numpy()
+                mean_shock_vec=grid_mean_shock.data['Mean Shock']
+            
+                distrib_functions = {
+                'multivariate_distribution': (iterations.value, stress_factor.value,mean_factor.value),
+                'gaussian_copula': (iterations.value, stress_factor.value,mean_factor.value),
+                't_copula': (iterations.value, stress_factor.value,mean_factor.value),
+                'gumbel_copula': (iterations.value, theta,stress_factor.value,mean_factor.value),
+                'monte_carlo': (spot, horizon, iterations.value, stress_factor.value,mean_factor.value)}
+
+                value_at_risk_trajectory_output.clear_output(wait=True)
+                series_weights=series_dict[selected_fund_to_decompose_var.value]
+                method=var_function_names[func_name.value]
+                args=distrib_functions[method]
+
+                if selected_fund_to_decompose_var.value!='Historical Portfolio':
+                    common=series_weights.columns.intersection(returns_to_use.columns)
+                    common_index=series_weights.index.intersection(returns_to_use.index)
+                    var,cvar=get_var_contribution(method,args,returns_to_use.loc[common_index,common].loc[start_ts:end_ts],series_weights.loc[common_index,common].loc[start_ts:end_ts],window_var.value,var_centile.value)
+                    # ret=global_returns[selected_fund_to_decompose_var.value]
+
+                else:
+                    #ret=performance_ex_post[selected_fund_to_decompose_var.value]
+                    common=series_weights.columns.intersection(current_underlying_returns.columns)
+                    common_index=series_weights.index.intersection(current_underlying_returns.index)
+                    var,cvar=get_var_contribution(method,args,current_underlying_returns.loc[common_index].loc[start_ts:end_ts,common],series_weights.loc[common_index].loc[start_ts:end_ts,common],window_var.value,var_centile.value)
+
+                
+                # historical_var=ret.rolling(window_var.value).quantile(var_centile.value)
+                # historical_cvar = ret.rolling(window_var.value).apply(
+                #     lambda x: x[x <= x.quantile(var_centile.value)].mean(),
+                #     raw=False
+                # )
+                    
+                # var_model_tested=pd.concat([historical_var,historical_cvar,var['Portfolio'],cvar['Portfolio'],ret],axis=1)
+                # var_model_tested.columns=['Historical VaR','Historical CVaR','Model VaR','Model CVaR','Return']
+
+                with output1:
+                    
+                    fig = px.line(result_var.loc[start_ts:end_ts], title='Portfolios Value At Risk', width=800, height=400, render_mode = 'svg')
+                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
+                    fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig.show()
+
+                    fig4 = px.line(var, title='Value at Risk History', width=800, height=400, render_mode = 'svg')
+                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Portfolio"])
+                    fig4.show()   
+                        
+                with output2:
+                    
+                    fig2 = px.line(result_cvar, title='Portfolio Expected Shortfall', width=800, height=400, render_mode = 'svg')
+                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
+                    fig2.show()
+                    
+                    fig3 = px.line(cvar, title='Expected Shortfall History', width=800, height=400, render_mode = 'svg')
+                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Portfolio"])
+                    fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    fig3.show()
+                    
+                    # fig5 = px.line(var_model_tested.dropna(), title='Model Backtest', width=800, height=400, render_mode = 'svg')
+                    # fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    # fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical VaR","Model VaR"])
+                    # fig5.update_traces(textfont=dict(family="Arial Narrow", size=15))
+                    # fig5.show()
+                    
+                ui=widgets.HBox([output1,output2])
+
+                display(ui)
+                
+    var_risk_trajectory_refresh_button.on_click(show_var_graph)
+          
     def display_var_results(fund_name):
         if fund_name not in var_scenarios:
             with var_output:
@@ -1588,29 +1880,23 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         fund_results_dataframe = pd.DataFrame(fund_results).T
 
         with var_output:
-            var_output.clear_output(wait=True)
             
+            var_output.clear_output(wait=True)
             display(Markdown(f"### Summary"))
-
             display(display_scrollable_df(fund_results_dataframe))
-
             display(Markdown(f"### VaR Results for **{fund_name}**"))
-
             display(display_scrollable_df(var_dataframe))
-
             display(Markdown(f"### CVaR Results for **{fund_name}**"))
-
             display(display_scrollable_df(cvar_dataframe))
 
     def update_var_metrics(change):
         if change['name'] == 'value' and change['new'] in var_scenarios:
             display_var_results(change['new'])
-
+    
     selected_fund_var.observe(update_var_metrics, names='value')
 
     get_var_button = widgets.Button(description='Run Simulation', button_style='info')
     get_var_button.on_click(get_var_metrics)
-
 
     # ---------- Layout ----------
     ex_ante_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk]),
@@ -1624,7 +1910,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         var_output
     ])
 
-
+    var_history_ui = widgets.VBox([widgets.HBox([start_date_perf_risk,end_date_perf_risk,var_trajectory_button,var_risk_trajectory_refresh_button]),
+                                   selected_fund_to_decompose_var,func_name,window_var,var_centile,value_at_risk_trajectory_output])
+    
     # ---------- Market Risk Metrics ----------
     global quantities_eigen,perf_index_eigen
 
@@ -2581,17 +2869,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         results_dict = {}
         
-        with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-            futures = {
-                executor.submit(get_ex_ante_vol, weights, returns, window): name
-                for name, weights, returns, window in tasks
-            }
-        
-            for future in as_completed(futures):
-                name = futures[future]
-                results_dict[name] = future.result()
-                loading_bar_risk.value += 1
-
+        for name,weight,returns,window in tasks:
+            results_dict[name]=get_ex_ante_vol(weight, returns, window)
+            loading_bar_risk.value += 1
                 
         loading_bar_risk.value = loading_bar_risk.max
         
@@ -2802,19 +3082,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         loading_bar_risk.max=len(tasks)   
         
         results_dict = {}
-        
-        with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-            futures = {
-                executor.submit(get_ex_ante_vol, weights, returns, window): name
-                for name, weights, returns, window in tasks
-            }
-        
-            for future in as_completed(futures):
-                name = futures[future]
-                results_dict[name] = future.result()
-                loading_bar_risk.value += 1
 
-                
+        for name,weight,returns,window in tasks:
+            
+            results_dict[name]=get_ex_ante_vol(weight, returns, window)
+            loading_bar_risk.value += 1
+            
         loading_bar_risk.value = loading_bar_risk.max
         
         with tracking_error_trajectory_output:
@@ -2935,6 +3208,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     risk_contribution_tab = widgets.Output()
     var_tab = widgets.Output()
+    var_history_tab = widgets.Output()
+    
     risk_exposure=widgets.Output()
     tracking_error_exposure=widgets.Output()
 
@@ -2944,8 +3219,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         risk_exposure,
         tracking_error_exposure])
     
-    var_subtabs=widgets.Tab(children=[var_tab])
+    var_subtabs=widgets.Tab(children=[var_tab,var_history_tab])
     var_subtabs.set_title(0, 'Value at Risk')
+    var_subtabs.set_title(1, 'Value at Risk History')
 
     risk_subtabs.set_title(0, 'Risk Contribution')
     risk_subtabs.set_title(1, 'Risk Trajectory')
@@ -2959,9 +3235,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
     with risk_contribution_tab:
         display(ex_ante_ui)
-    
+        
     with var_tab:
-        display(var_ui)
+        display(var_ui)  
+        
+    with var_history_tab:
+        display(var_history_ui)
         
     with risk_exposure:
         display(risk_exposure_ui)
