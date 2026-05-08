@@ -1113,16 +1113,7 @@ with main_tabs[3]:
                         tasks.append(('Historical Portfolio',weights_ex_post.loc[mask],current_underlying_returns.loc[weights_ex_post.index].loc[mask],window_risk))
                                 
                         results_dict = {}
-                        
-                        # with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-                        #     futures = {
-                        #         executor.submit(get_ex_ante_vol, weights, returns, window): name
-                        #         for name, weights, returns, window in tasks
-                        #     }
-                        
-                        #     for future in as_completed(futures):
-                        #         name = futures[future]
-                        #         results_dict[name] = future.result()
+
                         for name,weight,returns,window in tasks:
                             results_dict[name]=get_ex_ante_vol(weight, returns, window_risk)
                                             
@@ -1307,15 +1298,6 @@ with main_tabs[3]:
                                 
                         results_dict = {}
                         
-                        # with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-                        #     futures = {
-                        #         executor.submit(get_ex_ante_vol, weights, returns, window): name
-                        #         for name, weights, returns, window in tasks
-                        #     }
-                        
-                        #     for future in as_completed(futures):
-                        #         name = futures[future]
-                        #         results_dict[name] = future.result()
                         for name,weight,returns,window in tasks:
             
                             results_dict[name]=get_ex_ante_vol(weight, returns, window_te)
@@ -1784,7 +1766,6 @@ with main_tabs[3]:
                         st.session_state.current_underlying_returns=current_underlying_returns
                         
                         var_hist_status.success('Done!')
-            # with var_decomposition_tab[0]:
             
             if st.session_state.results_var_history is not None:
                     
