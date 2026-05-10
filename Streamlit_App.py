@@ -104,7 +104,7 @@ def get_positions():
 def get_pnl(url):
     
     # url='https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Trade%20History%20Reconstructed.xlsx'
-    trade_history = read_excel_from_url(url,index_col=0)
+    trade_history = read_excel_from_url(url)
     
     if trade_history is None:
         raise FileNotFoundError("Trade history could not be loaded. Execution stopped.")  
@@ -116,6 +116,7 @@ def get_pnl(url):
     st.session_state.book_cost=book_cost
     st.session_state.realized_pnl=realized_pnl
     st.session_state.profit_and_loss=profit_and_loss
+    trades=trades.set_index('Date(UTC)')
     st.session_state.trades=trades
 
     get_positions()
@@ -241,7 +242,7 @@ with st.sidebar:
             raise FileNotFoundError("Quantities.xlsx could not be loaded. Execution stopped.")
             print('Quantities Not Found in Repository')
             
-        trade_history = read_excel_from_url(trades_url,index_col=0)
+        trade_history = read_excel_from_url(trades_url)
         if trade_history is None:
             raise FileNotFoundError("Trade history could not be loaded. Execution stopped.")  
             print('Trades Not Found in Repository')
