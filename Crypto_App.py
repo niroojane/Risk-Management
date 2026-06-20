@@ -300,8 +300,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     cumulative_returns,
                     title="Cumulative Performance",
                     width=800,
-                    height=400
-                , render_mode = 'svg')
+                    height=400,
+                    render_mode = 'svg')
                 fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                 fig2.update_traces(visible="legendonly", selector=lambda t: t.name != "BTCUSDT")
                 fig2.show()
@@ -574,12 +574,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         with vol_output:
             vol_output.clear_output(wait=True)
 
-            fig3 = px.line(rolling_vol_ptf, title="Portfolio Rolling Volatility", render_mode = 'svg').update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
+            fig3 = px.line(rolling_vol_ptf, title="Portfolio Rolling Volatility", render_mode = 'svg')
             fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400) 
             fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
             fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
-
             fig3.show()
+            
         with frontier_output:
             frontier_output.clear_output(wait=True)
 
@@ -1832,6 +1832,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     fig.show()
 
                     fig4 = px.line(var, title='Value at Risk History', width=800, height=400, render_mode = 'svg')
+                    
                     fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Portfolio"])
@@ -2079,7 +2080,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 fig.show()
 
             with correlation_matrix:
-                fig2 = px.imshow(range_returns.corr().round(2), title='Correlation Matrix',color_continuous_scale='blues', text_auto=True, aspect="auto")
+                fig2 = px.imshow(range_returns.corr().round(2), title='Correlation Matrix',color_continuous_scale='Blues', text_auto=True, aspect="auto")
                 fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
                 fig2.update_traces(xgap=2, ygap=2)
                 fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
@@ -2494,7 +2495,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         selected_history.columns=['Cumulative P&L','Total P&L']
         
         selected_daily_pnl=daily_pnl.loc[start_ts:end_ts].copy()
-        selected_positions=positions.loc[start_ts:end_ts,"Total"]
+        selected_positions=positions.loc[start_ts:end_ts]
         
         if global_returns.empty:
             performance_ex_post=historical_ptf['Historical Portfolio'].copy()
@@ -2538,6 +2539,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
                 fig=px.line(selected_positions,title='Portfolio Value', render_mode = 'svg')
                 fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig.update_traces(visible="legendonly", selector=lambda t:  not t.name in ['Total'])
                 fig.update_layout(xaxis_title=None, yaxis_title=None)
                 fig.show()
                 
@@ -2546,22 +2548,40 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
     
                 fig2.update_layout(xaxis_title=None, yaxis_title=None)
-                fig2.show()            
-            
-            with expost_output1:
+                fig2.show()
+                
 
-                fig3=px.line(cumulative_performance_ex_post,title='Cumulative Return', render_mode = 'svg')
+                    
+                fig3 = px.line(pnl_contribution.cumsum(),x=pnl_contribution.index,y=pnl_contribution.columns,
+                               title="Cumulative P&L Contribution")
                 fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-                fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
-                fig3.update_layout(xaxis_title=None, yaxis_title=None)
+                fig3.update_traces(visible="legendonly", selector=lambda t:  not t.name in ['Total'])
+
+                fig3.update_layout(xaxis_title=None, yaxis_title=None,showlegend=True)
                 fig3.show()
                 
-                fig4 = px.bar(selected_daily_pnl, color=selected_daily_pnl['color'],
-                     color_discrete_map={'green': 'green', 'red': 'red'},
-                     title="Daily P&L")
+            with expost_output1:
+
+                fig4=px.line(cumulative_performance_ex_post,title='Cumulative Return', render_mode = 'svg')
                 fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-                fig4.update_layout(xaxis_title=None, yaxis_title=None,showlegend=False)
+                fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
+                fig4.update_layout(xaxis_title=None, yaxis_title=None)
                 fig4.show()
+                
+                drawdown = (cumulative_performance_ex_post - cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
+                
+                fig5=px.line(drawdown,title='Drawdown', render_mode = 'svg')
+                fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
+                fig5.update_layout(xaxis_title=None, yaxis_title=None)
+                fig5.show()
+
+                fig6 = px.bar(pnl_contribution,x=pnl_contribution.index,y=pnl_contribution.columns,
+                     title="Daily P&L",barmode="relative")
+                fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig6.update_traces(visible="legendonly", selector=lambda t:  t.name in ['Total'])
+                fig6.update_layout(xaxis_title=None, yaxis_title=None,showlegend=True)
+                fig6.show()
                 
             ui=widgets.HBox([expost_output,expost_output1])
             
@@ -2952,7 +2972,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     
                 with output1:
                     
-                    fig = px.line(results_tracking_error.loc[start_ts:end_ts], title='Ex Ante Tracking Error', width=800, height=400, render_mode = 'svg')
+                    fig = px.line(results_tracking_error.loc[start_ts:end_ts], title='Ex Ante Tracking Error', width=800, height=400, render_mode ='svg')
                     fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
                     fig.update_traces(textfont=dict(family="Arial Narrow", size=15))

@@ -2482,7 +2482,7 @@ with main_tabs[2]:
                 
                 mask = (positions.index >= selmind) & (positions.index <= selmaxd)
     
-                selected_positions=positions.loc[mask,"Total"]
+                selected_positions=positions.loc[mask]
                 
                 mask = (ex_post_portfolios.index >= selmind) & (ex_post_portfolios.index <= selmaxd)
     
@@ -2501,6 +2501,8 @@ with main_tabs[2]:
                     fig=px.line(selected_positions,title='Portfolio Value', render_mode = 'svg')
                     fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
                     fig.update_layout(xaxis_title=None, yaxis_title=None)
+                    fig.update_traces(visible="legendonly", selector=lambda t:  not t.name in ['Total'])
+
                     st.plotly_chart(fig,width='content')
                     
                     fig2=px.line(selected_history,title='Cumulative P&L', render_mode = 'svg')
@@ -2508,21 +2510,38 @@ with main_tabs[2]:
                     fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
                     fig2.update_layout(xaxis_title=None, yaxis_title=None)
                     st.plotly_chart(fig2,width='content')
-    
-                with col2:
-                    fig3=px.line(cumulative_performance_ex_post,title='Cumulative Return', render_mode = 'svg')
-                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
-                    fig3.update_layout(xaxis_title=None, yaxis_title=None)
-                    st.plotly_chart(fig3,width='content')
-    
-                    fig4 = px.bar(selected_daily_pnl, color=selected_daily_pnl['color'],
-                         color_discrete_map={'green': 'green', 'red': 'red'},
-                         title="Daily P&L")
+
                     
+                    fig3 = px.line(pnl_contribution.cumsum(),x=pnl_contribution.index,y=pnl_contribution.columns,
+                     title="Cumulative P&L Contribution")
+                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total'])
+                    fig3.update_layout(xaxis_title=None, yaxis_title=None,showlegend=True)
+                    st.plotly_chart(fig3,width='content')
+
+                    
+                with col2:
+                    fig4=px.line(cumulative_performance_ex_post,title='Cumulative Return', render_mode = 'svg')
                     fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-                    fig4.update_layout(xaxis_title=None, yaxis_title=None,showlegend=False)
+                    fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
+                    fig4.update_layout(xaxis_title=None, yaxis_title=None)
                     st.plotly_chart(fig4,width='content')
+                    
+                    drawdown = (cumulative_performance_ex_post - cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
+                
+                    fig5=px.line(drawdown,title='Drawdown', render_mode = 'svg')
+                    fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                    fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
+                    fig5.update_layout(xaxis_title=None, yaxis_title=None)
+                    st.plotly_chart(fig5,width='content')
+    
+                    fig6 = px.bar(pnl_contribution,x=pnl_contribution.index,y=pnl_contribution.columns,
+                         title="Daily P&L",barmode="relative")
+                    fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                    fig6.update_traces(visible="legendonly", selector=lambda t:  t.name in ['Total'])
+                    fig6.update_layout(xaxis_title=None, yaxis_title=None,showlegend=True)
+                    st.plotly_chart(fig6,width='content')
+                    
                 
                 st.dataframe(pnl_contribution.round(2), width='stretch')
 
