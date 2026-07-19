@@ -1765,11 +1765,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if dataframe.empty or returns_to_use.empty or grid.data.empty or global_returns.empty:
                 print("⚠️ Please compute optimization results first.")
                 return
-            if performance_ex_post.empty:
-                print("⚠️ Historical Portfolio not loaded.")
-                selected_fund_to_decompose_var.options=global_returns.columns
-                selected_fund_to_decompose_var.value='Fund'
-                
+
             if result_var.empty or result_cvar.empty:
                 print("⚠️ Load VaR History.")
                 return
