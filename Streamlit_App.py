@@ -1690,7 +1690,17 @@ with main_tabs[3]:
                     series_dict['Core']=model_weights         
                     
                 mask = (weights_ex_post.index >= selmind) & (weights_ex_post.index <= selmaxd)
-                series_dict['Historical Portfolio']=weights_ex_post.loc[mask]
+
+
+                var_function_names={'Multivariate':'multivariate_distribution',
+                   'Gaussian Copula':'gaussian_copula',
+                   'Monte Carlo':'monte_carlo',
+                   'Gumbel Copula':'gumbel_copula',
+                   'T-Copula':'t_copula'}
+                
+                func_name=st.selectbox("Method:",options=list(var_function_names.keys()),index=0,key='functions')
+                if func_name=='Gumbel Copula':
+                    series_dict['Historical Portfolio']=weights_ex_post.loc[mask]
     
                 tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
                 tickers_combined=list(set(tickers_combined))
@@ -1704,13 +1714,7 @@ with main_tabs[3]:
                 var_centile_history=st.number_input("Centile:", min_value=0.00, value=0.05, step=0.01,key='var_centile_history')
                 window_var_history=st.number_input("Window:", min_value=30, value=252, step=1,key='window_var_history')
 
-                var_function_names={'Multivariate':'multivariate_distribution',
-                   'Gaussian Copula':'gaussian_copula',
-                   'Monte Carlo':'monte_carlo',
-                   'Gumbel Copula':'gumbel_copula',
-                   'T-Copula':'t_copula'}
-                
-                func_name=st.selectbox("Method:",options=list(var_function_names.keys()),index=0,key='functions')
+
                 
                 var_hist_button=st.button("Get Value At Risk History")
                 var_hist_status=st.empty()
@@ -1742,23 +1746,26 @@ with main_tabs[3]:
                         current_underlying_prices=Binance.get_price_threading(tickers_combined,start_date)
                         current_underlying_returns=current_underlying_prices.pct_change(fill_method=None)
                         
-                        tasks=[(key,method,args,range_returns,series_dict[key],window_var_history,var_centile_history) for key in series_dict if key!='Historical Portfolio']
-                        mask_history = (weights_ex_post.index >= selmind) & (weights_ex_post.index <= selmaxd)
-
-                        tasks.append(
-                                    (
-                                      'Historical Portfolio',
-                                      method,
-                                      args,
-                                      current_underlying_returns.loc[weights_ex_post.index].loc[mask_history],
-                                      weights_ex_post.loc[mask_history],
-                                      window_var_history,
-                                      var_centile_history
-                                     )
-                                    )
-
+                        tasks=[(key,method,args,range_returns,series_dict[key],window_var_history,var_centile_history) for key in series_dict]
+                        
+                        common=weights_ex_post.columns.intersection(current_underlying_returns.columns)
+                        common_index=weights_ex_post.index.intersection(current_underlying_returns.index)
+                        
+                        mask = (common_index >= selmind) & (common_index<= selmaxd)
+                        if method in ['gumbel_copula']:
+                            tasks.append(
+                             (
+                              'Historical Portfolio',
+                              method,
+                              args,
+                              current_underlying_returns.loc[common_index,common].loc[mask],
+                              weights_ex_post.loc[common_index,common].loc[mask],
+                              window_var_history,
+                              var_centile_history
+                             )
+                            )
                         for name,func,arg,returns,weight,window,centile in tasks:
-                            
+                
                             common_col=returns.columns.intersection(weight.columns)
                             common_index=returns.index.intersection(weight.index)
                             
@@ -1780,42 +1787,28 @@ with main_tabs[3]:
                         var_hist_status.success('Done!')
             
             if st.session_state.results_var_history is not None:
-
+                    
+                series_weights=series_dict[selected_fund_to_decompose_var_history]
+                
+                mask = (series_weights.index >= selmind) & (series_weights.index <= selmaxd)
                 
                 results_var=st.session_state.results_var_history
                 results_cvar=st.session_state.results_cvar_history
                 current_underlying_returns=st.session_state.current_underlying_returns
 
-                if selected_fund_to_decompose_var_history!='Historical Portfolio':
-                    series_weights=series_dict[selected_fund_to_decompose_var_history]
-                    
-                    mask = (series_weights.index >= selmind) & (series_weights.index <= selmaxd)
-                    
-                    common=series_weights.columns.intersection(range_returns.columns)
-                    common_index=series_weights.index.intersection(range_returns.index)
-                    
-                    var,cvar=get_var_contribution(method,args,
-                                                    range_returns.loc[common_index,common].loc[mask],
-                                                    series_weights.loc[common_index,common].loc[mask],
-                                                    window_var_history,
-                                                    var_centile_history
-                                                 )
-
+                if selected_fund_to_decompose_var_history=='Historical Portfolio' and method=='gumbel_copula':
+                    range_returns=current_underlying_returns
                 else:
-                    series_weights=series_dict[selected_fund_to_decompose_var_history]
-                    
-                    mask = (series_weights.index >= selmind) & (series_weights.index <= selmaxd)
-                    
-                    common=series_weights.columns.intersection(current_underlying_returns.columns)
-                    common_index=series_weights.index.intersection(current_underlying_returns.index)
-                    var,cvar=get_var_contribution(method,args,
-                                                    current_underlying_returns.loc[common_index,common].loc[mask],
-                                                    series_weights.loc[mask,common],
-                                                    window_var_history,
-                                                    var_centile_history
-                                                 )
-
-                    
+                    range_returns=range_returns
+                common=series_weights.columns.intersection(range_returns.columns)
+                common_index=series_weights.index.intersection(range_returns.index)
+                
+                var,cvar=get_var_contribution(method,args,
+                                                range_returns.loc[common_index,common].loc[mask],
+                                                series_weights.loc[common_index,common].loc[mask],
+                                                window_var_history,
+                                                var_centile_history
+                                             )
                                     
                 col1, col2 = st.columns([1, 1])
                 with col1:
@@ -1842,7 +1835,7 @@ with main_tabs[3]:
                     fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
                     st.plotly_chart(fig2,width='content')
                 
-    
+                    
                     fig3 = px.line(cvar, title='Expected Shortfall History', width=800, height=400, render_mode = 'svg')
                     fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
                     fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Portfolio"])
