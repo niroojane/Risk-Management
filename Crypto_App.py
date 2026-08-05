@@ -47,8 +47,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     global rolling_optimization, performance_pct, performance_fund, dates_end,quantities,quantities_core,quantities_overlay,cumulative_results,global_returns
     global book_cost,realized_pnl,profit_and_loss,holding_tickers,current_weights,fund_names,grid,trades
     
-    tickers_dataframe = Binance.get_market_cap().set_index('Ticker')
-
+    # tickers_dataframe = Binance.get_market_cap().set_index('Ticker')
+    tickers_dataframe = (
+    Binance.get_market_cap()
+    .set_index('Ticker')
+    .loc[lambda df: ~df['Long name'].str.contains(r'\(bStocks\)', na=False)]
+    )
+    
     tickers = []
     holding_tickers=[]
     dataframe = pd.DataFrame()
@@ -565,7 +570,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             drawdown_output.clear_output(wait=True)
 
             fig2 = px.line(drawdown, title='Drawdown', width=800, height=400, render_mode = 'svg')
-            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
             fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
             fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
 
@@ -575,7 +580,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             vol_output.clear_output(wait=True)
 
             fig3 = px.line(rolling_vol_ptf, title="Portfolio Rolling Volatility", render_mode = 'svg')
-            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400) 
+            fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400,yaxis_tickformat=".2%")
             fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Fund","Bitcoin"])
             fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
             fig3.show()
@@ -583,7 +588,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         with frontier_output:
             frontier_output.clear_output(wait=True)
 
-            fig4.update_layout(width=800, height=400,title={'text': "Efficient Frontier"})
+            fig4.update_layout(width=800, height=400,title={'text': "Efficient Frontier"},yaxis_tickformat=".2%",xaxis_tickformat=".2%")
             fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
 
             fig4.show()
@@ -1822,14 +1827,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 with output1:
                     
                     fig = px.line(result_var.loc[start_ts:end_ts], title='Portfolios Value At Risk', width=800, height=400, render_mode = 'svg')
-                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
                     fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig.show()
 
                     fig4 = px.line(var, title='Value at Risk History', width=800, height=400, render_mode = 'svg')
                     
-                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Portfolio"])
                     fig4.show()   
@@ -1837,13 +1842,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 with output2:
                     
                     fig2 = px.line(result_cvar, title='Portfolio Expected Shortfall', width=800, height=400, render_mode = 'svg')
-                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
                     fig2.show()
                     
                     fig3 = px.line(cvar, title='Expected Shortfall History', width=800, height=400, render_mode = 'svg')
-                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Portfolio"])
                     fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig3.show()
@@ -1986,11 +1991,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             pca_components.clear_output(wait=True)
             
             fig=px.bar(variance_explained_dataframe,title='Variance Explanation in %')
-            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400) 
+            fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white", width=800, height=400,yaxis_tickformat=".2%")
             fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
 
             fig2=px.bar(pca_portfolio,title='Eigen Weights')
-            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400) 
+            fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%") 
             fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
 
             fig.show()
@@ -2083,13 +2088,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 fig2.show()
             with pca_overtime_output:
                 fig3=px.line(pca_over_time,title='First principal component (Variance Explained in %)', render_mode = 'svg')
-                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
                 fig3.update_layout(xaxis_title=None, yaxis_title=None)
                 fig3.show()
 
             with mean_returns_output:
                 fig4=px.line(rolling_mean_returns,title='Mean Return', render_mode = 'svg')
-                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
                 fig4.update_layout(xaxis_title=None, yaxis_title=None)
                 fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in [dropdown_asset1.value,dropdown_asset2.value])
                 fig4.show()
@@ -2198,7 +2203,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 fig2.show()
                 
                 fig3 = px.line(correlation_contribution, title='Market Correlation', width=800, height=400, render_mode = 'svg')
-                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                 fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Correlation"])
                 fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
                 fig3.show()
@@ -2208,19 +2213,19 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 
         
                 fig4 = px.line(vol_contribution, title='Market Volatility', width=800, height=400, render_mode = 'svg')
-                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                 fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
                 fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
                 fig4.show()    
                 
                 fig5 = px.line(idiosyncratic_contribution, title='Market Intrinsic Volatility', width=800, height=400, render_mode = 'svg')
-                fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                 fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Idiosyncratic Vol"])
                 fig5.update_traces(textfont=dict(family="Arial Narrow", size=15))
                 fig5.show()
                 
                 fig6 = px.line(weights_series, title='Market Weights', width=800, height=400, render_mode = 'svg')
-                fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                 fig6.update_traces(visible="legendonly", selector=lambda t: not t.name in ["BTCUSDT"])
                 fig6.update_traces(textfont=dict(family="Arial Narrow", size=15))
                 fig6.show()    
@@ -2567,7 +2572,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 drawdown = (cumulative_performance_ex_post - cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
                 
                 fig5=px.line(drawdown,title='Drawdown', render_mode = 'svg')
-                fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
                 fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
                 fig5.update_layout(xaxis_title=None, yaxis_title=None)
                 fig5.show()
@@ -2774,13 +2779,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 with output1:
                     
                     fig = px.line(results_vol.loc[start_ts:end_ts], title='Ex Ante Volatility', width=800, height=400, render_mode = 'svg')
-                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
                     fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig.show()
 
                     fig4 = px.line(idiosyncratic_contrib, title='Idiosyncratic Contribution', width=800, height=400, render_mode = 'svg')
-                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Idiosyncratic Vol"])
                     fig4.show()   
@@ -2788,13 +2793,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 with output2:
                     
                     fig2 = px.line(contribution_to_vol, title='Volatility Contribution', width=800, height=400, render_mode = 'svg')
-                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Vol'])
                     fig2.show()
                     
                     fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
-                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Correlation"])
                     fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig3.show()
@@ -2969,13 +2974,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 with output1:
                     
                     fig = px.line(results_tracking_error.loc[start_ts:end_ts], title='Ex Ante Tracking Error', width=800, height=400, render_mode ='svg')
-                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Historical Portfolio","Fund"])
                     fig.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig.show()
 
                     fig4 = px.line(idiosyncratic_contrib, title='Idiosyncratic Contribution', width=800, height=400, render_mode = 'svg')
-                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig4.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Idiosyncratic Vol"])
     
@@ -2985,14 +2990,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     
                         
                     fig2 = px.line(contribution_to_vol, title='Tracking Error Contribution', width=800, height=400, render_mode = 'svg')
-                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig2.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Vol"])
                     
                     fig2.show()
                     
                     fig3 = px.line(correlation_contrib, title='Correlation Contribution', width=800, height=400, render_mode = 'svg')
-                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white")
+                    fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",yaxis_tickformat=".2%")
                     fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ["Total Correlation"])
                     fig3.update_traces(textfont=dict(family="Arial Narrow", size=15))
                     fig3.show()
