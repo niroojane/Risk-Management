@@ -2569,8 +2569,17 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 fig4.update_layout(xaxis_title=None, yaxis_title=None)
                 fig4.show()
                 
-                drawdown = (cumulative_performance_ex_post - cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
+                # drawdown = (cumulative_performance_ex_post - cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
+                drawdown = (cumulative_performance_ex_post- cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
+                # drawdown=drawdown.to_frame(name='Total Drawdown')
                 
+                weighted_returns=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
+
+                contribution_to_drawdown=drawdown_contribution(weighted_returns)
+                
+                drawdown=pd.concat([contribution_to_drawdown,drawdown],axis=1)
+                
+
                 fig5=px.line(drawdown,title='Drawdown', render_mode = 'svg')
                 fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
                 fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
@@ -2593,7 +2602,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     def get_ex_post_returns(_):
         
-        global daily_pnl,pnl_history,historical_ptf,performance_ex_post
+        global daily_pnl,pnl_history,historical_ptf,performance_ex_post,weights_ex_post
  
         loading_bar.value=0
 
