@@ -2375,7 +2375,8 @@ with main_tabs[2]:
                         
                     st.session_state.daily_pnl=None
                     st.session_state.pnl_history=None
-    
+                    st.session_state.historical_ptf=None
+                    
                     if 'book_cost' not in st.session_state:
                         get_pnl(trades_url)
                         
@@ -2447,6 +2448,7 @@ with main_tabs[2]:
                     st.session_state.ex_post_portfolios=cumulative_results
                     st.session_state.daily_pnl=daily_pnl
                     st.session_state.pnl_history=pnl_history
+                    st.session_state.historical_ptf=historical_ptf
                     
                     st.success("Done!")
     
@@ -2472,7 +2474,8 @@ with main_tabs[2]:
                     
                 daily_pnl=st.session_state.daily_pnl
                 pnl_history=st.session_state.pnl_history
-              
+                historical_ptf=st.session_state.historical_ptf
+                
                 max_value = ex_post_portfolios.index.max().strftime('%Y-%m-%d')
                 min_value = ex_post_portfolios.index.min().strftime('%Y-%m-%d')
                 max_value=datetime.datetime.strptime(max_value, '%Y-%m-%d')
@@ -2520,7 +2523,10 @@ with main_tabs[2]:
                 mask = (pnl_history.index >= selmind) & (pnl_history.index <= selmaxd)
     
                 pnl_contribution=(pnl_history-pnl_history.shift(1)).loc[mask]
-    
+            
+                cumulative_pnl_contrib=pnl_contribution.loc[:,pnl_contribution.columns!='Total'].cumsum()
+                cumulative_pnl_contrib=pd.concat([cumulative_pnl_contrib,selected_history],axis=1)
+        
                 col1,col2=st.columns([1,1])
     
                 with col1:
@@ -2531,18 +2537,24 @@ with main_tabs[2]:
                     fig.update_traces(visible="legendonly", selector=lambda t:  not t.name in ['Total'])
 
                     st.plotly_chart(fig,width='content')
+
+                    mask = (historical_ptf.index >= selmind) & (historical_ptf.index <= selmaxd)
+                    weighted_returns_historical=historical_ptf.loc[mask,historical_ptf.columns!='Historical Portfolio']
+                    performance_contrib=performance_contribution(weighted_returns_historical)
+                    performance_contrib['Total Return']=performance_contrib.sum(axis=1)
                     
-                    fig2=px.line(selected_history,title='Cumulative P&L', render_mode = 'svg')
-                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-                    fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
+                    fig2=px.line(performance_contrib,title='Cumulative Performance Contribution', render_mode = 'svg')
+                    fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                    fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
+        
                     fig2.update_layout(xaxis_title=None, yaxis_title=None)
                     st.plotly_chart(fig2,width='content')
 
                     
-                    fig3 = px.line(pnl_contribution.cumsum(),x=pnl_contribution.index,y=pnl_contribution.columns,
+                    fig3 = px.line(cumulative_pnl_contrib,x=cumulative_pnl_contrib.index,y=cumulative_pnl_contrib.columns,
                      title="Cumulative P&L Contribution")
                     fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total'])
+                    fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
                     fig3.update_layout(xaxis_title=None, yaxis_title=None,showlegend=True)
                     st.plotly_chart(fig3,width='content')
 
@@ -2555,7 +2567,9 @@ with main_tabs[2]:
                     st.plotly_chart(fig4,width='content')
                     
                     drawdown = (cumulative_performance_ex_post - cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
-                
+                    contribution_to_drawdown=drawdown_contribution(weighted_returns_historical)
+                    drawdown=pd.concat([contribution_to_drawdown,drawdown],axis=1)
+                    
                     fig5=px.line(drawdown,title='Drawdown', render_mode = 'svg')
                     fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
                     fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
