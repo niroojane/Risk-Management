@@ -2488,7 +2488,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if pnl_history.empty:
                 print("⚠️ P&L not computed.")
                 return
-
+        
         selected_cumulative_pnl=daily_pnl.loc[start_ts:end_ts,'Total'].copy()
         selected_cumulative_pnl.iloc[0]=0
         
@@ -2512,6 +2512,57 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         
         cumulative_pnl_contrib=pnl_contribution.loc[:,pnl_contribution.columns!='Total'].cumsum()
         cumulative_pnl_contrib=pd.concat([cumulative_pnl_contrib,selected_history],axis=1)
+        
+        if grid.data.empty or quantities.empty:
+            weighted_returns_bench=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
+
+        else:
+        
+            series_dict_returns={}
+            
+            for key in grid.data.index:
+                
+                rebalanced_series=rebalanced_portfolio(dataframe,grid.data.loc[key])
+                rebalanced_series_weights=rebalanced_series.apply(lambda x: x/rebalanced_series.sum(axis=1))
+                buy_and_hold_series=buy_and_hold(dataframe,grid.data.loc[key])
+                buy_and_hold_series_weights=buy_and_hold_series.apply(lambda x: x/buy_and_hold_series.sum(axis=1))
+                series_dict_returns['Rebalanced '+key]=rebalanced_series_weights.loc[start_ts:end_ts]
+                series_dict_returns['Buy and Hold '+key]=buy_and_hold_series_weights.loc[start_ts:end_ts]
+            
+            
+            if not quantities.empty:
+                portfolio=quantities*dataframe
+                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+                series_dict_returns['Fund']=model_weights.loc[start_ts:end_ts]
+                
+            if not quantities_core.empty:
+                portfolio=quantities_core*dataframe
+                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+                series_dict_returns['Core']=model_weights.loc[start_ts:end_ts]
+    
+            if not quantities_overlay.empty:
+                portfolio=quantities_overlay*dataframe
+                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+                series_dict_returns['Overlay']=model_weights.loc[start_ts:end_ts]
+
+            bitcoin_allocation = pd.DataFrame([{key: 1 if key == 'BTCUSDT' else 0 for key in dataframe.columns}])
+            bitcoin_series=buy_and_hold(dataframe,bitcoin_allocation.iloc[0])
+            bitcoin_series_weights=bitcoin_series.apply(lambda x: x/bitcoin_series.sum(axis=1))
+            series_dict_returns['Bitcoin']=bitcoin_series_weights
+            
+            returns_bench = series_dict_returns[benchmark_ex_post.value].loc[start_ts:end_ts]
+            assets_returns = returns_to_use.loc[start_ts:end_ts]
+            weighted_returns_bench = assets_returns.mul(returns_bench, axis=0)        
+            
+        weighted_returns_historical=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
+        
+        performance_contrib=performance_contribution(weighted_returns_historical)
+        performance_contrib['Total Return']=performance_contrib.sum(axis=1)
+        
+        performance_contrib_bench=performance_contribution(weighted_returns_bench)
+        performance_contrib_bench['Total Return']=performance_contrib_bench.sum(axis=1)
+
+        excess_returns=performance_contrib.subtract(performance_contrib_bench, fill_value=0)
         
         git_output=widgets.Output()
         
@@ -2546,58 +2597,59 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 fig.update_traces(visible="legendonly", selector=lambda t:  not t.name in ['Total'])
                 fig.update_layout(xaxis_title=None, yaxis_title=None)
                 fig.show()
-
-                weighted_returns_historical=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
-                performance_contrib=performance_contribution(weighted_returns_historical)
-                performance_contrib['Total Return']=performance_contrib.sum(axis=1)
                 
                 fig2=px.line(performance_contrib,title='Cumulative Performance Contribution', render_mode = 'svg')
                 fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
                 fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
-    
                 fig2.update_layout(xaxis_title=None, yaxis_title=None)
                 fig2.show()
-
                 
-                fig3=px.line(cumulative_pnl_contrib,title='Cumulative P&L Contribution', render_mode = 'svg')
-                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-                fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
-    
+                fig3=px.line(performance_contrib_bench,title='Cumulative Benchmark Performance Contribution', render_mode = 'svg')
+                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
                 fig3.update_layout(xaxis_title=None, yaxis_title=None)
                 fig3.show()
+                
+                fig4=px.line(cumulative_pnl_contrib,title='Cumulative P&L Contribution', render_mode = 'svg')
+                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Cumulative P&L'])
+                fig4.update_layout(xaxis_title=None, yaxis_title=None)
+                fig4.show()
                                 
                 
             with expost_output1:
 
-                fig4=px.line(cumulative_performance_ex_post,title='Cumulative Return', render_mode = 'svg')
-                fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-                fig4.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
-                fig4.update_layout(xaxis_title=None, yaxis_title=None)
-                fig4.show()
+                fig5=px.line(cumulative_performance_ex_post,title='Cumulative Return', render_mode = 'svg')
+                fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
+                fig5.update_layout(xaxis_title=None, yaxis_title=None)
+                fig5.show()
                 
-                # drawdown = (cumulative_performance_ex_post - cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
                 drawdown = (cumulative_performance_ex_post- cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
-                # drawdown=drawdown.to_frame(name='Total Drawdown')
                 
-                weighted_returns=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
-
-                contribution_to_drawdown=drawdown_contribution(weighted_returns)
+                contribution_to_drawdown=drawdown_contribution(weighted_returns_historical)
                 
                 drawdown=pd.concat([contribution_to_drawdown,drawdown],axis=1)
                 
 
-                fig5=px.line(drawdown,title='Drawdown', render_mode = 'svg')
-                fig5.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
-                fig5.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
-                fig5.update_layout(xaxis_title=None, yaxis_title=None)
-                fig5.show()
-
-                fig6 = px.bar(pnl_contribution,x=pnl_contribution.index,y=pnl_contribution.columns,
-                     title="Daily P&L",barmode="relative")
-                fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
-                fig6.update_traces(visible="legendonly", selector=lambda t:  t.name in ['Total'])
-                fig6.update_layout(xaxis_title=None, yaxis_title=None,showlegend=True)
+                fig6=px.line(drawdown,title='Drawdown', render_mode = 'svg')
+                fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                fig6.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
+                fig6.update_layout(xaxis_title=None, yaxis_title=None)
                 fig6.show()
+                
+                fig7=px.line(excess_returns,title='Active Return Contribution', render_mode = 'svg')
+                fig7.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                fig7.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
+                fig7.update_layout(xaxis_title=None, yaxis_title=None)
+                fig7.show()
+
+                fig8 = px.bar(pnl_contribution,x=pnl_contribution.index,y=pnl_contribution.columns,
+                     title="Daily P&L",barmode="relative")
+                fig8.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
+                fig8.update_traces(visible="legendonly", selector=lambda t:  t.name in ['Total'])
+                fig8.update_layout(xaxis_title=None, yaxis_title=None,showlegend=True)
+                fig8.show()
                 
             ui=widgets.HBox([expost_output,expost_output1])
             
@@ -2887,7 +2939,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             portfolio=quantities_overlay*dataframe
             model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
             series_dict['Overlay']=model_weights.loc[start_ts:end_ts]
-
+        
         tickers_combined=list(quantities.columns)+list(weights_ex_post.columns)
         tickers_combined=list(set(tickers_combined))
         
@@ -3169,7 +3221,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     risk_analysis_tab = widgets.Output()
     market_risk_tab = widgets.Output()
     
-
     main_tabs = widgets.Tab(children=[
         investment_universe_tab,
         strategy_tab,
