@@ -1473,13 +1473,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         grid_mean_shock.observe(update_stress_data)
         
         update_stress_data(None)
-        
 
     stress_grid_output = widgets.Output()
     stress_grid_button = widgets.Button(description="Refresh")
     stress_grid_button.on_click(reset_stress)
 
-    
     def get_var_metrics(_):
         global var_scenarios, cvar_scenarios, fund_results
         
@@ -1574,7 +1572,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
         display_var_results(selected_fund_var.value)
         loading_bar_var.value=0
-        
+
     
     global result_var,result_cvar
     
@@ -1597,11 +1595,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     value=252,
     description='Window:',
     disabled=False)
+
     
     def value_at_risk_trajectory(_):
         
         global result_var,result_cvar,series_dict,current_underlying_returns
-
         
         try:
             start_ts = pd.to_datetime(start_date_perf_risk.value)
@@ -1923,10 +1921,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     start_date_market_risk = widgets.DatePicker(value=start_perf_date, layout=widgets.Layout(width='350px'))
     end_date_market_risk = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
 
-
     quantities_eigen=pd.DataFrame()
     perf_index_eigen=pd.DataFrame()
-
     
     def get_market_risk_metrics(_):
 
@@ -2377,7 +2373,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     end_date_perf_ex_post = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
     ex_post_perf=widgets.Output()
     ex_post_calendar=widgets.Output()
-    
+    performance_output=widgets.Output()
+
     fund_ex_post=widgets.Dropdown(value='Historical Portfolio',options=['Historical Portfolio','Fund'],description='Select Fund:',style={'description_width': '150px'})
     benchmark_ex_post=widgets.Dropdown(value='Historical Portfolio',options=['Historical Portfolio','Fund'],description='Select Benchmark:',style={'description_width': '150px'})
     frequency_graph_ex_post=widgets.Dropdown(options=['Year','Month'],value='Year',description='Select Frequency:',style={'description_width': '150px'})
@@ -2462,8 +2459,150 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             update_ex_post_chart(None)
 
     calendar_button_ex_post.on_click(show_graph_ex_post)
+    
+    def show_performance_chart(_):
+        
+        global performance_ex_post
 
+        try:
+            start_ts = pd.to_datetime(start_date_perf_ex_post.value)
+            end_ts = pd.to_datetime(end_date_perf_ex_post.value)
+        except Exception:
+            with performance_output:
+                performance_output.clear_output()
+                print("⚠️ Invalid start or end date.")
+            return
 
+        with performance_output:
+            performance_output.clear_output()
+            if pd.isna(start_ts) or pd.isna(end_ts) or start_ts > end_ts:
+                print("⚠️ Error with date range.")
+                return
+                
+        if historical_ptf.empty:
+             with performance_output:
+                print("⚠️ P&L not computed.")
+                return
+                
+        if global_returns.empty:
+            performance_ex_post=historical_ptf['Historical Portfolio'].copy()
+            performance_ex_post=performance_ex_post.to_frame()
+        else:
+            performance_ex_post=historical_ptf['Historical Portfolio'].copy()
+            performance_ex_post=pd.concat([performance_ex_post,global_returns],axis=1).sort_index()  
+        
+        cumulative_performance_ex_post=performance_ex_post.loc[start_ts:end_ts].copy()
+        cumulative_performance_ex_post.iloc[0]=0
+        cumulative_performance_ex_post=(1+cumulative_performance_ex_post).cumprod()*100
+        
+        if grid.data.empty or quantities.empty:
+            weighted_returns_bench=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
+
+        else:
+        
+            series_dict_returns={}
+            
+            for key in grid.data.index:
+                
+                rebalanced_series=rebalanced_portfolio(dataframe,grid.data.loc[key])
+                rebalanced_series_weights=rebalanced_series.apply(lambda x: x/rebalanced_series.sum(axis=1))
+                buy_and_hold_series=buy_and_hold(dataframe,grid.data.loc[key])
+                buy_and_hold_series_weights=buy_and_hold_series.apply(lambda x: x/buy_and_hold_series.sum(axis=1))
+                series_dict_returns['Rebalanced '+key]=rebalanced_series_weights.loc[start_ts:end_ts]
+                series_dict_returns['Buy and Hold '+key]=buy_and_hold_series_weights.loc[start_ts:end_ts]
+            
+            
+            if not quantities.empty:
+                portfolio=quantities*dataframe
+                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+                series_dict_returns['Fund']=model_weights.loc[start_ts:end_ts]
+                
+            if not quantities_core.empty:
+                portfolio=quantities_core*dataframe
+                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+                series_dict_returns['Core']=model_weights.loc[start_ts:end_ts]
+    
+            if not quantities_overlay.empty:
+                portfolio=quantities_overlay*dataframe
+                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+                series_dict_returns['Overlay']=model_weights.loc[start_ts:end_ts]
+
+            bitcoin_allocation = pd.DataFrame([{key: 1 if key == 'BTCUSDT' else 0 for key in dataframe.columns}])
+            bitcoin_series=buy_and_hold(dataframe,bitcoin_allocation.iloc[0])
+            bitcoin_series_weights=bitcoin_series.apply(lambda x: x/bitcoin_series.sum(axis=1))
+            series_dict_returns['Bitcoin']=bitcoin_series_weights
+            
+            returns_bench = series_dict_returns[benchmark_ex_post.value].loc[start_ts:end_ts]
+            assets_returns = returns_to_use.loc[start_ts:end_ts]
+            weighted_returns_bench = assets_returns.mul(returns_bench, axis=0)        
+
+        
+        weighted_returns_historical=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
+
+        if fund_ex_post.value=='Historical Portfolio':
+        
+            performance_contrib=performance_contribution(weighted_returns_historical)
+        else:
+            
+            returns_ptf = series_dict_returns[fund_ex_post.value].loc[start_ts:end_ts]
+            assets_returns = returns_to_use.loc[start_ts:end_ts]
+            weighted_returns = assets_returns.mul(returns_ptf, axis=0)        
+            performance_contrib=performance_contribution(weighted_returns)
+
+        performance_contrib['Total Return']=performance_contrib.sum(axis=1)
+        
+        performance_contrib_bench=performance_contribution(weighted_returns_bench)
+        performance_contrib_bench['Total Return']=performance_contrib_bench.sum(axis=1)
+
+        excess_returns=performance_contrib.subtract(performance_contrib_bench, fill_value=0)
+
+        perf_output=widgets.Output()
+        perf_output1=widgets.Output()
+
+        with performance_output:
+            performance_output.clear_output(wait=True)
+
+            with perf_output:
+            
+                
+                fig2=px.line(performance_contrib,title='Return Contribution', render_mode = 'svg')
+                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
+                fig2.update_layout(xaxis_title=None, yaxis_title=None)
+                fig2.show()
+                
+                fig3=px.line(performance_contrib_bench,title='Benchmark Return Contribution', render_mode = 'svg')
+                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
+                fig3.update_layout(xaxis_title=None, yaxis_title=None)
+                fig3.show()
+                
+                
+            with perf_output1:
+
+                
+                drawdown = (cumulative_performance_ex_post[fund_ex_post.value]- cumulative_performance_ex_post[fund_ex_post.value].cummax()) / cumulative_performance_ex_post[fund_ex_post.value].cummax()
+                
+                contribution_to_drawdown=drawdown_contribution(weighted_returns_historical)
+                
+                drawdown=pd.concat([contribution_to_drawdown,drawdown],axis=1)
+                
+
+                fig6=px.line(drawdown,title='Drawdown', render_mode = 'svg')
+                fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                fig6.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
+                fig6.update_layout(xaxis_title=None, yaxis_title=None)
+                fig6.show()
+                
+                fig7=px.line(excess_returns,title='Active Return Contribution', render_mode = 'svg')
+                fig7.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                fig7.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
+                fig7.update_layout(xaxis_title=None, yaxis_title=None)
+                fig7.show()
+                
+            ui=widgets.HBox([perf_output,perf_output1])
+            display(ui)
+    
     def update_ex_post_chart(_):
         
         global performance_ex_post
@@ -2513,56 +2652,56 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         cumulative_pnl_contrib=pnl_contribution.loc[:,pnl_contribution.columns!='Total'].cumsum()
         cumulative_pnl_contrib=pd.concat([cumulative_pnl_contrib,selected_history],axis=1)
         
-        if grid.data.empty or quantities.empty:
-            weighted_returns_bench=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
+        # if grid.data.empty or quantities.empty:
+        #     weighted_returns_bench=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
 
-        else:
+        # else:
         
-            series_dict_returns={}
+        #     series_dict_returns={}
             
-            for key in grid.data.index:
+        #     for key in grid.data.index:
                 
-                rebalanced_series=rebalanced_portfolio(dataframe,grid.data.loc[key])
-                rebalanced_series_weights=rebalanced_series.apply(lambda x: x/rebalanced_series.sum(axis=1))
-                buy_and_hold_series=buy_and_hold(dataframe,grid.data.loc[key])
-                buy_and_hold_series_weights=buy_and_hold_series.apply(lambda x: x/buy_and_hold_series.sum(axis=1))
-                series_dict_returns['Rebalanced '+key]=rebalanced_series_weights.loc[start_ts:end_ts]
-                series_dict_returns['Buy and Hold '+key]=buy_and_hold_series_weights.loc[start_ts:end_ts]
+        #         rebalanced_series=rebalanced_portfolio(dataframe,grid.data.loc[key])
+        #         rebalanced_series_weights=rebalanced_series.apply(lambda x: x/rebalanced_series.sum(axis=1))
+        #         buy_and_hold_series=buy_and_hold(dataframe,grid.data.loc[key])
+        #         buy_and_hold_series_weights=buy_and_hold_series.apply(lambda x: x/buy_and_hold_series.sum(axis=1))
+        #         series_dict_returns['Rebalanced '+key]=rebalanced_series_weights.loc[start_ts:end_ts]
+        #         series_dict_returns['Buy and Hold '+key]=buy_and_hold_series_weights.loc[start_ts:end_ts]
             
             
-            if not quantities.empty:
-                portfolio=quantities*dataframe
-                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
-                series_dict_returns['Fund']=model_weights.loc[start_ts:end_ts]
+        #     if not quantities.empty:
+        #         portfolio=quantities*dataframe
+        #         model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+        #         series_dict_returns['Fund']=model_weights.loc[start_ts:end_ts]
                 
-            if not quantities_core.empty:
-                portfolio=quantities_core*dataframe
-                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
-                series_dict_returns['Core']=model_weights.loc[start_ts:end_ts]
+        #     if not quantities_core.empty:
+        #         portfolio=quantities_core*dataframe
+        #         model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+        #         series_dict_returns['Core']=model_weights.loc[start_ts:end_ts]
     
-            if not quantities_overlay.empty:
-                portfolio=quantities_overlay*dataframe
-                model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
-                series_dict_returns['Overlay']=model_weights.loc[start_ts:end_ts]
+        #     if not quantities_overlay.empty:
+        #         portfolio=quantities_overlay*dataframe
+        #         model_weights=portfolio.apply(lambda x: x/portfolio.sum(axis=1))
+        #         series_dict_returns['Overlay']=model_weights.loc[start_ts:end_ts]
 
-            bitcoin_allocation = pd.DataFrame([{key: 1 if key == 'BTCUSDT' else 0 for key in dataframe.columns}])
-            bitcoin_series=buy_and_hold(dataframe,bitcoin_allocation.iloc[0])
-            bitcoin_series_weights=bitcoin_series.apply(lambda x: x/bitcoin_series.sum(axis=1))
-            series_dict_returns['Bitcoin']=bitcoin_series_weights
+        #     bitcoin_allocation = pd.DataFrame([{key: 1 if key == 'BTCUSDT' else 0 for key in dataframe.columns}])
+        #     bitcoin_series=buy_and_hold(dataframe,bitcoin_allocation.iloc[0])
+        #     bitcoin_series_weights=bitcoin_series.apply(lambda x: x/bitcoin_series.sum(axis=1))
+        #     series_dict_returns['Bitcoin']=bitcoin_series_weights
             
-            returns_bench = series_dict_returns[benchmark_ex_post.value].loc[start_ts:end_ts]
-            assets_returns = returns_to_use.loc[start_ts:end_ts]
-            weighted_returns_bench = assets_returns.mul(returns_bench, axis=0)        
+        #     returns_bench = series_dict_returns[benchmark_ex_post.value].loc[start_ts:end_ts]
+        #     assets_returns = returns_to_use.loc[start_ts:end_ts]
+        #     weighted_returns_bench = assets_returns.mul(returns_bench, axis=0)        
             
-        weighted_returns_historical=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
+        # weighted_returns_historical=historical_ptf.loc[start_ts:end_ts,historical_ptf.columns!='Historical Portfolio']
         
-        performance_contrib=performance_contribution(weighted_returns_historical)
-        performance_contrib['Total Return']=performance_contrib.sum(axis=1)
+        # performance_contrib=performance_contribution(weighted_returns_historical)
+        # performance_contrib['Total Return']=performance_contrib.sum(axis=1)
         
-        performance_contrib_bench=performance_contribution(weighted_returns_bench)
-        performance_contrib_bench['Total Return']=performance_contrib_bench.sum(axis=1)
+        # performance_contrib_bench=performance_contribution(weighted_returns_bench)
+        # performance_contrib_bench['Total Return']=performance_contrib_bench.sum(axis=1)
 
-        excess_returns=performance_contrib.subtract(performance_contrib_bench, fill_value=0)
+        # excess_returns=performance_contrib.subtract(performance_contrib_bench, fill_value=0)
         
         git_output=widgets.Output()
         
@@ -2598,17 +2737,17 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 fig.update_layout(xaxis_title=None, yaxis_title=None)
                 fig.show()
                 
-                fig2=px.line(performance_contrib,title='Cumulative Performance Contribution', render_mode = 'svg')
-                fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
-                fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
-                fig2.update_layout(xaxis_title=None, yaxis_title=None)
-                fig2.show()
+                # fig2=px.line(performance_contrib,title='Cumulative Performance Contribution', render_mode = 'svg')
+                # fig2.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                # fig2.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
+                # fig2.update_layout(xaxis_title=None, yaxis_title=None)
+                # fig2.show()
                 
-                fig3=px.line(performance_contrib_bench,title='Cumulative Benchmark Performance Contribution', render_mode = 'svg')
-                fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
-                fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
-                fig3.update_layout(xaxis_title=None, yaxis_title=None)
-                fig3.show()
+                # fig3=px.line(performance_contrib_bench,title='Cumulative Benchmark Performance Contribution', render_mode = 'svg')
+                # fig3.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                # fig3.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
+                # fig3.update_layout(xaxis_title=None, yaxis_title=None)
+                # fig3.show()
                 
                 fig4=px.line(cumulative_pnl_contrib,title='Cumulative P&L Contribution', render_mode = 'svg')
                 fig4.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400)
@@ -2625,24 +2764,24 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 fig5.update_layout(xaxis_title=None, yaxis_title=None)
                 fig5.show()
                 
-                drawdown = (cumulative_performance_ex_post- cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
+                # drawdown = (cumulative_performance_ex_post- cumulative_performance_ex_post.cummax()) / cumulative_performance_ex_post.cummax()
                 
-                contribution_to_drawdown=drawdown_contribution(weighted_returns_historical)
+                # contribution_to_drawdown=drawdown_contribution(weighted_returns_historical)
                 
-                drawdown=pd.concat([contribution_to_drawdown,drawdown],axis=1)
+                # drawdown=pd.concat([contribution_to_drawdown,drawdown],axis=1)
                 
 
-                fig6=px.line(drawdown,title='Drawdown', render_mode = 'svg')
-                fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
-                fig6.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
-                fig6.update_layout(xaxis_title=None, yaxis_title=None)
-                fig6.show()
+                # fig6=px.line(drawdown,title='Drawdown', render_mode = 'svg')
+                # fig6.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                # fig6.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Historical Portfolio','Fund','Bitcoin'])
+                # fig6.update_layout(xaxis_title=None, yaxis_title=None)
+                # fig6.show()
                 
-                fig7=px.line(excess_returns,title='Active Return Contribution', render_mode = 'svg')
-                fig7.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
-                fig7.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
-                fig7.update_layout(xaxis_title=None, yaxis_title=None)
-                fig7.show()
+                # fig7=px.line(excess_returns,title='Active Return Contribution', render_mode = 'svg')
+                # fig7.update_layout(plot_bgcolor="black", paper_bgcolor="black", font_color="white",width=800, height=400,yaxis_tickformat=".2%")
+                # fig7.update_traces(visible="legendonly", selector=lambda t: not t.name in ['Total Return'])
+                # fig7.update_layout(xaxis_title=None, yaxis_title=None)
+                # fig7.show()
 
                 fig8 = px.bar(pnl_contribution,x=pnl_contribution.index,y=pnl_contribution.columns,
                      title="Daily P&L",barmode="relative")
@@ -2658,6 +2797,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             display(push_button)
             display(git_output)
     
+    
     def get_ex_post_returns(_):
         
         global daily_pnl,pnl_history,historical_ptf,performance_ex_post,weights_ex_post
@@ -2665,14 +2805,16 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         loading_bar.value=0
 
         with ex_post_perf:
-            ex_post_perf.clear_output()
+            
+            ex_post_perf.clear_output()    
             
             display(loading_bar_pnl)
             display(loading_bar)
+            
         if book_cost.empty:
 
             get_pnl_on_click(None)  
-          
+
         quantities_tickers=list(quantities_holding.columns)
         daily_book_cost=book_cost.resample("D").last().dropna().sort_index()
         book_cost_history=pd.DataFrame()
@@ -2745,16 +2887,21 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
         update_ex_post_chart(None)
         show_graph_ex_post(None)
-    
+        show_performance_chart(None)
+
     
     ex_post_button=widgets.Button(description='Get P&L',button_style='info')
     ex_post_button.on_click(get_ex_post_returns)
+    
     refresh_ex_post_button=widgets.Button(description='Refresh')
     refresh_ex_post_button.on_click(update_ex_post_chart)
     
+    refresh_performance_analysis_button=widgets.Button(description='Refresh')
+    refresh_performance_analysis_button.on_click(show_performance_chart)  
+    
     ex_post_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button,refresh_ex_post_button]),ex_post_perf])    
     calendar_ui_ex_post=widgets.VBox([widgets.HBox([frequency_graph_ex_post,fund_ex_post,benchmark_ex_post,calendar_button_ex_post]),ex_post_calendar])
-
+    performance_analysis_ui=widgets.VBox([widgets.HBox([start_date_perf_ex_post,end_date_perf_ex_post,ex_post_button,refresh_performance_analysis_button]),widgets.HBox([fund_ex_post,benchmark_ex_post]),performance_output])    
 
     global results_vol,series_dict,current_underlying_returns,results_tracking_error,spread_weights
 
@@ -3264,28 +3411,36 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     with strategy_returns_tab:
         display(calendar_perf)
 
+    performance_subtab = widgets.Output()
+    pnl_analysis_tab = widgets.Output()
 
-    pnl_sub_tab = widgets.Output()
+    pnl_sub_tab = widgets.Tab(children=[pnl_analysis_tab,performance_subtab])
     positions_subtab = widgets.Output()
     calendar_ex_post_subtab = widgets.Output()
-
     
     ex_post_subtabs = widgets.Tab(children=[
         pnl_sub_tab,
         positions_subtab,
         calendar_ex_post_subtab
     ])
-    
+
+    pnl_sub_tab.set_title(0, 'P&L Analysis')
+    pnl_sub_tab.set_title(1, 'Return Analysis')
+
     ex_post_subtabs.set_title(0, 'P&L')
     ex_post_subtabs.set_title(1, 'Positioning')
+    # ex_post_subtabs.set_title(2, 'Return Analysis')
     ex_post_subtabs.set_title(2, 'Calendar Return')
     
     with ex_post_tab:
         display(ex_post_subtabs)
         
-    with pnl_sub_tab:
+    with pnl_analysis_tab:
         display(ex_post_ui)
         
+    with performance_subtab:
+        display(performance_analysis_ui)
+
     with positions_subtab:
         display(positions_ui)
 
