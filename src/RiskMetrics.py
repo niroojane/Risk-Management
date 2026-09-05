@@ -459,13 +459,26 @@ def diversification_constraint(sign,limit):
 
     return constraints
 
+def beta_constraint(beta,sign,limit):
+    dico_map = {'=': 'eq', '≥': 'ineq', '≤': 'ineq'}
+
+    if sign=='≤' :
+        constraints=[{'type': dico_map[sign], 'fun': lambda weights: limit-np.dot(weights, beta) }]
+    elif sign=='≥' :
+    
+        constraints=[{'type': dico_map[sign], 'fun': lambda weights: np.dot(weights, beta) -limit}]
+    else:
+        constraints=[{'type': dico_map[sign], 'fun': lambda weights: np.dot(weights, beta) -limit}]
+
+    return constraints    
+
 def build_constraint(prices, constraint_matrix):
     constraints = []
     dico_map = {'=': 'eq', '≥': 'ineq', '≤': 'ineq'}
 
     drop_down_list_asset = list(prices.columns) + ['All']
     drop_down_list = drop_down_list_asset + [None]
-
+    
     try:
         for row in range(constraint_matrix.shape[0]):
             temp = constraint_matrix[row, :]
