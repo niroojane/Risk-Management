@@ -748,19 +748,19 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                         .reindex(X_raw.index)
                         .fillna(0)
                     )
-                    X = np.hstack([
-                        np.ones((X_raw.shape[0], 1)),
-                        X_raw
-                    ])
-            
-                    beta = np.linalg.lstsq(X, y, rcond=None)[0]
-            
+                    ones = np.ones((X_raw.shape[0], 1))
+                    beta = np.zeros(X_raw.shape[1])
+                    
+                    for i in range(X_raw.shape[1]):
+                        X_i = np.hstack([ones, X_raw.iloc[:, [i]].to_numpy()])
+                        beta[i] = np.linalg.lstsq(X_i, y, rcond=None)[0][1]
+                                
                     beta_data = risk_constraint_dataframe[
                         risk_constraint_dataframe['Risk'] == 'Beta'
                     ].iloc[0]
             
                     risk_cons = beta_constraint(
-                        beta[1:],
+                        beta,
                         beta_data['Sign'],
                         beta_data['Limit']
                     )
@@ -904,19 +904,19 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                         .reindex(subset.index)
                         .fillna(0)
                     )
-                    X = np.hstack([
-                        np.ones((X_raw.shape[0], 1)),
-                        X_raw
-                    ])
-            
-                    beta = np.linalg.lstsq(X, y, rcond=None)[0]
-            
+                    ones = np.ones((X_raw.shape[0], 1))
+                    beta = np.zeros(X_raw.shape[1])
+                    
+                    for i in range(X_raw.shape[1]):
+                        X_i = np.hstack([ones, X_raw.iloc[:, [i]].to_numpy()])
+                        beta[i] = np.linalg.lstsq(X_i, y, rcond=None)[0][1]
+                                 
                     beta_data = risk_constraint_dataframe[
                         risk_constraint_dataframe['Risk'] == 'Beta'
                     ].iloc[0]
             
                     risk_cons = beta_constraint(
-                        beta[1:],
+                        beta,
                         beta_data['Sign'],
                         beta_data['Limit']
                     )
