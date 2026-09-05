@@ -314,7 +314,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             ui=widgets.HBox([price_output_graph,return_output_graph])
             display(ui)
             display(display_scrollable_df(dataframe))
-
+            
+            on_clear_constraints(None)
+            on_clear_overlays(None)
+            on_clear_risk(None)
+            
     data_button.on_click(get_prices)
     start_date.observe(lambda ch: get_prices() if ch['name'] == 'value' and ch['new'] else None, names='value')
     
@@ -331,11 +335,19 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     selected_bench = widgets.Dropdown(description="Bench:")
     selected_fund_var = widgets.Dropdown(description="Fund:")
 
+    options_risk=['Beta','Vol']
     
     add_strategy_btn = widgets.Button(description='Add Strategy',style={'description_width': '150px'} )
     clear_strategy_btn = widgets.Button(description='Clear Strategy',style={'description_width': '150px'} )
+
+    add_risk_btn = widgets.Button(description='Add Risk Strat',style={'description_width': '150px'} )
+    clear_risk_btn = widgets.Button(description='Clear Risk Strat',style={'description_width': '150px'} )
+    
     dropdown_strategy_limit = widgets.FloatText(description='Overlay Limit',style={'description_width': '150px'} )
     strat_overlay = widgets.Dropdown(description='Strategy Overlay', options=options_strat, value='Minimum Variance',style={'description_width': '150px'} )
+    risk_type = widgets.Dropdown(description='Risk Type',value=None,options=options_risk,style={'description_width': '150px'} )
+    risk_limit = widgets.FloatText(description='Risk Limit',value=None,style={'description_width': '150px'} )
+    dropdown_risk_sign = widgets.Dropdown(description='Sign:', options=["=", "≥", "≤"],style={'description_width': '150px'} )
 
     overlays=[]
     overlay_output=widgets.Output()
@@ -358,11 +370,34 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     add_strategy_btn.on_click(on_add_overlays)
     clear_strategy_btn.on_click(on_clear_overlays)
+    
+    risk_constraints=[]
+    risk_constraints_output=widgets.Output()
+    
+    def on_add_risk(_):
+        risk_constraints.append({
+            'Risk': risk_type.value,'Sign':dropdown_sign.value,
+            'Limit': risk_limit.value
+        })
+        
+        with risk_constraints_output:
+            risk_constraints_output.clear_output(wait=True)
+            display(display_scrollable_df(pd.DataFrame(risk_constraints).drop_duplicates(subset=['Risk'], keep='last')))
+            
+    def on_clear_risk(_):
+        risk_constraints.clear()
+        with risk_constraints_output:
+            risk_constraints_output.clear_output(wait=True)
+            display(display_scrollable_df(pd.DataFrame(columns=['Risk','Sign', 'Limit'])))  
 
+    add_risk_btn.on_click(on_add_risk)
+    clear_risk_btn.on_click(on_clear_risk)
+
+    
     def on_add_constraint_clicked(_):
         constraints.append({
             'Asset': dropdown_asset.value,
-            'Sign': dropdown_sign.value,
+            'Sign': dropdown_risk_sign.value,
             'Limit': dropdown_limit.value
         })
         with constraint_output:
@@ -677,6 +712,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         selected_fund_var.options=grid.data.index
         
     def on_optimize_clicked(_):
+        
         global fund_names,grid
 
         with constraint_output:
@@ -684,15 +720,54 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if dataframe.empty or returns_to_use.empty:
                 print("⚠️ Load price data before optimizing.")
                 return
-            
+        
+            all_constraints=[]
             constraint_df = pd.DataFrame(constraints)
+            risk_constraint_dataframe=pd.DataFrame(risk_constraints).drop_duplicates(subset=['Risk'],keep='last')
+
             cons = None
+            risk_cons=None
             if not constraint_df.empty:
                 try:
                     cons = build_constraint(dataframe, constraint_df.to_numpy())
+                    all_constraints.extend(cons)
+
                 except Exception as e:
                     print("Error building constraints:", e)
                     
+            if not risk_constraint_dataframe.empty:
+                try:
+        
+                    X_raw = returns_to_use.loc[start_date_perf.value:end_date_perf.value].fillna(0)
+                    benchmark_beta = rebalanced_portfolio(dataframe.loc[start_date_perf.value:end_date_perf.value],
+                                                          grid.data.loc[benchmark_tracking_error.value], 
+                                                          frequency=rebalancing_frequency.value).sum(axis=1)
+                    y = (
+                        benchmark_beta
+                        .pct_change()
+                        .reindex(X_raw.index)
+                        .fillna(0)
+                    )
+                    X = np.hstack([
+                        np.ones((X_raw.shape[0], 1)),
+                        X_raw
+                    ])
+            
+                    beta = np.linalg.lstsq(X, y, rcond=None)[0]
+            
+                    beta_data = risk_constraint_dataframe[
+                        risk_constraint_dataframe['Risk'] == 'Beta'
+                    ].iloc[0]
+            
+                    risk_cons = beta_constraint(
+                        beta[1:],
+                        beta_data['Sign'],
+                        beta_data['Limit']
+                    )
+                    all_constraints.extend(risk_cons)
+                except Exception as e:
+                    print("Error building constraints:", e)
+            
             portfolio = RiskAnalysis(returns_to_use.loc[start_date_perf.value:end_date_perf.value])
             sharpe = portfolio.optimize("sharpe_ratio")
             minvar = portfolio.optimize("minimum_variance")
@@ -703,12 +778,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             equal_weights = np.ones(returns_to_use.shape[1]) / returns_to_use.shape[1]
             eigen_portfolio=portfolio.optimize("eigenportfolio")
             
-            if cons is not None:
-                sharpe_c = portfolio.optimize("sharpe_ratio", constraints=cons)
-                minvar_c = portfolio.optimize("minimum_variance", constraints=cons)
-                rp_c = portfolio.optimize("risk_parity", constraints=cons)
-                max_div_c=portfolio.optimize("maximum_diversification",constraints=cons)
-                eigen_portfolio_c=portfolio.optimize("eigenportfolio",constraints=cons)
+            if all_constraints:
+                sharpe_c = portfolio.optimize("sharpe_ratio", constraints=all_constraints)
+                minvar_c = portfolio.optimize("minimum_variance", constraints=all_constraints)
+                rp_c = portfolio.optimize("risk_parity", constraints=all_constraints)
+                max_div_c=portfolio.optimize("maximum_diversification",constraints=all_constraints)
+                eigen_portfolio_c=portfolio.optimize("eigenportfolio",constraints=all_constraints)
                 
             allocation = {
                 'Optimal Portfolio': sharpe.tolist(),
@@ -748,6 +823,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             
             reset_stress(None)
             
+        
     def get_result(_):
         nonlocal constraint_container
         global rolling_optimization, performance_pct, performance_fund, dates_end, quantities,quantities_core,quantities_overlay
@@ -760,6 +836,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
             # Build constraints
             cons = None
+            risk_cons=None
+            
+            
+            risk_constraint_dataframe=pd.DataFrame(risk_constraints).drop_duplicates(subset=['Risk'],keep='last')
+                            
             if constraints:
                 try:
                     cons = build_constraint(dataframe, pd.DataFrame(constraints).to_numpy())
@@ -786,7 +867,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             if len(dates_end) < 2:
                 print("⚠️ Not enough anchor dates to perform rolling optimization.")
                 return
-    
+            
             # Prepare tasks
             strategy_key = dico_strategies[strat.value]
             tasks = [(returns_to_use.loc[dates_end[i]:dates_end[i+1]],dates_end[i], dates_end[i+1],strategy_key) for i in range(len(dates_end)-1)]
@@ -806,19 +887,66 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             # Run with threads
             global results
             results = {}
-            def worker(subset,start, end,strategy_key):
+            def worker(subset, start, end, strategy_key):
+            
+                risk_cons = []
+            
                 if subset.empty or len(subset) < 2:
                     return None
+            
+                if risk_constraints:
+                    benchmark_beta = rebalanced_portfolio(dataframe, grid.data.loc[benchmark_tracking_error.value], frequency=rebalancing_frequency.value).sum(axis=1)
+                    X_raw = subset.fillna(0)
+            
+                    y = (
+                        benchmark_beta
+                        .pct_change()
+                        .reindex(subset.index)
+                        .fillna(0)
+                    )
+                    X = np.hstack([
+                        np.ones((X_raw.shape[0], 1)),
+                        X_raw
+                    ])
+            
+                    beta = np.linalg.lstsq(X, y, rcond=None)[0]
+            
+                    beta_data = risk_constraint_dataframe[
+                        risk_constraint_dataframe['Risk'] == 'Beta'
+                    ].iloc[0]
+            
+                    risk_cons = beta_constraint(
+                        beta[1:],
+                        beta_data['Sign'],
+                        beta_data['Limit']
+                    )
+            
                 try:
                     risk = RiskAnalysis(subset)
+            
+                    constraints_to_use = []
+            
                     if cons:
-                        opt = risk.optimize(objective=strategy_key, constraints=cons)
+                        constraints_to_use.extend(cons)
+            
+                    if risk_cons:
+                        constraints_to_use.extend(risk_cons)
+            
+                    if constraints_to_use:
+                        opt = risk.optimize(
+                            objective=strategy_key,
+                            constraints=constraints_to_use
+                        )
                     else:
-                        opt = risk.optimize(objective=strategy_key)
-                    return subset.index[-1], np.round(opt, 6),strategy_key
-                except Exception:
+                        opt = risk.optimize(
+                            objective=strategy_key
+                        )
+            
+                    return subset.index[-1], np.round(opt, 6), strategy_key
+            
+                except Exception as e:
+                    print(f"Optimization failed {start} -> {end}: {e}")
                     return None
-
             with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
                 futures = {
                     executor.submit(worker, subset, start, end, strat): (subset, start, end, strat)
@@ -1091,11 +1219,15 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                                            widgets.VBox([add_strategy_btn,clear_strategy_btn])]),
                                            overlay_output])
 
+    risk_strat_ui=widgets.VBox([widgets.HBox([widgets.VBox([risk_type,dropdown_risk_sign,risk_limit]),
+                                            widgets.VBox([add_risk_btn,clear_risk_btn])]),
+                                            risk_constraints_output])
+    
     allocation_ui=widgets.VBox([widgets.HBox([
             widgets.VBox([dropdown_asset, dropdown_sign, dropdown_limit]),
             widgets.VBox([add_constraint_btn, clear_constraints_btn, optimize_btn])]),
                                 constraint_output,
-        grid,overlay_ui,
+        grid,overlay_ui,risk_strat_ui,
         widgets.HBox([button_add,button_clear,results_button])])
 
 
@@ -1116,7 +1248,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     
     calendar_perf=widgets.VBox([widgets.HBox([frequency_graph,fund,benchmark,graph_button]),calendar_output])
     positions_ui=widgets.VBox([widgets.HBox([position_button,pnl_button]),positions_output,holding_output])
-    rebalancing_frequency_pnl=widgets.Dropdown(description='Frequency:', options=['Yearly','Quarterly','Monthly'], value='Quarterly')
+    rebalancing_frequency_pnl=widgets.Dropdown(description='Frequency:', options=['Yearly','Quarterly','Monthly'], value='Monthly')
 
     #------------Rik Tab------------#
     global var_scenarios, cvar_scenarios, fund_results,grid_stress,grid_mean_shock
@@ -1633,7 +1765,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
         for key in grid.data.index:
             
-            rebalanced_series=rebalanced_portfolio(dataframe,grid.data.loc[key])
+            rebalanced_series=rebalanced_portfolio(dataframe,grid.data.loc[key],rebalancing_frequency_pnl.value)
             rebalanced_series_weights=rebalanced_series.apply(lambda x: x/rebalanced_series.sum(axis=1))
             buy_and_hold_series=buy_and_hold(dataframe,grid.data.loc[key])
             buy_and_hold_series_weights=buy_and_hold_series.apply(lambda x: x/buy_and_hold_series.sum(axis=1))
