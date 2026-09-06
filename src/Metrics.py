@@ -73,6 +73,7 @@ def get_expected_metrics(returns,dataframe):
     indicators = pd.DataFrame(metrics,index=allocation_dict.keys())
 
     return indicators.T.round(4)
+    
 def rebalanced_time_series(prices,dataframe,frequency='Monthly'):
 
     portfolio_returns=pd.DataFrame()
@@ -112,7 +113,6 @@ def get_portfolio_risk(dataframe,prices,portfolio_returns,benchmark):
     tracking_error_daily={}
     tracking_error_monthly={}
     monthly_returns=prices.resample('ME').last().iloc[-180:].pct_change()
-
 
     for key in allocation_dict:
         if key not in allocation_dict or benchmark not in allocation_dict:
