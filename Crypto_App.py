@@ -1669,8 +1669,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         range_returns = range_prices.pct_change(fill_method=None)
         series_dict = {}
         for key in grid.data.index:
-            rebalanced_series = rebalanced_portfolio(dataframe, grid.data.loc[key], rebalancing_frequency_pnl.value)
-            rebalanced_series_weights = rebalanced_series.apply(lambda x: x / rebalanced_series.sum(axis=1))
+            rebalanced_series = rebalanced_portfolio(dataframe, grid.data.loc[key], frequency=rebalancing_frequency_pnl.value)
+            rebalanced_series_weights=rebalanced_series.apply(lambda x: x / rebalanced_series.sum(axis=1))
             buy_and_hold_series = buy_and_hold(dataframe, grid.data.loc[key])
             buy_and_hold_series_weights = buy_and_hold_series.apply(lambda x: x / buy_and_hold_series.sum(axis=1))
             series_dict['Rebalanced ' + key] = rebalanced_series_weights.loc[start_ts:end_ts]
