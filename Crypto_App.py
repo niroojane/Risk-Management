@@ -32,8 +32,6 @@ from src.Rebalancing import *
 from src.Metrics import *
 
 def display_crypto_app(Binance,Pnl_calculation,git):
-    # --- strategy dictionary ---
-
     # =========================================================================
     # Constants / shared config
     # =========================================================================
@@ -92,6 +90,44 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     # exactly how the `subset` NameError bug crept into ex_ante_metrics. One
     # definition now, one thing to test.
     # =========================================================================
+    # def compute_rolling_per_asset_betas(returns_window, benchmark_return_series, window):
+    #     """Rolling per-asset beta (slope of each asset's return vs. a benchmark
+    #     return series), computed as rolling covariance / rolling variance.
+
+    #     This is mathematically identical to the per-window `lstsq` slope used
+    #     by `compute_per_asset_betas`, but vectorized across the whole history
+    #     in one pass instead of one `lstsq` call per asset per window -- the
+    #     difference matters a lot here since this runs on every window change.
+    #     """
+    #     common_index = returns_window.index.intersection(benchmark_return_series.index)
+    #     returns_aligned = returns_window.loc[common_index]
+    #     benchmark_aligned = benchmark_return_series.loc[common_index]
+
+    #     rolling_cov = returns_aligned.rolling(window).cov(benchmark_aligned)
+    #     rolling_var = benchmark_aligned.rolling(window).var()
+    #     return rolling_cov.div(rolling_var, axis=0)
+
+    # def compute_per_asset_betas(returns_window, benchmark_return_series):
+    #     """Simple-regression beta of each asset in `returns_window` vs. a benchmark.
+
+    #     `benchmark_return_series` should already be a return series (e.g. the
+    #     output of `some_price_series.pct_change()`), not raw prices/levels.
+    #     Returns a numpy array of length `returns_window.shape[1]`, one beta per
+    #     asset column, in the same column order as `returns_window`.
+    #     """
+    #     X_raw = returns_window.fillna(0)
+    #     if X_raw.shape[1] == 0 or X_raw.shape[0] == 0:
+    #         return np.zeros(X_raw.shape[1])
+
+    #     y = benchmark_return_series.reindex(X_raw.index).fillna(0)
+    #     ones = np.ones((X_raw.shape[0], 1))
+    #     beta = np.zeros(X_raw.shape[1])
+
+    #     for i in range(X_raw.shape[1]):
+    #         X_i = np.hstack([ones, X_raw.iloc[:, [i]].to_numpy()])
+    #         beta[i] = np.linalg.lstsq(X_i, y, rcond=None)[0][1]
+
+    #     return beta
 
     def build_beta_risk_constraints(returns_window, benchmark_price_or_level_series, risk_constraint_dataframe):
         """Build the beta constraint list for `risk.optimize(constraints=...)`.
@@ -1199,16 +1235,28 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             return
 
         if selected_fund.value not in grid.data.index:
-            with ex_ante_output:
-                ex_ante_output.clear_output()
+            with risk_output:
+                risk_output.clear_output()
                 print("⚠️ Select a fund from the allocation grid.")
             return
-
+                
+        if selected_bench.value not in grid.data.index:
+            with risk_output:
+                risk_output.clear_output()
+                print("⚠️ Select a benchmark from the allocation grid.")
+            return
+            
         portfolio = RiskAnalysis(range_returns)
         selected_weights = grid.data.loc[selected_fund.value]
-
+        bench_weights = grid.data.loc[selected_bench.value]
+        
         decomposition = pd.DataFrame(portfolio.var_contrib(selected_weights)[0]) * 100
-
+        te_decomposition = pd.DataFrame(portfolio.var_contrib(selected_weights-bench_weights)[0]) * 100
+        bench_returns=portfolio.portfolio(bench_weights)
+        
+        beta_asset=compute_per_asset_betas(range_returns,bench_returns)
+        beta_decomposition=(beta_asset*selected_weights).to_frame(name='Beta Contribution')
+        
         quantities_rebalanced = rebalanced_portfolio(range_prices, selected_weights, frequency=rebalancing_frequency_pnl.value) / range_prices
         quantities_buy_hold = buy_and_hold(range_prices, selected_weights) / range_prices
 
@@ -1228,13 +1276,35 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         profit_and_loss_simulated.loc['Total'] = profit_and_loss_simulated.sum(axis=0)
         profit_and_loss_simulated = profit_and_loss_simulated.fillna(0)
 
+        bench_quantities_rebalanced = rebalanced_portfolio(range_prices, selected_weights-bench_weights, frequency=rebalancing_frequency_pnl.value) / range_prices
+        bench_quantities_buy_hold = buy_and_hold(range_prices, selected_weights-bench_weights) / range_prices
+
+        bench_cost_rebalanced = rebalanced_book_cost(range_prices, bench_quantities_rebalanced)
+        bench_cost_buy_and_hold = rebalanced_book_cost(range_prices, bench_quantities_buy_hold)
+
+        bench_mtm_rebalanced = bench_quantities_rebalanced * range_prices
+        bench_mtm_buy_and_hold = bench_quantities_buy_hold * range_prices
+
+        bench_pnl_buy_and_hold = pd.DataFrame((bench_mtm_buy_and_hold - bench_cost_buy_and_hold).iloc[-1])
+        bench_pnl_buy_and_hold.columns = ['Profit and Loss (Buy and Hold)']
+
+        bench_pnl_rebalanced = pd.DataFrame((bench_mtm_rebalanced - bench_cost_rebalanced).iloc[-1])
+        bench_pnl_rebalanced.columns = ['Profit and Loss (Rebalanced)']
+
+        bench_profit_and_loss_simulated = pd.concat([bench_pnl_buy_and_hold, bench_pnl_rebalanced, te_decomposition,beta_decomposition], axis=1)
+        bench_profit_and_loss_simulated.loc['Total'] = bench_profit_and_loss_simulated.sum(axis=0)
+        bench_profit_and_loss_simulated = bench_profit_and_loss_simulated.fillna(0)
+
         with risk_output:
             risk_output.clear_output(wait=True)
             display(Markdown("### Performance and Risk Contribution"))
             display(display_scrollable_df(
                 profit_and_loss_simulated.sort_values(by='Vol Contribution', ascending=False)
             ))
-
+            display(Markdown("### Excess P&L and TE Contribution"))
+            display(display_scrollable_df(
+                bench_profit_and_loss_simulated.sort_values(by='Vol Contribution', ascending=False)
+            ))
     def on_fund_change(change):
         if change['name'] == 'value' and change['new'] in grid.data.index:
             update_fund_display(change['new'])
@@ -1273,18 +1343,15 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             with ex_ante_output:
                 ex_ante_output.clear_output()
                 print("⚠️ Please compute optimization results first.")
-            with risk_output:
-                risk_output.clear_output()
+            with ex_ante_output:
+                ex_ante_output.clear_output()
                 return
 
-        # bench_name defaults to selected_bench.value, which starts out empty
-        # before any optimization has populated grid.data -- guard here rather
-        # than let grid.data.loc[bench_name] raise a KeyError.
         if bench_name not in grid.data.index:
             with ex_ante_output:
                 ex_ante_output.clear_output()
                 print("⚠️ Select a benchmark from the allocation grid.")
-            return
+                return
 
         range_prices = dataframe.loc[start_ts:end_ts]
 
@@ -1309,10 +1376,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
         # Benchmark's realized (price-level) series over this window, used
         # both for the per-asset betas below and for tracking-error vs. it.
-        benchmark_price_series = rebalanced_portfolio(
-            range_prices, grid.data.loc[bench_name], frequency=rebalancing_frequency_pnl.value
-        ).sum(axis=1)
-        beta = compute_per_asset_betas(range_returns, benchmark_price_series.pct_change())
+        benchmark_price_series = portfolio.portfolio(grid.data.loc[bench_name])
+        beta = compute_per_asset_betas(range_returns, benchmark_price_series)
 
         for idx in grid.data.index:
             vol_ex_ante[idx] = portfolio.variance(grid.data.loc[idx])
@@ -1334,6 +1399,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     def on_bench_change(change):
         if change['name'] == 'value' and change['new'] in grid.data.index:
             ex_ante_metrics(change['new'])
+            update_fund_display(change['new'])
 
     def update_contrib_and_ex_ante(_):
         update_fund_display(None)
