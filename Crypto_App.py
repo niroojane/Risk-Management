@@ -45,7 +45,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     # 'Vol' is offered in the Risk Type dropdown but there is no downstream
     # implementation for it yet -- only 'Beta' constraints actually get built.
-    RISK_TYPES_IMPLEMENTED = {'Beta'}
+    RISK_TYPES_IMPLEMENTED = {'Beta','Volatility'}
 
     # --- globals ---
     global tickers_dataframe, tickers, dataframe, returns_to_use, prices
@@ -144,7 +144,26 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         beta = compute_per_asset_betas(returns_window, benchmark_price_or_level_series.pct_change())
         beta_data = beta_rows.iloc[0]
         return beta_constraint(beta, beta_data['Sign'], beta_data['Limit'])
-
+            
+    def build_vol_risk_constraints(returns_window, risk_constraint_dataframe):
+        """Build the volatility constraint list for `risk.optimize(constraints=...)`.
+    
+        Returns [] (never raises) if there's no 'Volatility' row -- including
+        when risk_constraint_dataframe has no 'Risk' column at all, which
+        happens whenever risk_constraints is empty: pd.DataFrame([]) has zero
+        columns, and .drop_duplicates(subset=['Risk']) short-circuits on an
+        empty frame without validating that 'Risk' exists, so this must be
+        checked before indexing rather than after.
+        """
+        if 'Risk' not in risk_constraint_dataframe.columns:
+            return []
+    
+        vol_rows = risk_constraint_dataframe[risk_constraint_dataframe['Risk'] == 'Volatility']
+        if vol_rows.empty:
+            return []
+    
+        vol_data = vol_rows.iloc[0]  # scalar row, not a Series -- matches build_beta_risk_constraints
+        return vol_constraint(returns_window.cov(), vol_data['Sign'], vol_data['Limit'])
     # =========================================================================
     # INVESTMENT UNIVERSE TAB -- asset scope + price loading
     # =========================================================================
@@ -370,7 +389,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     selected_fund = widgets.Dropdown(description="Fund:")
     selected_bench = widgets.Dropdown(description="Bench:")
     selected_fund_var = widgets.Dropdown(description="Fund:")
-    options_risk = ['Beta', 'Vol']
+    options_risk = ['Beta', 'Volatility']
 
     add_strategy_btn = widgets.Button(description='Add Strategy', style={'description_width': '150px'})
     clear_strategy_btn = widgets.Button(description='Clear Strategy', style={'description_width': '150px'})
@@ -427,7 +446,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                       f"only {sorted(RISK_TYPES_IMPLEMENTED)} constraints are actually applied.")
 
         risk_constraints.append({
-            'Risk': risk_type.value, 'Sign': dropdown_sign.value,
+            'Risk': risk_type.value, 'Sign': dropdown_risk_sign.value,
             'Limit': risk_limit.value
         })
 
@@ -739,8 +758,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                         frequency=rebalancing_frequency.value
                     ).sum(axis=1)
                     risk_cons = build_beta_risk_constraints(window_returns, benchmark_price_series, risk_constraint_dataframe)
+                    vol_cons=build_vol_risk_constraints(window_returns,risk_constraint_dataframe)
                     if risk_cons:
                         all_constraints.extend(risk_cons)
+                    if vol_cons:
+                        all_constraints.extend(vol_cons)
                 except Exception as e:
                     print("Error building risk constraints:", e)
             elif not risk_constraint_dataframe.empty:
@@ -881,14 +903,23 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
                 if subset.empty or len(subset) < 2:
                     return None
-
+                    
+                vol_cons = []
+                try:
+                    vol_cons = build_vol_risk_constraints(subset, risk_constraint_dataframe)
+                except Exception as e:
+                    print(f"Vol constraint failed {start} -> {end}: {e}")
+                    vol_cons = []
+                    
                 if benchmark_price_series_full is not None:
                     try:
                         risk_cons = build_beta_risk_constraints(subset, benchmark_price_series_full, risk_constraint_dataframe)
+
                     except Exception as e:
                         print(f"Beta constraint failed {start} -> {end}: {e}")
                         risk_cons = []
-
+                
+                
                 try:
                     risk = RiskAnalysis(subset)
                     constraints_to_use = []
@@ -897,7 +928,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                         constraints_to_use.extend(cons)
                     if risk_cons:
                         constraints_to_use.extend(risk_cons)
-
+                    if vol_cons:
+                        constraints_to_use.extend(vol_cons)
                     if constraints_to_use:
                         opt = risk.optimize(objective=strategy_key, constraints=constraints_to_use)
                     else:
