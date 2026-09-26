@@ -308,7 +308,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
             prices = scope_prices.loc[:, scope_prices.columns != "USDCUSDT"]
 
-            returns = np.log(1 + prices.pct_change(fill_method=None))
+            # returns = np.log(1 + prices.pct_change(fill_method=None))
+            returns =prices.pct_change(fill_method=None)
+
             returns.index = pd.to_datetime(returns.index)
 
             valid_cols = returns.columns[returns.isna().sum() < 30]
@@ -732,6 +734,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     def on_optimize_clicked(_):
         global fund_names, grid
+        # Without this, the `constraint_container = {...}` assignment below
+        # creates a function-local shadow instead of updating the outer
+        # variable -- clear_allocation's "Clear Allocation" button reads that
+        # outer constraint_container via its own nonlocal, so it would always
+        # see the initial empty placeholder ({'allocation_df': pd.DataFrame()})
+        # and reset grid.data to empty instead of restoring the last optimized
+        # allocation table.
+        nonlocal constraint_container
         with constraint_output:
             constraint_output.clear_output(wait=True)
             if dataframe.empty or returns_to_use.empty:
@@ -1021,9 +1031,18 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             max_drawdown = drawdown.min()
 
             metrics = pd.DataFrame()
-            metrics['Returns'] = performance_fund.iloc[-2] / performance_fund.iloc[0]
+            # '- 1' here: this is a return (e.g. 0.5 for +50%), not a growth
+            # multiplier (1.5) -- the Sharpe Ratio line below assumes that.
+            metrics['Returns'] = performance_fund.iloc[-2] / performance_fund.iloc[0] - 1
             metrics['Volatility'] = performance_pct.std() * np.sqrt(252)
-            metrics['Sharpe Ratio'] = (1 + metrics['Returns']) ** (1 / len(set(returns_to_use.index.year))) / metrics['Volatility']
+            # Annualize the return (**(1/years), matching the multiplier form,
+            # then '- 1' back to a return) before dividing by volatility.
+            # Previously this added 1 to an already-a-return figure a second
+            # time and never subtracted 1 back off after annualizing --
+            # neither the Returns nor the Sharpe Ratio columns were computing
+            # what their labels said.
+            annualized_return = (1 + metrics['Returns']) ** (1 / len(set(returns_to_use.index.year))) - 1
+            metrics['Sharpe Ratio'] = annualized_return / metrics['Volatility']
             metrics['Drawdown'] = max_drawdown
             metrics['Date Drawdown'] = date_drawdown
             excess_returns_to_btc = performance_pct.loc[:, performance_pct.columns != 'Bitcoin'].sub(
@@ -1701,9 +1720,15 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         range_returns = range_prices.pct_change(fill_method=None)
         series_dict = {}
         for key in grid.data.index:
-            rebalanced_series = rebalanced_portfolio(dataframe, grid.data.loc[key], frequency=rebalancing_frequency_pnl.value)
+            # Use range_prices (this window), not the full dataframe. buy_and_hold
+            # anchors its shares on data.iloc[0] -- passing the full price history
+            # anchors "Buy and Hold" at the very first day of the whole backtest,
+            # not at this window's start_ts, so the weight trajectory you see here
+            # already carries years of drift instead of starting at the target
+            # allocation like the Cumulative Return chart's own Buy and Hold does.
+            rebalanced_series = rebalanced_portfolio(range_prices, grid.data.loc[key], frequency=rebalancing_frequency_pnl.value)
             rebalanced_series_weights=rebalanced_series.apply(lambda x: x / rebalanced_series.sum(axis=1))
-            buy_and_hold_series = buy_and_hold(dataframe, grid.data.loc[key])
+            buy_and_hold_series = buy_and_hold(range_prices, grid.data.loc[key])
             buy_and_hold_series_weights = buy_and_hold_series.apply(lambda x: x / buy_and_hold_series.sum(axis=1))
             series_dict['Rebalanced ' + key] = rebalanced_series_weights.loc[start_ts:end_ts]
             series_dict['Buy and Hold ' + key] = buy_and_hold_series_weights.loc[start_ts:end_ts]
@@ -1787,7 +1812,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         result_var.columns = results_dict_var.keys()
         result_cvar.columns = results_dict_cvar.keys()
         selected_fund_to_decompose_var.options = result_var.columns
-        selected_fund_to_decompose_var.value = 'Fund'
+        # 'Fund' only exists as a column once `quantities` is non-empty (see
+        # series_dict construction above) -- setting .value to something not
+        # in .options raises in ipywidgets, so guard it the same way as the
+        # P&L Analysis tab's fund_ex_post/benchmark_ex_post defaults.
+        selected_fund_to_decompose_var.value = 'Fund' if 'Fund' in result_var.columns else result_var.columns[0]
 
         show_var_graph(None)
 
@@ -2355,16 +2384,19 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 return
         cumulative_performance_ex_post = pd.DataFrame()
 
-        if global_returns.empty:
-            performance_ex_post = historical_ptf['Historical Portfolio'].copy()
-            performance_ex_post = performance_ex_post.to_frame()
-        else:
-            performance_ex_post = historical_ptf['Historical Portfolio'].copy()
-            performance_ex_post = pd.concat([performance_ex_post, global_returns], axis=1).sort_index()
+        ex_post_return_series = _build_ex_post_return_series(start_ts, end_ts)
+        performance_ex_post = historical_ptf['Historical Portfolio'].copy().to_frame()
+        if not ex_post_return_series.empty:
+            performance_ex_post = pd.concat([performance_ex_post, ex_post_return_series], axis=1).sort_index()
 
-            options = list(performance_ex_post.columns)
-            fund_ex_post.options = options
-            benchmark_ex_post.options = options
+        options = list(performance_ex_post.columns)
+        fund_ex_post.options = options
+        benchmark_ex_post.options = options
+        # Sensible defaults, but guarded: setting .value to something not in
+        # .options raises in ipywidgets, and 'Fund' only exists once `quantities`
+        # is non-empty (see _build_ex_post_return_series).
+        fund_ex_post.value = 'Historical Portfolio' if 'Historical Portfolio' in options else options[0]
+        benchmark_ex_post.value = 'Fund' if 'Fund' in options else options[0]
 
         with ex_post_calendar:
             return_and_vol_graph = widgets.Output()
@@ -2424,12 +2456,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 print("⚠️ P&L not computed.")
                 return
 
-        if global_returns.empty:
-            performance_ex_post = historical_ptf['Historical Portfolio'].copy()
-            performance_ex_post = performance_ex_post.to_frame()
-        else:
-            performance_ex_post = historical_ptf['Historical Portfolio'].copy()
-            performance_ex_post = pd.concat([performance_ex_post, global_returns], axis=1).sort_index()
+        ex_post_return_series = _build_ex_post_return_series(start_ts, end_ts)
+        performance_ex_post = historical_ptf['Historical Portfolio'].copy().to_frame()
+        if not ex_post_return_series.empty:
+            performance_ex_post = pd.concat([performance_ex_post, ex_post_return_series], axis=1).sort_index()
 
         cumulative_performance_ex_post = performance_ex_post.loc[start_ts:end_ts].copy()
         cumulative_performance_ex_post.iloc[0] = 0
@@ -2439,30 +2469,54 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             weighted_returns_bench = historical_ptf.loc[start_ts:end_ts, historical_ptf.columns != 'Historical Portfolio']
         else:
             series_dict_returns = {}
+            # buy_and_hold anchors its shares on data.iloc[0], so it must be built
+            # on this window's own prices, not the full dataframe -- otherwise
+            # "Buy and Hold" here starts from the very first day of the whole
+            # backtest instead of from start_ts, and its weight trajectory arrives
+            # at this window already carrying however much drift happened before
+            # start_ts. That's a different definition of "Buy and Hold" than the
+            # Cumulative Return chart's (built on this same kind of windowed slice
+            # in Metrics.rebalanced_time_series), which is why the two diverge even
+            # once the rebalancing frequency matches.
+            window_prices = dataframe.loc[start_ts:end_ts]
             for key in grid.data.index:
-                rebalanced_series = rebalanced_portfolio(dataframe, grid.data.loc[key])
+                # Must match the frequency used for the Cumulative Return chart's
+                # `global_returns` (built via rebalanced_time_series(..., frequency=
+                # rebalancing_frequency.value) in updated_cumulative_perf). Leaving
+                # frequency unset here silently falls back to rebalanced_portfolio's
+                # own default ('Quarterly'), rebalancing on a different calendar than
+                # whatever the user actually selected -- that mismatch alone is
+                # enough to make Return Contribution and Cumulative Return diverge.
+                rebalanced_series = rebalanced_portfolio(window_prices, grid.data.loc[key], frequency=rebalancing_frequency_pnl.value)
                 rebalanced_series_weights = rebalanced_series.apply(lambda x: x / rebalanced_series.sum(axis=1))
-                buy_and_hold_series = buy_and_hold(dataframe, grid.data.loc[key])
+                buy_and_hold_series = buy_and_hold(window_prices, grid.data.loc[key])
                 buy_and_hold_series_weights = buy_and_hold_series.apply(lambda x: x / buy_and_hold_series.sum(axis=1))
-                series_dict_returns['Rebalanced ' + key] = rebalanced_series_weights.loc[start_ts:end_ts]
-                series_dict_returns['Buy and Hold ' + key] = buy_and_hold_series_weights.loc[start_ts:end_ts]
+                # Weights are shifted by one day BEFORE slicing to the display
+                # window, then multiplied against that day's asset return
+                # (assets_returns.mul(returns_ptf, axis=0), below). Shifting
+                # after the slice would orphan the first day of the window;
+                # not shifting at all applies each day's weight to its own
+                # same-day return, which is the realized-P&L bug fixed in
+                # get_ex_post_returns above.
+                series_dict_returns['Rebalanced ' + key] = rebalanced_series_weights.shift(1).loc[start_ts:end_ts]
+                series_dict_returns['Buy and Hold ' + key] = buy_and_hold_series_weights.shift(1).loc[start_ts:end_ts]
 
             if not quantities.empty:
                 portfolio = quantities * dataframe
                 model_weights = portfolio.apply(lambda x: x / portfolio.sum(axis=1))
-                series_dict_returns['Fund'] = model_weights.loc[start_ts:end_ts]
+                series_dict_returns['Fund'] = model_weights.shift(1).loc[start_ts:end_ts]
             if not quantities_core.empty:
                 portfolio = quantities_core * dataframe
                 model_weights = portfolio.apply(lambda x: x / portfolio.sum(axis=1))
-                series_dict_returns['Core'] = model_weights.loc[start_ts:end_ts]
+                series_dict_returns['Core'] = model_weights.shift(1).loc[start_ts:end_ts]
             if not quantities_overlay.empty:
                 portfolio = quantities_overlay * dataframe
                 model_weights = portfolio.apply(lambda x: x / portfolio.sum(axis=1))
-                series_dict_returns['Overlay'] = model_weights.loc[start_ts:end_ts]
+                series_dict_returns['Overlay'] = model_weights.shift(1).loc[start_ts:end_ts]
             bitcoin_allocation = pd.DataFrame([{key: 1 if key == 'BTCUSDT' else 0 for key in dataframe.columns}])
-            bitcoin_series = buy_and_hold(dataframe, bitcoin_allocation.iloc[0])
+            bitcoin_series = buy_and_hold(window_prices, bitcoin_allocation.iloc[0])
             bitcoin_series_weights = bitcoin_series.apply(lambda x: x / bitcoin_series.sum(axis=1))
-            series_dict_returns['Bitcoin'] = bitcoin_series_weights
+            series_dict_returns['Bitcoin'] = bitcoin_series_weights.shift(1)
 
         if benchmark_ex_post.value == 'Historical Portfolio':
             weighted_returns_bench = historical_ptf.loc[start_ts:end_ts, historical_ptf.columns != 'Historical Portfolio']
@@ -2551,12 +2605,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         selected_daily_pnl = daily_pnl.loc[start_ts:end_ts].copy()
         selected_positions = positions.loc[start_ts:end_ts]
 
-        if global_returns.empty:
-            performance_ex_post = historical_ptf['Historical Portfolio'].copy()
-            performance_ex_post = performance_ex_post.to_frame()
-        else:
-            performance_ex_post = historical_ptf['Historical Portfolio'].copy()
-            performance_ex_post = pd.concat([performance_ex_post, global_returns], axis=1).sort_index()
+        ex_post_return_series = _build_ex_post_return_series(start_ts, end_ts)
+        performance_ex_post = historical_ptf['Historical Portfolio'].copy().to_frame()
+        if not ex_post_return_series.empty:
+            performance_ex_post = pd.concat([performance_ex_post, ex_post_return_series], axis=1).sort_index()
 
         cumulative_performance_ex_post = performance_ex_post.loc[start_ts:end_ts].copy()
         cumulative_performance_ex_post.iloc[0] = 0
@@ -2664,32 +2716,36 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         daily_pnl = pd.DataFrame(daily_pnl)
         daily_pnl['color'] = daily_pnl['Total'].apply(lambda v: 'green' if v >= 0 else 'red')
 
-        binance_data_return = np.log(1 + binance_data.pct_change(fill_method=None))
+        # Simple returns, not log returns -- (1+r).cumprod() below is only
+        # valid for simple returns. Log returns understate large moves and
+        # can even flip the compounding sign on a big single-day drop.
+        binance_data_return = binance_data.pct_change(fill_method=None)
         weight_date = set(weights_ex_post.index)
         binance_date = set(binance_data_return.index)
         common_date = weight_date.intersection(binance_date)
 
         binance_data2 = binance_data_return.loc[list(common_date)].copy().sort_index()
         weights_ex_post2 = weights_ex_post.loc[list(common_date)].copy().sort_index()
+
+        # weights_ex_post2[col] on date t is derived from that day's
+        # post-move `positions`, i.e. it already reflects that day's price
+        # change. Multiplying it by that same day's return double-counts
+        # the move and dampens/distorts it. Lag the weight by one day so
+        # each day's return is applied to the weight that was actually in
+        # place going into that day.
+        weights_ex_post_lagged = weights_ex_post2.shift(1)
         historical_ptf = pd.DataFrame()
 
         for col in binance_data:
-            historical_ptf[col] = weights_ex_post2[col] * binance_data2[col]
+            historical_ptf[col] = weights_ex_post_lagged[col] * binance_data2[col]
 
         historical_ptf['Historical Portfolio'] = historical_ptf.sum(axis=1)
 
-        if global_returns.empty:
-            performance_ex_post = historical_ptf['Historical Portfolio'].copy()
-            performance_ex_post = performance_ex_post.to_frame()
-        else:
-            performance_ex_post = historical_ptf['Historical Portfolio'].copy()
-            performance_ex_post = pd.concat([performance_ex_post, global_returns], axis=1).sort_index()
-
-            options = list(performance_ex_post.columns)
-            fund_ex_post.options = options
-            benchmark_ex_post.options = options
-            fund_ex_post.value = 'Historical Portfolio'
-            benchmark_ex_post.value = 'Fund'
+        # Just the minimal frame here -- show_graph_ex_post (called below) rebuilds
+        # performance_ex_post properly windowed to start_date_perf_ex_post /
+        # end_date_perf_ex_post via _build_ex_post_return_series, and that's also
+        # where fund_ex_post / benchmark_ex_post's options and defaults get set.
+        performance_ex_post = historical_ptf['Historical Portfolio'].copy().to_frame()
         update_ex_post_chart(None)
         show_graph_ex_post(None)
         show_performance_chart(None)
@@ -2734,10 +2790,20 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         """Shared by get_risk_trajectory / get_tracking_error_trajectory to avoid
         duplicating the same rebalanced/buy-and-hold/model-weight computation twice."""
         series = {}
+        range_prices = dataframe.loc[start_ts:end_ts]
         for key in grid.data.index:
-            rebalanced_series = rebalanced_portfolio(dataframe, grid.data.loc[key])
+            # Same frequency argument as everywhere else in the P&L Analysis tab
+            # (VaR trajectory, etc.) -- leaving it unset defaults to
+            # rebalanced_portfolio's own 'Quarterly', silently ignoring
+            # rebalancing_frequency_pnl.
+            #
+            # Also use range_prices (this window), not the full dataframe --
+            # buy_and_hold anchors on data.iloc[0], so passing the full history
+            # anchors "Buy and Hold" at the start of the whole backtest instead
+            # of at this window's start_ts.
+            rebalanced_series = rebalanced_portfolio(range_prices, grid.data.loc[key], frequency=rebalancing_frequency_pnl.value)
             rebalanced_series_weights = rebalanced_series.apply(lambda x: x / rebalanced_series.sum(axis=1))
-            buy_and_hold_series = buy_and_hold(dataframe, grid.data.loc[key])
+            buy_and_hold_series = buy_and_hold(range_prices, grid.data.loc[key])
             buy_and_hold_series_weights = buy_and_hold_series.apply(lambda x: x / buy_and_hold_series.sum(axis=1))
             series['Rebalanced ' + key] = rebalanced_series_weights.loc[start_ts:end_ts]
             series['Buy and Hold ' + key] = buy_and_hold_series_weights.loc[start_ts:end_ts]
@@ -2752,6 +2818,41 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             portfolio = quantities_overlay * dataframe
             series['Overlay'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).loc[start_ts:end_ts]
         return series
+
+    def _build_ex_post_return_series(start_ts, end_ts):
+        """Realized daily-return series for 'Rebalanced X' / 'Buy and Hold X' /
+        'Fund' / 'Core' / 'Overlay' / 'Bitcoin' over [start_ts, end_ts].
+
+        This is the single source of truth for the P&L Analysis tab's non-
+        'Historical Portfolio' series: it reuses _build_weight_series_dict
+        (the exact same weights show_performance_chart uses for Return
+        Contribution), lagged by one day and multiplied against
+        returns_to_use, rather than `global_returns` -- which is a
+        *different* simulation, tied to the Optimization tab's own date
+        range (start_date_perf/end_date_perf) and its own
+        rebalancing_frequency widget. Building both charts from this one
+        function is what makes Cumulative Return match Return Contribution
+        by construction, instead of requiring the two tabs' date pickers
+        (and frequency dropdowns) to be kept in sync by hand.
+        """
+        if returns_to_use.empty or dataframe.empty:
+            return pd.DataFrame()
+
+        assets_returns = returns_to_use.loc[start_ts:end_ts]
+        return_series = {}
+
+        if not grid.data.empty:
+            series_dict_local = _build_weight_series_dict(start_ts, end_ts)
+            for key, weights_series in series_dict_local.items():
+                return_series[key] = assets_returns.mul(weights_series.shift(1), axis=0).sum(axis=1)
+
+        window_prices = dataframe.loc[start_ts:end_ts]
+        bitcoin_allocation = pd.DataFrame([{col: 1 if col == 'BTCUSDT' else 0 for col in dataframe.columns}])
+        bitcoin_weights = buy_and_hold(window_prices, bitcoin_allocation.iloc[0])
+        bitcoin_weights = bitcoin_weights.apply(lambda x: x / bitcoin_weights.sum(axis=1))
+        return_series['Bitcoin'] = assets_returns.mul(bitcoin_weights.shift(1), axis=0).sum(axis=1)
+
+        return pd.DataFrame(return_series)
 
     def show_risk_graph(_):
         global results_vol
@@ -3056,7 +3157,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         selected_bench_risk.options = results_tracking_error.columns
         selected_fund_to_decompose.options = results_tracking_error.columns
         selected_fund_to_decompose.value = 'Historical Portfolio'
-        selected_bench_risk.value = 'Fund'
+        # Same guard as elsewhere: 'Fund' only exists once `quantities` is
+        # non-empty, unlike 'Historical Portfolio' which is always present.
+        selected_bench_risk.value = 'Fund' if 'Fund' in results_tracking_error.columns else results_tracking_error.columns[0]
 
         show_tracking_error_graph(None)
 
@@ -3115,17 +3218,24 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 return
             display(loading_bar)
 
-        if global_returns.empty:
-            performance_ex_post_local = historical_ptf['Historical Portfolio'].copy().to_frame()
-        else:
+        ex_post_return_series = _build_ex_post_return_series(start_ts, end_ts)
+        performance_ex_post_local = historical_ptf['Historical Portfolio'].copy().to_frame()
+        if not ex_post_return_series.empty:
             performance_ex_post_local = pd.concat(
-                [historical_ptf['Historical Portfolio'].copy(), global_returns], axis=1
+                [performance_ex_post_local, ex_post_return_series], axis=1
             ).sort_index()
 
-        if selected_bench_risk.value not in performance_ex_post_local.columns:
+        # NOTE: the Beta tab was relocated to reuse the P&L Analysis dropdowns
+        # (fund_ex_post / benchmark_ex_post) rather than its own
+        # selected_fund_to_decompose / selected_bench_risk widgets, which
+        # still belong to the Risk Trajectory / Tracking Error sub-tabs.
+        # Guard checks and lookups here must both reference fund_ex_post /
+        # benchmark_ex_post -- checking one dropdown's value and then
+        # indexing with another's is how the earlier mismatch bug crept in.
+        if benchmark_ex_post.value not in performance_ex_post_local.columns:
             with beta_output:
                 beta_output.clear_output(wait=True)
-                print(f"⚠️ Benchmark '{selected_bench_risk.value}' not found in performance data.")
+                print(f"⚠️ Benchmark '{benchmark_ex_post.value}' not found in performance data.")
             return
 
         series_dict_local = _build_weight_series_dict(start_ts, end_ts)
@@ -3137,10 +3247,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         weights_ex_post = weights_ex_post.fillna(0.0)
         series_dict_local['Historical Portfolio'] = weights_ex_post.loc[start_ts:end_ts]
 
-        if selected_fund_to_decompose.value not in series_dict_local:
+        if fund_ex_post.value not in series_dict_local:
             with beta_output:
                 beta_output.clear_output(wait=True)
-                print(f"⚠️ '{selected_fund_to_decompose.value}' has no weight series available.")
+                print(f"⚠️ '{fund_ex_post.value}' has no weight series available.")
             return
 
         selected_weights = series_dict_local[fund_ex_post.value]
@@ -3191,14 +3301,14 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
         series_dict_local['Historical Portfolio'] = weights_ex_post.loc[start_ts:end_ts]
 
-        if selected_fund_to_decompose.value not in series_dict_local:
+        if fund_ex_post.value not in series_dict_local:
             with beta_output:
                 beta_output.clear_output(wait=True)
-                print(f"⚠️ '{selected_fund_to_decompose.value}' has no weight series available.")
+                print(f"⚠️ '{fund_ex_post.value}' has no weight series available.")
             return
 
         selected_weights = series_dict_local[fund_ex_post.value]
-        
+
         bench_col = benchmark_ex_post.value
         start_ts = start_ts
         end_ts = end_ts
