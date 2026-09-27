@@ -32,6 +32,7 @@ from src.Rebalancing import *
 from src.Metrics import *
 
 def display_crypto_app(Binance,Pnl_calculation,git):
+def display_crypto_app():
     # =========================================================================
     # Constants / shared config
     # =========================================================================
@@ -1178,7 +1179,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     def get_pnl_on_click(_):
         global book_cost, realized_pnl, profit_and_loss, trades
 
-        url = 'https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Trade%20History%20Reconstructed.xlsx'
+        url = 'https://github.com/niroojane/Risk-Management/raw/refs/heads/main/BinancePTF/Trade%20History%20Reconstructed.xlsx'
         trade_history = read_excel_from_url(url)
 
         if trade_history is None:
@@ -2573,9 +2574,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 positions.to_excel('Positions.xlsx', index=True)
                 if not trades.empty:
                     trades.to_excel('Trade History Reconstructed.xlsx', index=True)
-                    git.push_or_update_file(trades, 'Trade History Reconstructed')
-                git.push_or_update_file(positions, 'Positions')
-                git.push_or_update_file(quantities_holding, 'Quantities')
+                    git.push_or_update_file(trades, 'Trade History Reconstructed',folder='BinancePTF')
+                git.push_or_update_file(positions, 'Positions',folder='BinancePTF')
+                git.push_or_update_file(quantities_holding, 'Quantities',folder='BinancePTF')
 
         push_button = widgets.Button(description='Upload Files', button_style='success')
         push_button.on_click(git_push)
