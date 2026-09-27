@@ -26,8 +26,10 @@ Usage (file names are passed explicitly, so they can be anything):
         --quantities "Quantities.xlsx" --positions "Positions.xlsx" --trades "Trade History.xlsx"
     python update_positions.py ... --date 2026-09-25 --base EUR --no-fill
 
-From Python / the app:
+From Python (local files):
     main(current_portfolio_path, quantities_path, positions_path, trades_path=...)
+The app calls update_files(...) with data it has read itself, and saves or
+pushes the result with your GitHub class.
 """
 import argparse
 import datetime
@@ -106,11 +108,10 @@ def read_trades(path):
 
 
 def load_history(path):
-    if Path(path).exists():
-        hist = pd.read_excel(path, index_col=0)
-        hist.index = pd.to_datetime(hist.index).normalize()
-        return hist.sort_index()
-    return pd.DataFrame()
+    """Existing local history; empty if the file doesn't exist yet."""
+    if not Path(path).exists():
+        return pd.DataFrame()
+    return pd.read_excel(path, index_col=0)
 
 
 # -----------------------------------------------------------------------------
@@ -202,26 +203,31 @@ def atomic_write_excel(df, path):
             os.remove(tmp)
 
 
-def update_files(current_portfolio_path, quantities_path, positions_path, date=None, base=BASE_CURRENCY,
-                 trades=None, fill_gaps=True):
-    """Save `date`'s holdings (default today) and fill the days missed since the
-    last save. `trades`: a DataFrame (Date, Ticker, Currency, Side, Quantity,
-    Notional, Fee) or a path to Trade History.xlsx; without it missed days are
-    filled with today's holdings (only right if nothing was traded meanwhile).
+def _clean_history(hist):
+    if hist is None or hist.empty:
+        return pd.DataFrame()
+    hist = hist.copy()
+    hist.index = pd.to_datetime(hist.index).normalize()
+    return hist[~hist.index.duplicated(keep='last')].sort_index()
+
+
+def update_files(units_today, q_hist, p_hist, date=None, base=BASE_CURRENCY, trades=None, fill_gaps=True):
+    """Add `date`'s holdings (default today) to the histories and fill the days
+    missed since the last saved day. Nothing is read or written here.
+
+    units_today : Series, units per ticker + cash (from the current portfolio)
+    q_hist      : Quantities history (DataFrame, dates x tickers), may be empty
+    p_hist      : Positions history (same, with 'Total'), may be empty
+    trades      : DataFrame (Date, Ticker, Currency, Side, Quantity, Notional,
+                  Fee); without it missed days get today's holdings (only right
+                  if nothing was traded meanwhile)
 
     Returns (quantities, positions, summary, info) -- info has 'filled' (dates),
     'missing' (tickers without prices) and 'check' (reconciliation of the last
     saved day, or None).
     """
-    for path in (quantities_path, positions_path):
-        if str(path).lower().startswith(('http://', 'https://')):
-            raise ValueError(f"Can't write to a URL: {path} -- point the app at local files to update them.")
     date = pd.Timestamp(date or datetime.date.today()).normalize()
-    if isinstance(trades, (str, Path)):
-        trades = read_trades(trades) if Path(trades).exists() else None
-
-    units_today = read_current_portfolio(current_portfolio_path)
-    q_hist, p_hist = load_history(quantities_path), load_history(positions_path)
+    q_hist, p_hist = _clean_history(q_hist), _clean_history(p_hist)
     saved_before = q_hist.index[q_hist.index < date]
     last_saved = saved_before.max() if len(saved_before) else None
 
@@ -248,9 +254,6 @@ def update_files(current_portfolio_path, quantities_path, positions_path, date=N
 
     quantities = merge_rows(q_hist, units, replace=[date])
     positions = merge_rows(p_hist, positions_rows, replace=[date])
-    atomic_write_excel(quantities, quantities_path)
-    atomic_write_excel(positions, positions_path)
-
     summary = pd.DataFrame({'Units': units.loc[date], 'Price': prices.loc[date], 'FX': rates.loc[date],
                             f'Value ({base})': values.loc[date]})
     summary = summary[summary['Units'].abs() > 1e-12]
@@ -284,14 +287,18 @@ def describe(summary, info, base):
 
 def main(current_portfolio_path, quantities_path, positions_path, trades_path=None,
          date=None, base=BASE_CURRENCY, fill_gaps=True):
-    """Save `date` (default today) and fill missed days, using the files you name.
+    """Local files: save `date` (default today) and fill missed days.
 
     Example:
         main('Portfolio 2026-09.xlsx', 'My Quantities.xlsx', 'My Positions.xlsx',
              trades_path='Trades Q3.xlsx')
     """
-    q, p, summary, info = update_files(current_portfolio_path, quantities_path, positions_path, date, base,
-                                       trades=trades_path, fill_gaps=fill_gaps)
+    trades = read_trades(trades_path) if trades_path else None
+    q, p, summary, info = update_files(read_current_portfolio(current_portfolio_path),
+                                       load_history(quantities_path), load_history(positions_path),
+                                       date, base, trades=trades, fill_gaps=fill_gaps)
+    atomic_write_excel(q, quantities_path)
+    atomic_write_excel(p, positions_path)
     print('\n'.join(describe(summary, info, base)))
     print(summary.round(4).to_string())
     return q, p
