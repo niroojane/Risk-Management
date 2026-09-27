@@ -628,7 +628,17 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         cumulative_performance.iloc[0] = 0
         cumulative_results = (1 + cumulative_performance).cumprod() * 100
 
-        portfolio_returns = rebalanced_time_series(range_prices, grid.data, frequency=rebalancing_frequency.value)
+        # Rebalanced X and Buy and Hold X are both anchored on the full
+        # backtest history (dataframe) now, matching _build_weight_series_dict
+        # in the P&L Analysis tab below -- one continuous simulation each,
+        # with start_ts/end_ts only cropping which slice is shown, drift
+        # included, instead of restarting Rebalanced X from target weights
+        # every time the window changes. Rebased to 100 at the window's own
+        # start so it's on the same scale as cumulative_performance above,
+        # which is rebased the same way.
+        portfolio_returns = rebalanced_time_series(dataframe, grid.data, frequency=rebalancing_frequency.value)
+        portfolio_returns = portfolio_returns.loc[start_ts:end_ts]
+        portfolio_returns = portfolio_returns.div(portfolio_returns.iloc[0]) * 100
         cumulative_results = pd.concat([cumulative_results, portfolio_returns], axis=1)
         global_returns = cumulative_results.pct_change(fill_method=None)
 
@@ -1716,22 +1726,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 display(loading_bar)
                 display(loading_bar_risk)
 
-        range_prices = dataframe.loc[start_ts:end_ts]
-        range_returns = range_prices.pct_change(fill_method=None)
-        series_dict = {}
-        for key in grid.data.index:
-            # Use range_prices (this window), not the full dataframe. buy_and_hold
-            # anchors its shares on data.iloc[0] -- passing the full price history
-            # anchors "Buy and Hold" at the very first day of the whole backtest,
-            # not at this window's start_ts, so the weight trajectory you see here
-            # already carries years of drift instead of starting at the target
-            # allocation like the Cumulative Return chart's own Buy and Hold does.
-            rebalanced_series = rebalanced_portfolio(range_prices, grid.data.loc[key], frequency=rebalancing_frequency_pnl.value)
-            rebalanced_series_weights=rebalanced_series.apply(lambda x: x / rebalanced_series.sum(axis=1))
-            buy_and_hold_series = buy_and_hold(range_prices, grid.data.loc[key])
-            buy_and_hold_series_weights = buy_and_hold_series.apply(lambda x: x / buy_and_hold_series.sum(axis=1))
-            series_dict['Rebalanced ' + key] = rebalanced_series_weights.loc[start_ts:end_ts]
-            series_dict['Buy and Hold ' + key] = buy_and_hold_series_weights.loc[start_ts:end_ts]
+        # Single shared helper for Rebalanced/Buy and Hold/Fund/Core/Overlay/
+        # Bitcoin weights -- see _build_weight_series_dict's docstring for why
+        # both Rebalanced and Buy and Hold are anchored on the full dataframe.
+        series_dict = _build_weight_series_dict(start_ts, end_ts)
 
         weights_ex_post = positions.copy()
         weights_ex_post = weights_ex_post.drop(columns=['USDTUSDT'], errors='ignore')
@@ -1739,18 +1737,6 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         weights_ex_post = weights_ex_post.drop(columns=['Total'], errors='ignore')
         weights_ex_post = weights_ex_post.fillna(0.0)
 
-        if not quantities.empty:
-            portfolio = quantities * dataframe
-            model_weights = portfolio.apply(lambda x: x / portfolio.sum(axis=1))
-            series_dict['Fund'] = model_weights.loc[start_ts:end_ts]
-        if not quantities_core.empty:
-            portfolio = quantities_core * dataframe
-            model_weights = portfolio.apply(lambda x: x / portfolio.sum(axis=1))
-            series_dict['Core'] = model_weights.loc[start_ts:end_ts]
-        if not quantities_overlay.empty:
-            portfolio = quantities_overlay * dataframe
-            model_weights = portfolio.apply(lambda x: x / portfolio.sum(axis=1))
-            series_dict['Overlay'] = model_weights.loc[start_ts:end_ts]
         tickers_combined = list(quantities.columns) + list(weights_ex_post.columns)
         tickers_combined = list(set(tickers_combined))
 
@@ -2468,55 +2454,16 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         if grid.data.empty or quantities.empty:
             weighted_returns_bench = historical_ptf.loc[start_ts:end_ts, historical_ptf.columns != 'Historical Portfolio']
         else:
-            series_dict_returns = {}
-            # buy_and_hold anchors its shares on data.iloc[0], so it must be built
-            # on this window's own prices, not the full dataframe -- otherwise
-            # "Buy and Hold" here starts from the very first day of the whole
-            # backtest instead of from start_ts, and its weight trajectory arrives
-            # at this window already carrying however much drift happened before
-            # start_ts. That's a different definition of "Buy and Hold" than the
-            # Cumulative Return chart's (built on this same kind of windowed slice
-            # in Metrics.rebalanced_time_series), which is why the two diverge even
-            # once the rebalancing frequency matches.
-            window_prices = dataframe.loc[start_ts:end_ts]
-            for key in grid.data.index:
-                # Must match the frequency used for the Cumulative Return chart's
-                # `global_returns` (built via rebalanced_time_series(..., frequency=
-                # rebalancing_frequency.value) in updated_cumulative_perf). Leaving
-                # frequency unset here silently falls back to rebalanced_portfolio's
-                # own default ('Quarterly'), rebalancing on a different calendar than
-                # whatever the user actually selected -- that mismatch alone is
-                # enough to make Return Contribution and Cumulative Return diverge.
-                rebalanced_series = rebalanced_portfolio(window_prices, grid.data.loc[key], frequency=rebalancing_frequency_pnl.value)
-                rebalanced_series_weights = rebalanced_series.apply(lambda x: x / rebalanced_series.sum(axis=1))
-                buy_and_hold_series = buy_and_hold(window_prices, grid.data.loc[key])
-                buy_and_hold_series_weights = buy_and_hold_series.apply(lambda x: x / buy_and_hold_series.sum(axis=1))
-                # Weights are shifted by one day BEFORE slicing to the display
-                # window, then multiplied against that day's asset return
-                # (assets_returns.mul(returns_ptf, axis=0), below). Shifting
-                # after the slice would orphan the first day of the window;
-                # not shifting at all applies each day's weight to its own
-                # same-day return, which is the realized-P&L bug fixed in
-                # get_ex_post_returns above.
-                series_dict_returns['Rebalanced ' + key] = rebalanced_series_weights.shift(1).loc[start_ts:end_ts]
-                series_dict_returns['Buy and Hold ' + key] = buy_and_hold_series_weights.shift(1).loc[start_ts:end_ts]
-
-            if not quantities.empty:
-                portfolio = quantities * dataframe
-                model_weights = portfolio.apply(lambda x: x / portfolio.sum(axis=1))
-                series_dict_returns['Fund'] = model_weights.shift(1).loc[start_ts:end_ts]
-            if not quantities_core.empty:
-                portfolio = quantities_core * dataframe
-                model_weights = portfolio.apply(lambda x: x / portfolio.sum(axis=1))
-                series_dict_returns['Core'] = model_weights.shift(1).loc[start_ts:end_ts]
-            if not quantities_overlay.empty:
-                portfolio = quantities_overlay * dataframe
-                model_weights = portfolio.apply(lambda x: x / portfolio.sum(axis=1))
-                series_dict_returns['Overlay'] = model_weights.shift(1).loc[start_ts:end_ts]
-            bitcoin_allocation = pd.DataFrame([{key: 1 if key == 'BTCUSDT' else 0 for key in dataframe.columns}])
-            bitcoin_series = buy_and_hold(window_prices, bitcoin_allocation.iloc[0])
-            bitcoin_series_weights = bitcoin_series.apply(lambda x: x / bitcoin_series.sum(axis=1))
-            series_dict_returns['Bitcoin'] = bitcoin_series_weights.shift(1)
+            # Single shared helper (see _build_weight_series_dict's docstring):
+            # both Rebalanced and Buy and Hold are anchored on the full
+            # dataframe, and shift=1 shifts each series BEFORE slicing to the
+            # display window, so the window's first day still gets a real
+            # (not NaN) lagged weight instead of being orphaned. That lagged
+            # weight is then multiplied against that day's asset return
+            # (assets_returns.mul(returns_ptf, axis=0), below); not shifting
+            # at all would apply each day's weight to its own same-day return,
+            # which is the realized-P&L bug fixed in get_ex_post_returns above.
+            series_dict_returns = _build_weight_series_dict(start_ts, end_ts, shift=1)
 
         if benchmark_ex_post.value == 'Historical Portfolio':
             weighted_returns_bench = historical_ptf.loc[start_ts:end_ts, historical_ptf.columns != 'Historical Portfolio']
@@ -2786,37 +2733,66 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     risk_trajectory_refresh_button = widgets.Button(description="Refresh")
     tracking_error_refresh_button = widgets.Button(description="Refresh")
 
-    def _build_weight_series_dict(start_ts, end_ts):
-        """Shared by get_risk_trajectory / get_tracking_error_trajectory to avoid
-        duplicating the same rebalanced/buy-and-hold/model-weight computation twice."""
+    def _build_weight_series_dict(start_ts, end_ts, shift=0):
+        """Single source of truth for every tab's 'Rebalanced X' / 'Buy and Hold
+        X' / 'Fund' / 'Core' / 'Overlay' / 'Bitcoin' weight history -- used by
+        value_at_risk_trajectory, show_performance_chart,
+        _build_ex_post_return_series, get_risk_trajectory and
+        get_tracking_error_trajectory, instead of each of them re-deriving the
+        same computation with whatever price series they happened to have on
+        hand (that's exactly how 'Buy and Hold' ended up meaning two different
+        things in two different charts).
+
+        Both `rebalanced_portfolio` AND `buy_and_hold` are anchored on the FULL
+        `dataframe`, not the display window. `buy_and_hold` never resets, so it
+        has to be one continuous simulation across the whole backtest for
+        start_ts/end_ts to just crop the view rather than restart the
+        simulation from target weights every time the window changes.
+        `rebalanced_portfolio` is anchored the same way here for consistency --
+        it resets to target weights on its own fixed calendar regardless of
+        what price series it's given, so nothing about its own trajectory
+        changes, but every consumer of this dict now gets weights built
+        identically, which is what keeps the same name meaning the same thing
+        everywhere it's shown.
+
+        `shift`: shift each series (via .shift()) BEFORE slicing to
+        [start_ts:end_ts], so the window's first day still gets a real
+        (not NaN) lagged weight from the day before the window starts,
+        instead of being orphaned by shifting an already-sliced frame. Pass
+        shift=1 when the caller is about to multiply these weights against
+        returns (yesterday's weight earns today's return); leave the default
+        0 when the caller wants the weights themselves (e.g. VaR).
+        """
         series = {}
-        range_prices = dataframe.loc[start_ts:end_ts]
         for key in grid.data.index:
             # Same frequency argument as everywhere else in the P&L Analysis tab
             # (VaR trajectory, etc.) -- leaving it unset defaults to
             # rebalanced_portfolio's own 'Quarterly', silently ignoring
             # rebalancing_frequency_pnl.
-            #
-            # Also use range_prices (this window), not the full dataframe --
-            # buy_and_hold anchors on data.iloc[0], so passing the full history
-            # anchors "Buy and Hold" at the start of the whole backtest instead
-            # of at this window's start_ts.
-            rebalanced_series = rebalanced_portfolio(range_prices, grid.data.loc[key], frequency=rebalancing_frequency_pnl.value)
+            rebalanced_series = rebalanced_portfolio(dataframe, grid.data.loc[key], frequency=rebalancing_frequency_pnl.value)
             rebalanced_series_weights = rebalanced_series.apply(lambda x: x / rebalanced_series.sum(axis=1))
-            buy_and_hold_series = buy_and_hold(range_prices, grid.data.loc[key])
+            buy_and_hold_series = buy_and_hold(dataframe, grid.data.loc[key])
             buy_and_hold_series_weights = buy_and_hold_series.apply(lambda x: x / buy_and_hold_series.sum(axis=1))
-            series['Rebalanced ' + key] = rebalanced_series_weights.loc[start_ts:end_ts]
-            series['Buy and Hold ' + key] = buy_and_hold_series_weights.loc[start_ts:end_ts]
+            series['Rebalanced ' + key] = rebalanced_series_weights.shift(shift).loc[start_ts:end_ts]
+            series['Buy and Hold ' + key] = buy_and_hold_series_weights.shift(shift).loc[start_ts:end_ts]
 
         if not quantities.empty:
             portfolio = quantities * dataframe
-            series['Fund'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).loc[start_ts:end_ts]
+            series['Fund'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).shift(shift).loc[start_ts:end_ts]
         if not quantities_core.empty:
             portfolio = quantities_core * dataframe
-            series['Core'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).loc[start_ts:end_ts]
+            series['Core'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).shift(shift).loc[start_ts:end_ts]
         if not quantities_overlay.empty:
             portfolio = quantities_overlay * dataframe
-            series['Overlay'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).loc[start_ts:end_ts]
+            series['Overlay'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).shift(shift).loc[start_ts:end_ts]
+
+        # Bitcoin buy-and-hold, single-asset so the choice of anchor doesn't
+        # change its trajectory -- but it's built the same way for the same
+        # reason as everything else above: one place, one convention.
+        bitcoin_allocation = pd.DataFrame([{col: 1 if col == 'BTCUSDT' else 0 for col in dataframe.columns}])
+        bitcoin_series = buy_and_hold(dataframe, bitcoin_allocation.iloc[0])
+        bitcoin_series_weights = bitcoin_series.apply(lambda x: x / bitcoin_series.sum(axis=1))
+        series['Bitcoin'] = bitcoin_series_weights.shift(shift).loc[start_ts:end_ts]
         return series
 
     def _build_ex_post_return_series(start_ts, end_ts):
@@ -2842,15 +2818,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         return_series = {}
 
         if not grid.data.empty:
-            series_dict_local = _build_weight_series_dict(start_ts, end_ts)
+            # shift=1: yesterday's weight (from the day before the window
+            # starts, not NaN) earns today's return -- _build_weight_series_dict
+            # already includes 'Bitcoin' alongside Rebalanced/Buy and
+            # Hold/Fund/Core/Overlay, all anchored the same way.
+            series_dict_local = _build_weight_series_dict(start_ts, end_ts, shift=1)
             for key, weights_series in series_dict_local.items():
-                return_series[key] = assets_returns.mul(weights_series.shift(1), axis=0).sum(axis=1)
-
-        window_prices = dataframe.loc[start_ts:end_ts]
-        bitcoin_allocation = pd.DataFrame([{col: 1 if col == 'BTCUSDT' else 0 for col in dataframe.columns}])
-        bitcoin_weights = buy_and_hold(window_prices, bitcoin_allocation.iloc[0])
-        bitcoin_weights = bitcoin_weights.apply(lambda x: x / bitcoin_weights.sum(axis=1))
-        return_series['Bitcoin'] = assets_returns.mul(bitcoin_weights.shift(1), axis=0).sum(axis=1)
+                return_series[key] = assets_returns.mul(weights_series, axis=0).sum(axis=1)
 
         return pd.DataFrame(return_series)
 
