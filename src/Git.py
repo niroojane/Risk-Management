@@ -18,20 +18,21 @@ class GitHub:
         self.repo_name=repo_name
         self.branch=branch
 
-    def push_or_update_file(self,df,file_name):
+    def push_or_update_file(self, df, file_name, folder=""):
         # Prepare file path
-        file_path = f'{file_name}.xlsx'
-        
+        if folder:
+            file_path = f"{folder}/{file_name}.xlsx"
+        else:
+            file_path = f"{file_name}.xlsx"
+    
         excel_buffer = BytesIO()
-        df.to_excel(excel_buffer, index=True,engine='openpyxl')
-        excel_data = excel_buffer.getvalue()
-        
-        # Encode content to Base64
-        encoded_content = base64.b64encode(excel_data).decode()
-        
-        # GitHub API URLs
-        url = f'https://api.github.com/repos/{self.repo_owner}/{self.repo_name}/contents/{file_path}'
-        
+        df.to_excel(excel_buffer, index=True, engine="openpyxl")
+        encoded_content = base64.b64encode(excel_buffer.getvalue()).decode()
+    
+        url = (
+            f"https://api.github.com/repos/"
+            f"{self.repo_owner}/{self.repo_name}/contents/{file_path}"
+        )
         headers = {
             'Authorization': f'token {self.token}',
             'Accept': 'application/vnd.github.v3+json'
