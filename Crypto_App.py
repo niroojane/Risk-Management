@@ -2310,8 +2310,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
 
     def check_connection(_):
         global quantities_holding, positions
-        url_positions = 'https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Positions.xlsx'
-        url_quantities = 'https://github.com/niroojane/Risk-Management/raw/refs/heads/main/Quantities.xlsx'
+        url_positions = 'https://github.com/niroojane/Risk-Management/raw/refs/heads/main/BinancePTF/Positions.xlsx'
+        url_quantities = 'https://github.com/niroojane/Risk-Management/raw/refs/heads/main/BinancePTF/Quantities.xlsx'
 
         with ex_post_perf:
             ex_post_perf.clear_output(wait=True)
