@@ -35,6 +35,33 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     # =========================================================================
     # Constants / shared config
     # =========================================================================
+    def _set_dropdown_options(dd, options, fallback=None):
+        """Reassign a Dropdown's .options while preserving its current
+        .value whenever possible.
+
+        ipywidgets resets .value to options[0] the instant .options'
+        CONTENT changes at all -- even a pure superset where the old value
+        is still present at the same position, not just on reorder. A
+        "check-after" guard (`dd.options = opts; if dd.value not in opts:
+        ...`) can't detect this: by the time it reads .value the reset has
+        already silently happened, and options[0] always looks "valid" to
+        the check. Capturing .value BEFORE the reassignment and restoring
+        it explicitly afterward sidesteps that.
+
+        `fallback` is used only when the previous value is no longer in
+        the new options (it defaults to options[0] when omitted or itself
+        not present).
+        """
+        options = list(options)
+        if not options:
+            dd.options = options
+            return
+        old_value = dd.value
+        dd.options = options
+        if old_value in options:
+            dd.value = old_value
+        else:
+            dd.value = fallback if fallback in options else options[0]
     dico_strategies = {
         'Minimum Variance': 'minimum_variance',
         'Risk Parity': 'risk_parity',
@@ -500,10 +527,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         updated_df = pd.concat([pd.DataFrame(grid.data), new_df])
         grid.data = updated_df
 
-        benchmark_tracking_error.options = grid.data.index
-        selected_fund.options = grid.data.index
-        selected_bench.options = grid.data.index
-        selected_fund_var.options = grid.data.index
+        _set_dropdown_options(benchmark_tracking_error, grid.data.index)
+        _set_dropdown_options(selected_fund, grid.data.index)
+        _set_dropdown_options(selected_bench, grid.data.index)
+        _set_dropdown_options(selected_fund_var, grid.data.index)
 
     def clear_allocation(b):
         nonlocal constraint_container
@@ -760,10 +787,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         else:
             benchmark.value = options[1] if len(options) > 1 else options[0]
         fund_names = list(grid.data.index)
-        benchmark_tracking_error.options = grid.data.index
-        selected_fund.options = grid.data.index
-        selected_bench.options = grid.data.index
-        selected_fund_var.options = grid.data.index
+        _set_dropdown_options(benchmark_tracking_error, grid.data.index)
+        _set_dropdown_options(selected_fund, grid.data.index)
+        _set_dropdown_options(selected_bench, grid.data.index)
+        _set_dropdown_options(selected_fund_var, grid.data.index)
 
     def on_optimize_clicked(_):
         global fund_names, grid
@@ -847,24 +874,17 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             constraint_container = {'constraints_dataframe': constraints, 'constraints': cons, 'allocation_df': allocation_df}
             grid.data = allocation_df
 
-            # Guarded the same way as the redraw-only dropdowns elsewhere:
-            # re-running Optimize (e.g. after tweaking a constraint) shouldn't
-            # throw away a fund/benchmark you'd already picked in the risk
-            # tabs if that name is still a valid row in the new grid.data.
-            benchmark_tracking_error.options = grid.data.index
-            if benchmark_tracking_error.value not in grid.data.index:
-                benchmark_tracking_error.value = grid.data.index[0]
-            selected_fund.options = grid.data.index
-            if selected_fund.value not in grid.data.index:
-                selected_fund.value = grid.data.index[0]
-
-            selected_bench.options = grid.data.index
-            if selected_bench.value not in grid.data.index:
-                selected_bench.value = grid.data.index[0]
-
-            selected_fund_var.options = grid.data.index
-            if selected_fund_var.value not in grid.data.index:
-                selected_fund_var.value = grid.data.index[0]
+            # Preserves whatever fund/benchmark you'd already picked in the
+            # risk tabs when re-running Optimize (e.g. after tweaking a
+            # constraint), if that name is still a valid row in the new
+            # grid.data -- see _set_dropdown_options for why a plain
+            # "options = ...; if value not in options" guard can't do that
+            # (ipywidgets has already reset .value to options[0] by the
+            # time such a guard reads it).
+            _set_dropdown_options(benchmark_tracking_error, grid.data.index)
+            _set_dropdown_options(selected_fund, grid.data.index)
+            _set_dropdown_options(selected_bench, grid.data.index)
+            _set_dropdown_options(selected_fund_var, grid.data.index)
 
             with constraint_output:
                 constraint_output.clear_output(wait=True)
@@ -1838,16 +1858,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 return
         result_var.columns = results_dict_var.keys()
         result_cvar.columns = results_dict_cvar.keys()
-        selected_fund_to_decompose_var.options = result_var.columns
         # 'Fund' only exists as a column once `quantities` is non-empty (see
-        # series_dict_var construction above) -- setting .value to something not
-        # in .options raises in ipywidgets, so guard it the same way as the
-        # P&L Analysis tab's fund_ex_post/benchmark_ex_post defaults. Also
-        # preserve whatever was already selected across a re-run of 'Get VaR'
-        # (e.g. after widening the date range) instead of always snapping
-        # back to 'Fund'.
-        if selected_fund_to_decompose_var.value not in result_var.columns:
-            selected_fund_to_decompose_var.value = 'Fund' if 'Fund' in result_var.columns else result_var.columns[0]
+        # series_dict_var construction above). Preserves whatever was
+        # already selected across a re-run of 'Get VaR' (e.g. after
+        # widening the date range) instead of always snapping back to
+        # 'Fund' -- see _set_dropdown_options.
+        _set_dropdown_options(selected_fund_to_decompose_var, result_var.columns, fallback='Fund')
 
         show_var_graph(None)
 
@@ -2025,7 +2041,11 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         range_returns = returns_to_use.loc[start_ts:end_ts, market_tickers]
         portfolio = RiskAnalysis(range_returns)
         eigval, eigvec, portfolio_components = portfolio.pca(num_components=num_components.value)
-        selected_components.options = portfolio_components.columns
+        # Without capturing/restoring .value here, re-running 'Get Market
+        # Risk Metrics' (e.g. after widening the date range, with the same
+        # number of components) would silently reset whichever PC you'd
+        # selected back to the first one -- see _set_dropdown_options.
+        _set_dropdown_options(selected_components, portfolio_components.columns)
         num_components.max = len(range_returns.columns) + 1
         num_closest_to_pca.max = len(range_returns.columns)
 
@@ -2647,13 +2667,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         def git_push(_):
             with git_output:
                 git_output.clear_output(wait=True)
-                quantities_holding.to_excel('BinancePTF/Quantities.xlsx', index=True)
-                positions.to_excel('BinancePTF/Positions.xlsx', index=True)
+                quantities_holding.to_excel('Quantities.xlsx', index=True)
+                positions.to_excel('Positions.xlsx', index=True)
                 if not trades.empty:
-                    trades.to_excel('BinancePTF/Trade History Reconstructed.xlsx', index=True)
-                    git.push_or_update_file(trades, 'Trade History Reconstructed',folder='BinancePTF')
-                git.push_or_update_file(positions, 'Positions',folder='BinancePTF')
-                git.push_or_update_file(quantities_holding, 'Quantities',folder='BinancePTF')
+                    trades.to_excel('Trade History Reconstructed.xlsx', index=True)
+                    git.push_or_update_file(trades, 'Trade History Reconstructed')
+                git.push_or_update_file(positions, 'Positions')
+                git.push_or_update_file(quantities_holding, 'Quantities')
 
         push_button = widgets.Button(description='Upload Files', button_style='success')
         push_button.on_click(git_push)
@@ -2979,11 +2999,18 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                                   (selected_fund_to_decompose_var, 'Fund', options)):
             prev_opts = _trajectory_dropdown_prev_options.get(id(dd))
             default_newly_available = (default in opts) and (prev_opts is not None) and (default not in prev_opts)
+            # Capture .value BEFORE reassigning .options -- see
+            # _set_dropdown_options. Read directly (rather than calling
+            # that helper) because the "newly available default" case
+            # needs to override even a still-valid old value.
+            old_value = dd.value
             dd.options = opts
-            if dd.value not in opts:
-                dd.value = default if default in opts else opts[0]
-            elif default_newly_available:
+            if default_newly_available:
                 dd.value = default
+            elif old_value in opts:
+                dd.value = old_value
+            else:
+                dd.value = default if default in opts else opts[0]
             _trajectory_dropdown_prev_options[id(dd)] = list(opts)
 
     def _build_ex_post_return_series(start_ts, end_ts):
@@ -3163,13 +3190,10 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 print("⚠️ Risk results are empty.")
                 return
         results_vol.columns = results_dict.keys()
-        selected_fund_to_decompose.options = results_vol.columns
-        # Guarded (unguarded before -- 'Historical Portfolio' isn't
-        # guaranteed to be a column here) and preserves whatever was already
-        # selected across a re-run of 'Get Ex Ante Vol'.
-        if selected_fund_to_decompose.value not in results_vol.columns:
-            selected_fund_to_decompose.value = ('Historical Portfolio' if 'Historical Portfolio' in results_vol.columns
-                                                else results_vol.columns[0])
+        # 'Historical Portfolio' isn't guaranteed to be a column here.
+        # Preserves whatever was already selected across a re-run of
+        # 'Get Ex Ante Vol' -- see _set_dropdown_options.
+        _set_dropdown_options(selected_fund_to_decompose, results_vol.columns, fallback='Historical Portfolio')
 
         show_risk_graph(None)
 
@@ -3219,10 +3243,20 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         # index mismatch -- that's already been excluded above.
         series_weights = (fund_series - bench_series).fillna(0).loc[start_ts:end_ts]
 
-        if fund_key != 'Historical Portfolio':
-            returns_for_decomp = returns_to_use.loc[series_weights.index].loc[start_ts:end_ts]
-        else:
+        # 'Historical Portfolio' columns come from weights_ex_post (the
+        # real portfolio's own holdings), while every other key's columns
+        # come from `quantities` (the strategy universe, same tickers as
+        # returns_to_use) -- two ticker sets that aren't identical.
+        # current_underlying_returns is the one built over their UNION
+        # (tickers_combined), so it's the only side guaranteed to cover
+        # series_weights' columns whenever EITHER key is 'Historical
+        # Portfolio' -- checking fund_key alone missed the case where only
+        # the benchmark was 'Historical Portfolio', leaving series_weights
+        # with Historical's columns but returns_to_use not covering them.
+        if 'Historical Portfolio' in (fund_key, bench_key):
             returns_for_decomp = current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts]
+        else:
+            returns_for_decomp = returns_to_use.loc[series_weights.index].loc[start_ts:end_ts]
 
         contribution_to_vol = get_ex_ante_vol_contribution(series_weights, returns_for_decomp, window_te.value)
         correlation_contrib = get_correlation_contribution(series_weights, returns_for_decomp, window_te.value)
