@@ -32,7 +32,6 @@ from src.Rebalancing import *
 from src.Metrics import *
 
 def display_crypto_app(Binance,Pnl_calculation,git):
-def display_crypto_app():
     # =========================================================================
     # Constants / shared config
     # =========================================================================
@@ -2648,13 +2647,13 @@ def display_crypto_app():
         def git_push(_):
             with git_output:
                 git_output.clear_output(wait=True)
-                quantities_holding.to_excel('Quantities.xlsx', index=True)
-                positions.to_excel('Positions.xlsx', index=True)
+                quantities_holding.to_excel('BinancePTF/Quantities.xlsx', index=True)
+                positions.to_excel('BinancePTF/Positions.xlsx', index=True)
                 if not trades.empty:
-                    trades.to_excel('Trade History Reconstructed.xlsx', index=True)
-                    git.push_or_update_file(trades, 'Trade History Reconstructed')
-                git.push_or_update_file(positions, 'Positions')
-                git.push_or_update_file(quantities_holding, 'Quantities')
+                    trades.to_excel('BinancePTF/Trade History Reconstructed.xlsx', index=True)
+                    git.push_or_update_file(trades, 'Trade History Reconstructed',folder='BinancePTF')
+                git.push_or_update_file(positions, 'Positions',folder='BinancePTF')
+                git.push_or_update_file(quantities_holding, 'Quantities',folder='BinancePTF')
 
         push_button = widgets.Button(description='Upload Files', button_style='success')
         push_button.on_click(git_push)
