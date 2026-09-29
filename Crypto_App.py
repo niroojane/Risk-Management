@@ -526,8 +526,14 @@ def display_crypto_app():
     end_date_perf = widgets.DatePicker(value=datetime.date.today(), layout=widgets.Layout(width='350px'))
 
     frequency_graph = widgets.Dropdown(description='Frequency:', options=['Year', 'Month'], value='Year')
-    benchmark = widgets.Dropdown(description='Benchmark:', options=['Fund', 'Bitcoin'], value='Bitcoin')
-    fund = widgets.Dropdown(description='Fund:', options=['Fund', 'Bitcoin'], value='Fund')
+    # Hard-loaded to the intended Fund vs Core pair from the start, so the
+    # Calendar Return chart already shows that pairing even before any data
+    # is loaded, and update_dropdown_options' "value not in options" guard
+    # has nothing to do once real options arrive (both are already right).
+    # Distinct values matter here -- see benchmark_ex_post below for what
+    # goes wrong when a fund/benchmark pair share the same placeholder.
+    fund = widgets.Dropdown(description='Fund:', options=['Fund', 'Core'], value='Fund')
+    benchmark = widgets.Dropdown(description='Benchmark:', options=['Fund', 'Core'], value='Core')
     benchmark_tracking_error = widgets.Dropdown(description='Benchmark:')
     perf_output = widgets.Output()
     vol_output = widgets.Output()
@@ -733,10 +739,27 @@ def display_crypto_app():
         global fund_names
 
         options = list(cumulative_results.columns)
+
+        # Capture BEFORE reassigning .options below -- ipywidgets' Dropdown
+        # resets .value to options[0] the instant .options' CONTENT changes
+        # at all (even a pure superset, old value still present at the same
+        # position), not just on reorder. Reading .value after the
+        # reassignment can't detect that, since options[0] is itself
+        # "valid" -- restoring the captured value explicitly sidesteps it.
+        old_fund_value = fund.value
+        old_bench_value = benchmark.value
+
         fund.options = options
         benchmark.options = options
-        fund.value = options[0]
-        benchmark.value = options[1]
+
+        if old_fund_value in options:
+            fund.value = old_fund_value
+        else:
+            fund.value = options[0]
+        if old_bench_value in options:
+            benchmark.value = old_bench_value
+        else:
+            benchmark.value = options[1] if len(options) > 1 else options[0]
         fund_names = list(grid.data.index)
         benchmark_tracking_error.options = grid.data.index
         selected_fund.options = grid.data.index
@@ -825,22 +848,31 @@ def display_crypto_app():
             constraint_container = {'constraints_dataframe': constraints, 'constraints': cons, 'allocation_df': allocation_df}
             grid.data = allocation_df
 
+            # Guarded the same way as the redraw-only dropdowns elsewhere:
+            # re-running Optimize (e.g. after tweaking a constraint) shouldn't
+            # throw away a fund/benchmark you'd already picked in the risk
+            # tabs if that name is still a valid row in the new grid.data.
             benchmark_tracking_error.options = grid.data.index
-            benchmark_tracking_error.value = grid.data.index[0]
+            if benchmark_tracking_error.value not in grid.data.index:
+                benchmark_tracking_error.value = grid.data.index[0]
             selected_fund.options = grid.data.index
-            selected_fund.value = grid.data.index[0]
+            if selected_fund.value not in grid.data.index:
+                selected_fund.value = grid.data.index[0]
 
             selected_bench.options = grid.data.index
-            selected_bench.value = grid.data.index[0]
+            if selected_bench.value not in grid.data.index:
+                selected_bench.value = grid.data.index[0]
 
             selected_fund_var.options = grid.data.index
-            selected_fund_var.value = grid.data.index[0]
+            if selected_fund_var.value not in grid.data.index:
+                selected_fund_var.value = grid.data.index[0]
 
             with constraint_output:
                 constraint_output.clear_output(wait=True)
                 display(display_scrollable_df(pd.DataFrame(constraints)))
 
             reset_stress(None)
+            refresh_trajectory_dropdowns()
 
     def get_result(_):
         nonlocal constraint_container
@@ -1070,6 +1102,15 @@ def display_crypto_app():
             updated_cumulative_perf(None)
             show_graph(None)
             get_holdings(None)
+            refresh_trajectory_dropdowns()
+            # 'Fund' just became available (or newly refreshed) here via
+            # `quantities` -- if 'Get P&L' already ran, the Current Portfolio
+            # Calendar Return chart was sitting there mid-load (fund_ex_post/
+            # benchmark_ex_post both stuck on 'Historical Portfolio', see
+            # show_graph_ex_post) and nothing else would ever re-render it.
+            # Harmless to call before 'Get P&L' has run -- it just prints
+            # "P&L not computed." and returns.
+            show_graph_ex_post(None)
 
     optimize_btn.on_click(on_optimize_clicked)
     results_button = widgets.Button(description='Get Results', button_style='info')
@@ -1700,7 +1741,7 @@ def display_crypto_app():
     window_var = widgets.IntText(value=252, description='Window:', disabled=False)
 
     def value_at_risk_trajectory(_):
-        global result_var, result_cvar, series_dict, current_underlying_returns
+        global result_var, result_cvar, series_dict_var, current_underlying_returns
 
         try:
             start_ts = pd.to_datetime(start_date_perf_risk.value)
@@ -1730,7 +1771,7 @@ def display_crypto_app():
         # Single shared helper for Rebalanced/Buy and Hold/Fund/Core/Overlay/
         # Bitcoin weights -- see _build_weight_series_dict's docstring for why
         # both Rebalanced and Buy and Hold are anchored on the full dataframe.
-        series_dict = _build_weight_series_dict(start_ts, end_ts)
+        series_dict_var = _build_weight_series_dict(start_ts, end_ts)
 
         weights_ex_post = positions.copy()
         weights_ex_post = weights_ex_post.drop(columns=['USDTUSDT'], errors='ignore')
@@ -1755,8 +1796,8 @@ def display_crypto_app():
 
         method = var_function_names[func_name.value]
         args = distrib_functions[method]
-        tasks = [(key, method, args, returns_to_use.loc[start_ts:end_ts], series_dict[key], window_var.value, var_centile.value) for key in series_dict]
-        series_dict['Historical Portfolio'] = weights_ex_post.loc[start_ts:end_ts]
+        tasks = [(key, method, args, returns_to_use.loc[start_ts:end_ts], series_dict_var[key], window_var.value, var_centile.value) for key in series_dict_var]
+        series_dict_var['Historical Portfolio'] = weights_ex_post.loc[start_ts:end_ts]
 
         if method in ['gumbel_copula']:
             tasks.append(
@@ -1800,10 +1841,14 @@ def display_crypto_app():
         result_cvar.columns = results_dict_cvar.keys()
         selected_fund_to_decompose_var.options = result_var.columns
         # 'Fund' only exists as a column once `quantities` is non-empty (see
-        # series_dict construction above) -- setting .value to something not
+        # series_dict_var construction above) -- setting .value to something not
         # in .options raises in ipywidgets, so guard it the same way as the
-        # P&L Analysis tab's fund_ex_post/benchmark_ex_post defaults.
-        selected_fund_to_decompose_var.value = 'Fund' if 'Fund' in result_var.columns else result_var.columns[0]
+        # P&L Analysis tab's fund_ex_post/benchmark_ex_post defaults. Also
+        # preserve whatever was already selected across a re-run of 'Get VaR'
+        # (e.g. after widening the date range) instead of always snapping
+        # back to 'Fund'.
+        if selected_fund_to_decompose_var.value not in result_var.columns:
+            selected_fund_to_decompose_var.value = 'Fund' if 'Fund' in result_var.columns else result_var.columns[0]
 
         show_var_graph(None)
 
@@ -1841,7 +1886,7 @@ def display_crypto_app():
                 print("⚠️ Date range is shorter than rolling window.")
                 return
 
-            if not series_dict:
+            if not series_dict_var:
                 print("⚠️ Weights Empty.")
                 return
             else:
@@ -1855,7 +1900,7 @@ def display_crypto_app():
                     'gumbel_copula': (iterations.value, theta, stress_factor.value, mean_factor.value),
                     'monte_carlo': (spot, horizon, iterations.value, stress_factor.value, mean_factor.value)}
                 value_at_risk_trajectory_output.clear_output(wait=True)
-                series_weights = series_dict[selected_fund_to_decompose_var.value]
+                series_weights = series_dict_var[selected_fund_to_decompose_var.value]
                 method = var_function_names[func_name.value]
                 args = distrib_functions[method]
                 if selected_fund_to_decompose_var.value != 'Historical Portfolio':
@@ -2346,8 +2391,15 @@ def display_crypto_app():
     ex_post_perf = widgets.Output()
     ex_post_calendar = widgets.Output()
     performance_output = widgets.Output()
+    # Hard-loaded to the intended Historical Portfolio vs Fund pair from the
+    # start -- fund_ex_post and benchmark_ex_post must NOT share the same
+    # initial value here: they used to both start as 'Historical Portfolio',
+    # which is always a valid option once data loads, so show_graph_ex_post's
+    # "value not in options" guard never fired for benchmark_ex_post and it
+    # silently stayed on 'Historical Portfolio' forever instead of ever
+    # moving to 'Fund'. Distinct initial values sidestep that entirely.
     fund_ex_post = widgets.Dropdown(value='Historical Portfolio', options=['Historical Portfolio', 'Fund'], description='Select Fund:', style={'description_width': '150px'})
-    benchmark_ex_post = widgets.Dropdown(value='Historical Portfolio', options=['Historical Portfolio', 'Fund'], description='Select Benchmark:', style={'description_width': '150px'})
+    benchmark_ex_post = widgets.Dropdown(value='Fund', options=['Historical Portfolio', 'Fund'], description='Select Benchmark:', style={'description_width': '150px'})
     frequency_graph_ex_post = widgets.Dropdown(options=['Year', 'Month'], value='Year', description='Select Frequency:', style={'description_width': '150px'})
     calendar_button_ex_post = widgets.Button(description='Update', button_style='info')
 
@@ -2377,13 +2429,39 @@ def display_crypto_app():
             performance_ex_post = pd.concat([performance_ex_post, ex_post_return_series], axis=1).sort_index()
 
         options = list(performance_ex_post.columns)
+
+        # Capture BEFORE reassigning .options below, not after: ipywidgets'
+        # Dropdown resets .value to options[0] the instant .options'
+        # CONTENT changes at all -- not just on reorder, but even a pure
+        # superset (old value still present, same position) triggers it.
+        # Reading .value after the reassignment can't tell that happened,
+        # because options[0] is itself "valid" -- the old "if value not in
+        # options: reset" guard was therefore a no-op almost every time the
+        # option list actually grew (e.g. a new strategy/fund added), which
+        # is exactly why fund_ex_post and benchmark_ex_post kept ending up
+        # on the same value. Restoring the captured value explicitly below
+        # sidesteps ipywidgets' auto-reset entirely.
+        old_fund_value = fund_ex_post.value
+        old_bench_value = benchmark_ex_post.value
+
         fund_ex_post.options = options
         benchmark_ex_post.options = options
-        # Sensible defaults, but guarded: setting .value to something not in
-        # .options raises in ipywidgets, and 'Fund' only exists once `quantities`
-        # is non-empty (see _build_ex_post_return_series).
-        fund_ex_post.value = 'Historical Portfolio' if 'Historical Portfolio' in options else options[0]
-        benchmark_ex_post.value = 'Fund' if 'Fund' in options else options[0]
+
+        # options[0] is always 'Historical Portfolio' (the base frame above,
+        # always present) and options[1] is 'Fund' whenever quantities isn't
+        # empty (Fund is the first key _build_weight_series_dict adds) --
+        # that ordering is guaranteed by construction, so there's no need to
+        # name-match 'Historical Portfolio'/'Fund' here: options[0]/[1] ARE
+        # those values whenever they exist, and naturally fall through to
+        # whatever's next in priority order (Core, Overlay, ...) otherwise.
+        if old_fund_value in options:
+            fund_ex_post.value = old_fund_value
+        else:
+            fund_ex_post.value = options[0]
+        if old_bench_value in options:
+            benchmark_ex_post.value = old_bench_value
+        else:
+            benchmark_ex_post.value = options[1] if len(options) > 1 else options[0]
 
         with ex_post_calendar:
             return_and_vol_graph = widgets.Output()
@@ -2574,9 +2652,9 @@ def display_crypto_app():
                 positions.to_excel('Positions.xlsx', index=True)
                 if not trades.empty:
                     trades.to_excel('Trade History Reconstructed.xlsx', index=True)
-                    git.push_or_update_file(trades, 'Trade History Reconstructed',folder='BinancePTF')
-                git.push_or_update_file(positions, 'Positions',folder='BinancePTF')
-                git.push_or_update_file(quantities_holding, 'Quantities',folder='BinancePTF')
+                    git.push_or_update_file(trades, 'Trade History Reconstructed')
+                git.push_or_update_file(positions, 'Positions')
+                git.push_or_update_file(quantities_holding, 'Quantities')
 
         push_button = widgets.Button(description='Upload Files', button_style='success')
         push_button.on_click(git_push)
@@ -2697,6 +2775,10 @@ def display_crypto_app():
         update_ex_post_chart(None)
         show_graph_ex_post(None)
         show_performance_chart(None)
+        # 'Historical Portfolio' just became available (or newly refreshed) --
+        # push it into the Risk Trajectory / Tracking Error / VaR trajectory
+        # dropdowns too, so they don't wait for their own 'Get ...' button.
+        refresh_trajectory_dropdowns()
 
     ex_post_button = widgets.Button(description='Get P&L', button_style='info')
     ex_post_button.on_click(get_ex_post_returns)
@@ -2711,16 +2793,45 @@ def display_crypto_app():
     calendar_ui_ex_post = widgets.VBox([widgets.HBox([frequency_graph_ex_post, fund_ex_post, benchmark_ex_post, calendar_button_ex_post]), ex_post_calendar])
     performance_analysis_ui = widgets.VBox([widgets.HBox([start_date_perf_ex_post, end_date_perf_ex_post, ex_post_button, refresh_performance_analysis_button]), widgets.HBox([fund_ex_post, benchmark_ex_post]), performance_output])
 
-    global results_vol, series_dict, current_underlying_returns, results_tracking_error, spread_weights
+    # series_dict_var / series_dict_risk: separate globals per tab. They used
+    # to be one shared `series_dict` written by both value_at_risk_trajectory
+    # (VaR tab) and get_risk_trajectory (Risk Trajectory tab) -- whichever
+    # tab's 'Get ...' button was clicked last silently overwrote the other
+    # tab's data, so show_risk_graph / show_var_graph could end up reading
+    # weights from the wrong tab's last run (different date range, possibly
+    # different funds) while still showing a dropdown selection that looked
+    # valid. get_tracking_error_trajectory never shared this global to begin
+    # with (it assigns a same-named local without declaring it `global`,
+    # which is its own separate variable) -- renamed to series_dict_te below
+    # purely for clarity, no behavior change there.
+    global results_vol, series_dict_var, series_dict_risk, current_underlying_returns, results_tracking_error
+    global te_series_dict_cache
     results_vol = pd.DataFrame()
     results_tracking_error = pd.DataFrame()
     current_underlying_returns = pd.DataFrame()
-    series_dict = {}
-    spread_weights = {}
+    # Cache of the raw, benchmark-independent per-fund weight series from the
+    # last 'Get Ex Ante TE' run ('Historical Portfolio', 'Fund', 'Core',
+    # every 'Rebalanced X'/'Buy and Hold X', 'Bitcoin', ...). 'Refresh'
+    # (show_tracking_error_graph / _decompose_spread) reads straight out of
+    # this to build the spread for whichever fund/benchmark pair is
+    # currently selected, without paying for get_price_threading (network
+    # fetch) or _build_weight_series_dict (rebuilds every Rebalanced/Buy and
+    # Hold series) again -- those only happen here, in the full compute.
+    te_series_dict_cache = {}
+    series_dict_var = {}
+    series_dict_risk = {}
 
     risk_trajectory_output = widgets.Output()
     tracking_error_trajectory_output = widgets.Output()
     selected_fund_to_decompose = widgets.Dropdown(options=['Fund', 'Historical Portfolio'], value='Historical Portfolio', description='Fund:')
+    # Separate widget from selected_fund_to_decompose above: the two tabs
+    # populate their 'Fund' dropdown from different column sets
+    # (results_vol.columns vs. results_tracking_error.columns, which excludes
+    # whichever fund is picked as the TE benchmark). They used to share one
+    # widget, which meant running 'Get Ex Ante Vol' in one tab and 'Get Ex
+    # Ante TE' in the other kept overwriting the same dropdown's options/value
+    # out from under whichever tab you were actually looking at.
+    selected_fund_to_decompose_te = widgets.Dropdown(options=['Fund', 'Historical Portfolio'], value='Historical Portfolio', description='Fund:')
     selected_bench_risk = widgets.Dropdown(options=['Fund', 'Historical Portfolio'], value='Fund', description='Bench:')
 
     window_risk = widgets.IntText(value=252, description='Window:', disabled=False)
@@ -2764,7 +2875,21 @@ def display_crypto_app():
         returns (yesterday's weight earns today's return); leave the default
         0 when the caller wants the weights themselves (e.g. VaR).
         """
+        # Insertion order here is the display order everywhere this dict ends
+        # up as chart columns / dropdown options: Fund, Core, Overlay first
+        # (the headline series people actually compare against), then each
+        # grid row's Rebalanced/Buy and Hold pair, with Bitcoin last.
         series = {}
+        if not quantities.empty:
+            portfolio = quantities * dataframe
+            series['Fund'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).shift(shift).loc[start_ts:end_ts]
+        if not quantities_core.empty:
+            portfolio = quantities_core * dataframe
+            series['Core'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).shift(shift).loc[start_ts:end_ts]
+        if not quantities_overlay.empty:
+            portfolio = quantities_overlay * dataframe
+            series['Overlay'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).shift(shift).loc[start_ts:end_ts]
+
         for key in grid.data.index:
             # Same frequency argument as everywhere else in the P&L Analysis tab
             # (VaR trajectory, etc.) -- leaving it unset defaults to
@@ -2777,16 +2902,6 @@ def display_crypto_app():
             series['Rebalanced ' + key] = rebalanced_series_weights.shift(shift).loc[start_ts:end_ts]
             series['Buy and Hold ' + key] = buy_and_hold_series_weights.shift(shift).loc[start_ts:end_ts]
 
-        if not quantities.empty:
-            portfolio = quantities * dataframe
-            series['Fund'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).shift(shift).loc[start_ts:end_ts]
-        if not quantities_core.empty:
-            portfolio = quantities_core * dataframe
-            series['Core'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).shift(shift).loc[start_ts:end_ts]
-        if not quantities_overlay.empty:
-            portfolio = quantities_overlay * dataframe
-            series['Overlay'] = portfolio.apply(lambda x: x / portfolio.sum(axis=1)).shift(shift).loc[start_ts:end_ts]
-
         # Bitcoin buy-and-hold, single-asset so the choice of anchor doesn't
         # change its trajectory -- but it's built the same way for the same
         # reason as everything else above: one place, one convention.
@@ -2795,6 +2910,82 @@ def display_crypto_app():
         bitcoin_series_weights = bitcoin_series.apply(lambda x: x / bitcoin_series.sum(axis=1))
         series['Bitcoin'] = bitcoin_series_weights.shift(shift).loc[start_ts:end_ts]
         return series
+
+    def _fund_universe_keys():
+        """The same key set _build_weight_series_dict would return, without
+        paying for the actual rebalanced_portfolio/buy_and_hold computation --
+        just to populate dropdown option lists cheaply. Ordered so the most
+        commonly picked funds/benchmarks (Historical Portfolio, Fund, Core,
+        Overlay -- whichever are actually available) come first, ahead of the
+        per-strategy Rebalanced/Buy and Hold rows and Bitcoin."""
+        priority = []
+        if not historical_ptf.empty:
+            priority.append('Historical Portfolio')
+        if not quantities.empty:
+            priority.append('Fund')
+        if not quantities_core.empty:
+            priority.append('Core')
+        if not quantities_overlay.empty:
+            priority.append('Overlay')
+
+        rest = []
+        for name in grid.data.index:
+            rest += ['Rebalanced ' + name, 'Buy and Hold ' + name]
+        rest.append('Bitcoin')
+
+        return priority + rest
+
+    # Remembers, per dropdown, the option list refresh_trajectory_dropdowns
+    # last applied -- so it can tell "this dropdown's preferred default just
+    # became available for the first time" apart from "it's been available
+    # all along and the value is just whatever it is". Keyed by id(widget)
+    # since ipywidgets Dropdown objects aren't hashable in a useful way.
+    _trajectory_dropdown_prev_options = {}
+
+    def refresh_trajectory_dropdowns():
+        """One canonical fund list, applied to every 'Fund'/'Benchmark' picker
+        in the Risk Trajectory / Tracking Error / VaR trajectory tabs, so all
+        of them show the same available parameters as soon as either 'Get
+        Results' (grid.data) or 'Get P&L' (Historical Portfolio) makes a new
+        one available -- instead of only after that tab's own 'Get Ex Ante
+        Vol' / 'Get Ex Ante TE' / 'Get VaR' button has been clicked at least
+        once. Preserves each dropdown's current selection when it's still
+        valid, same guard as everywhere else -- EXCEPT right when a
+        dropdown's own preferred default (e.g. 'Historical Portfolio' for
+        the fund pickers) newly becomes available: if 'Get Result' runs
+        before 'Get P&L', 'Historical Portfolio' isn't in `options` yet, so
+        selected_fund_to_decompose_te falls back to options[0] (typically
+        'Fund') -- landing on the exact same value as selected_bench_risk's
+        own default. Once 'Get P&L' then makes 'Historical Portfolio'
+        available, 'Fund' is still a perfectly valid value, so the plain
+        guard would never move it back -- it'd stay stuck matching the
+        benchmark picker forever. Snapping to the preferred default the one
+        time it newly appears fixes that without ever overriding a pick made
+        after that default was already on offer."""
+        if grid.data.empty:
+            return
+        options = _fund_universe_keys()
+        if not options:
+            return
+        # The benchmark picker gets its own ordering: Fund moved to the front
+        # (when available), ahead of Historical Portfolio -- a benchmark
+        # defaults to Fund more often than to your own realized history.
+        bench_options = options[:]
+        if 'Fund' in bench_options:
+            bench_options.remove('Fund')
+            bench_options.insert(0, 'Fund')
+        for dd, default, opts in ((selected_fund_to_decompose, 'Historical Portfolio', options),
+                                  (selected_fund_to_decompose_te, 'Historical Portfolio', options),
+                                  (selected_bench_risk, 'Fund', bench_options),
+                                  (selected_fund_to_decompose_var, 'Fund', options)):
+            prev_opts = _trajectory_dropdown_prev_options.get(id(dd))
+            default_newly_available = (default in opts) and (prev_opts is not None) and (default not in prev_opts)
+            dd.options = opts
+            if dd.value not in opts:
+                dd.value = default if default in opts else opts[0]
+            elif default_newly_available:
+                dd.value = default
+            _trajectory_dropdown_prev_options[id(dd)] = list(opts)
 
     def _build_ex_post_return_series(start_ts, end_ts):
         """Realized daily-return series for 'Rebalanced X' / 'Buy and Hold X' /
@@ -2859,13 +3050,13 @@ def display_crypto_app():
             if len(returns_to_use.loc[start_ts:end_ts]) < window_risk.value:
                 print("⚠️ Date range is shorter than rolling window.")
                 return
-            if not series_dict:
+            if not series_dict_risk:
                 print("⚠️ Weights Empty.")
                 return
             else:
                 risk_trajectory_output.clear_output(wait=True)
 
-                series_weights = series_dict[selected_fund_to_decompose.value]
+                series_weights = series_dict_risk[selected_fund_to_decompose.value]
                 if selected_fund_to_decompose.value != 'Historical Portfolio':
                     contribution_to_vol = get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts], returns_to_use.loc[start_ts:end_ts], window_risk.value)
                     correlation_contrib = get_correlation_contribution(series_weights.loc[start_ts:end_ts], returns_to_use.loc[start_ts:end_ts], window_risk.value)
@@ -2903,7 +3094,7 @@ def display_crypto_app():
                 display(ui)
 
     def get_risk_trajectory(_):
-        global results_vol, series_dict, current_underlying_returns
+        global results_vol, series_dict_risk, current_underlying_returns
         results_vol = pd.DataFrame()
 
         try:
@@ -2930,7 +3121,7 @@ def display_crypto_app():
             else:
                 display(loading_bar)
                 display(loading_bar_risk)
-        series_dict = _build_weight_series_dict(start_ts, end_ts)
+        series_dict_risk = _build_weight_series_dict(start_ts, end_ts)
 
         weights_ex_post = positions.copy()
         weights_ex_post = weights_ex_post.drop(columns=['USDTUSDT'], errors='ignore')
@@ -2943,9 +3134,16 @@ def display_crypto_app():
 
         current_underlying_prices = get_price_threading(tickers_combined, weights_ex_post.index[0].date())
         current_underlying_returns = current_underlying_prices.pct_change(fill_method=None)
-        tasks = [(key, series_dict[key], returns_to_use.loc[start_ts:end_ts], window_risk.value) for key in series_dict]
-        series_dict['Historical Portfolio'] = weights_ex_post.loc[start_ts:end_ts]
-        tasks.append(('Historical Portfolio', weights_ex_post.loc[start_ts:end_ts], current_underlying_returns.loc[weights_ex_post.index].loc[start_ts:end_ts], window_risk.value))
+        # Historical Portfolio first (its own returns source, current_underlying_
+        # returns, differs from every other row's returns_to_use), then Fund/
+        # Core/Overlay/Rebalanced/Buy and Hold/Bitcoin in series_dict_risk's own
+        # order -- so results_vol's columns read Historical Portfolio, Fund,
+        # Core, Overlay, ..., matching every other tab's ordering.
+        series_dict_risk = {'Historical Portfolio': weights_ex_post.loc[start_ts:end_ts], **series_dict_risk}
+        tasks = [('Historical Portfolio', weights_ex_post.loc[start_ts:end_ts],
+                  current_underlying_returns.loc[weights_ex_post.index].loc[start_ts:end_ts], window_risk.value)]
+        tasks += [(key, series_dict_risk[key], returns_to_use.loc[start_ts:end_ts], window_risk.value)
+                  for key in series_dict_risk if key != 'Historical Portfolio']
         loading_bar_risk.value = 0
         loading_bar_risk.max = len(tasks)
 
@@ -2967,15 +3165,72 @@ def display_crypto_app():
                 return
         results_vol.columns = results_dict.keys()
         selected_fund_to_decompose.options = results_vol.columns
-        selected_fund_to_decompose.value = 'Historical Portfolio'
+        # Guarded (unguarded before -- 'Historical Portfolio' isn't
+        # guaranteed to be a column here) and preserves whatever was already
+        # selected across a re-run of 'Get Ex Ante Vol'.
+        if selected_fund_to_decompose.value not in results_vol.columns:
+            selected_fund_to_decompose.value = ('Historical Portfolio' if 'Historical Portfolio' in results_vol.columns
+                                                else results_vol.columns[0])
 
         show_risk_graph(None)
 
     show_risk_graph(None)
 
-    def show_tracking_error_graph(_):
-        global results_tracking_error
+    def _decompose_spread(fund_key, bench_key, start_ts, end_ts):
+        """Fresh, on-demand spread (fund weights - benchmark weights) between
+        exactly the two entries of te_series_dict_cache currently picked in
+        the Fund/Bench dropdowns, and the 3 decomposition charts built from
+        it. This is ALL 'Refresh' recomputes -- it never touches the
+        expensive multi-fund vol loop, so it doesn't matter whether it's the
+        fund-to-decompose or the benchmark that changed, either is just a
+        different pair of keys into the same cache. The top 'Ex Ante
+        Tracking Error' chart (results_tracking_error) is deliberately NOT
+        recomputed here: it shows every fund's TE at once, which is
+        expensive (one rolling-vol pass per fund) and only needs to reflect
+        whichever benchmark 'Get Ex Ante TE' was last run against, not
+        whatever pair you're currently decomposing below it."""
+        fund_series = te_series_dict_cache[fund_key]
+        bench_series = te_series_dict_cache[bench_key]
 
+        all_cols = sorted(set(fund_series.columns) | set(bench_series.columns))
+        fund_series = fund_series.reindex(columns=all_cols, fill_value=0)
+        bench_series = bench_series.reindex(columns=all_cols, fill_value=0)
+
+        # 'Historical Portfolio' is built from real position snapshots
+        # (weights_ex_post), which can land on a different calendar than
+        # every other key -- those are all built off the same continuous
+        # `dataframe` and so already share one index with each other, but
+        # not necessarily with the real portfolio's actual reporting dates.
+        # Subtracting two frames on mismatched indexes takes the UNION of
+        # both calendars, and fillna(0) would then quietly manufacture a
+        # spread on every day one side never actually reported -- e.g. fund
+        # - 0 on a day the benchmark has no real value, which isn't a
+        # spread at all, it's just the fund's own weight (and its vol from
+        # there on is the fund's own vol, not a tracking error). Restrict to
+        # the dates BOTH sides actually have instead of filling either one.
+        if fund_series.index.equals(bench_series.index):
+            common_index = fund_series.index
+        else:
+            common_index = fund_series.index.intersection(bench_series.index)
+        fund_series = fund_series.loc[common_index]
+        bench_series = bench_series.loc[common_index]
+
+        # Both sides now share an index and a column set, so this fillna(0)
+        # only mops up genuine within-cell NaNs (e.g. a price gap), not an
+        # index mismatch -- that's already been excluded above.
+        series_weights = (fund_series - bench_series).fillna(0).loc[start_ts:end_ts]
+
+        if fund_key != 'Historical Portfolio':
+            returns_for_decomp = returns_to_use.loc[series_weights.index].loc[start_ts:end_ts]
+        else:
+            returns_for_decomp = current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts]
+
+        contribution_to_vol = get_ex_ante_vol_contribution(series_weights, returns_for_decomp, window_te.value)
+        correlation_contrib = get_correlation_contribution(series_weights, returns_for_decomp, window_te.value)
+        idiosyncratic_contrib = get_idiosyncratic_contribution(series_weights, returns_for_decomp, window_te.value)
+        return contribution_to_vol, correlation_contrib, idiosyncratic_contrib
+
+    def show_tracking_error_graph(_):
         try:
             start_ts = pd.to_datetime(start_date_perf_risk.value)
             end_ts = pd.to_datetime(end_date_perf_risk.value)
@@ -2999,7 +3254,9 @@ def display_crypto_app():
             if results_tracking_error.empty:
                 print("⚠️ Load Ex Ante TE.")
                 return
-            if not spread_weights:
+            fund_key = selected_fund_to_decompose_te.value
+            bench_key = selected_bench_risk.value
+            if not te_series_dict_cache or fund_key not in te_series_dict_cache or bench_key not in te_series_dict_cache:
                 print("⚠️ Weights Empty.")
                 return
             if len(returns_to_use.loc[start_ts:end_ts]) < window_te.value:
@@ -3008,16 +3265,10 @@ def display_crypto_app():
             else:
                 tracking_error_trajectory_output.clear_output(wait=True)
 
-                series_weights = spread_weights[selected_fund_to_decompose.value]
-
-                if selected_fund_to_decompose.value != 'Historical Portfolio':
-                    contribution_to_vol = get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts], returns_to_use.loc[series_weights.index].loc[start_ts:end_ts], window_te.value)
-                    correlation_contrib = get_correlation_contribution(series_weights.loc[start_ts:end_ts], returns_to_use.loc[series_weights.index].loc[start_ts:end_ts], window_te.value)
-                    idiosyncratic_contrib = get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts], returns_to_use.loc[series_weights.index].loc[start_ts:end_ts], window_te.value)
-                else:
-                    contribution_to_vol = get_ex_ante_vol_contribution(series_weights.loc[start_ts:end_ts], current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts], window_te.value)
-                    correlation_contrib = get_correlation_contribution(series_weights.loc[start_ts:end_ts], current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts], window_te.value)
-                    idiosyncratic_contrib = get_idiosyncratic_contribution(series_weights.loc[start_ts:end_ts], current_underlying_returns.loc[series_weights.index].loc[start_ts:end_ts], window_te.value)
+                # This is the only recompute 'Refresh' does -- fresh every
+                # time, for whatever fund/benchmark pair is selected right
+                # now, regardless of which one last changed.
+                contribution_to_vol, correlation_contrib, idiosyncratic_contrib = _decompose_spread(fund_key, bench_key, start_ts, end_ts)
 
                 with output1:
                     fig = px.line(results_tracking_error.loc[start_ts:end_ts], title='Ex Ante Tracking Error', width=800, height=400, render_mode='svg')
@@ -3047,7 +3298,15 @@ def display_crypto_app():
                 display(ui)
 
     def get_tracking_error_trajectory(_):
-        global results_tracking_error, spread_weights, current_underlying_returns
+        """'Get Ex Ante TE' button: the ONE place that pays for
+        get_price_threading (network) and _build_weight_series_dict
+        (rebuilds every Rebalanced/Buy and Hold series), and the only place
+        that recomputes the top 'Ex Ante Tracking Error' chart (a
+        get_ex_ante_vol pass over every fund vs whichever benchmark is
+        selected right now). 'Refresh' (show_tracking_error_graph) never
+        redoes any of this -- it only recomputes the 3 decomposition charts,
+        on demand, from the series_dict_te this caches below."""
+        global results_tracking_error, current_underlying_returns, te_series_dict_cache
         results_tracking_error = pd.DataFrame()
 
         try:
@@ -3074,7 +3333,11 @@ def display_crypto_app():
             else:
                 display(loading_bar)
                 display(loading_bar_risk)
-        series_dict = _build_weight_series_dict(start_ts, end_ts)
+        # Local on purpose (no `global` declaration) -- this tab has never
+        # shared its weights with VaR/Risk Trajectory's series_dict_var /
+        # series_dict_risk, but is named series_dict_te to make that
+        # explicit rather than relying on an implicit local shadow.
+        series_dict_te = _build_weight_series_dict(start_ts, end_ts)
 
         weights_ex_post = positions.copy()
         weights_ex_post = weights_ex_post.drop(columns=['USDTUSDT'], errors='ignore')
@@ -3087,9 +3350,18 @@ def display_crypto_app():
 
         current_underlying_prices = get_price_threading(tickers_combined, weights_ex_post.index[0].date())
         current_underlying_returns = current_underlying_prices.pct_change(fill_method=None)
-        series_dict['Historical Portfolio'] = weights_ex_post.loc[start_ts:end_ts]
-        selected_weights = series_dict[selected_bench_risk.value]
+        # Historical Portfolio first, then Fund/Core/Overlay/Rebalanced/Buy and
+        # Hold/Bitcoin in series_dict_te's own order -- matching the same
+        # column order as the Risk Trajectory and VaR trajectory tabs.
+        series_dict_te = {'Historical Portfolio': weights_ex_post.loc[start_ts:end_ts], **series_dict_te}
+        bench = selected_bench_risk.value
 
+        # Cache the raw, benchmark-independent per-fund weight series so
+        # show_tracking_error_graph's Refresh can spread any two of them
+        # on demand (_decompose_spread) without coming back through here.
+        te_series_dict_cache = series_dict_te
+
+        selected_weights = series_dict_te[bench]
         not_in_bench = list(set(weights_ex_post.columns) - set(selected_weights.columns))
         not_in_fund = list(set(selected_weights.columns) - set(weights_ex_post.columns))
 
@@ -3099,14 +3371,15 @@ def display_crypto_app():
         weights_ex_post[not_in_fund] = 0
         selected_weights[not_in_bench] = 0
         spread_weights = {}
-        for key in series_dict:
-            spread_weights[key] = (series_dict[key] - selected_weights).fillna(0)
-
-        tasks = [(key, spread_weights[key].loc[start_ts:end_ts], returns_to_use.loc[spread_weights[key].loc[start_ts:end_ts].index], window_te.value) for key in series_dict if key != 'Historical Portfolio']
+        for key in series_dict_te:
+            spread_weights[key] = (series_dict_te[key] - selected_weights).fillna(0)
 
         spread_ex_post = (weights_ex_post - selected_weights).loc[weights_ex_post.index].loc[start_ts:end_ts].fillna(0)
         spread_weights['Historical Portfolio'] = spread_ex_post
-        tasks.append(('Historical Portfolio', spread_ex_post, current_underlying_returns.loc[spread_ex_post.index].loc[start_ts:end_ts], window_te.value))
+
+        tasks = [('Historical Portfolio', spread_ex_post, current_underlying_returns.loc[spread_ex_post.index].loc[start_ts:end_ts], window_te.value)]
+        tasks += [(key, spread_weights[key].loc[start_ts:end_ts], returns_to_use.loc[spread_weights[key].loc[start_ts:end_ts].index], window_te.value)
+                  for key in series_dict_te if key != 'Historical Portfolio']
         loading_bar_risk.value = 0
         loading_bar_risk.max = len(tasks)
 
@@ -3129,12 +3402,34 @@ def display_crypto_app():
                 return
 
         results_tracking_error.columns = results_dict.keys()
+
+        # Capture .value BEFORE reassigning .options below -- ipywidgets'
+        # Dropdown tracks selection by POSITION, not by label: if the new
+        # options list has the same names in a different order (which can
+        # happen here since it comes from a dict, not a fixed schema), it
+        # silently snaps .value back to options[0] the moment .options is
+        # set, before this function ever gets to check it. Reading .value
+        # afterwards can't tell that happened, because options[0] is itself
+        # a "valid" option -- the guard below never fires, and the reset
+        # looks like it "just happens" on every run. Grabbing the old value
+        # first and restoring it explicitly sidesteps that entirely.
+        old_fund_value = selected_fund_to_decompose_te.value
+        old_bench_value = selected_bench_risk.value
+
         selected_bench_risk.options = results_tracking_error.columns
-        selected_fund_to_decompose.options = results_tracking_error.columns
-        selected_fund_to_decompose.value = 'Historical Portfolio'
+        selected_fund_to_decompose_te.options = results_tracking_error.columns
+
+        if old_fund_value in results_tracking_error.columns:
+            selected_fund_to_decompose_te.value = old_fund_value
+        else:
+            selected_fund_to_decompose_te.value = ('Historical Portfolio' if 'Historical Portfolio' in results_tracking_error.columns
+                                                    else results_tracking_error.columns[0])
         # Same guard as elsewhere: 'Fund' only exists once `quantities` is
         # non-empty, unlike 'Historical Portfolio' which is always present.
-        selected_bench_risk.value = 'Fund' if 'Fund' in results_tracking_error.columns else results_tracking_error.columns[0]
+        if old_bench_value in results_tracking_error.columns:
+            selected_bench_risk.value = old_bench_value
+        else:
+            selected_bench_risk.value = 'Fund' if 'Fund' in results_tracking_error.columns else results_tracking_error.columns[0]
 
         show_tracking_error_graph(None)
 
@@ -3147,7 +3442,7 @@ def display_crypto_app():
     tracking_error_trajectory_button.on_click(get_tracking_error_trajectory)
     tracking_error_refresh_button.on_click(show_tracking_error_graph)
     tracking_error_exposure_ui = widgets.VBox([widgets.HBox([start_date_perf_risk, end_date_perf_risk, tracking_error_trajectory_button, tracking_error_refresh_button]),
-                                                selected_fund_to_decompose, selected_bench_risk, window_te, tracking_error_trajectory_output])
+                                                selected_fund_to_decompose_te, selected_bench_risk, window_te, tracking_error_trajectory_output])
 
     check_connection(None)
 
@@ -3202,8 +3497,10 @@ def display_crypto_app():
 
         # NOTE: the Beta tab was relocated to reuse the P&L Analysis dropdowns
         # (fund_ex_post / benchmark_ex_post) rather than its own
-        # selected_fund_to_decompose / selected_bench_risk widgets, which
-        # still belong to the Risk Trajectory / Tracking Error sub-tabs.
+        # selected_fund_to_decompose / selected_fund_to_decompose_te /
+        # selected_bench_risk widgets, which belong one-to-one to the Risk
+        # Trajectory and Tracking Error sub-tabs respectively (each tab has
+        # its own 'Fund' dropdown -- see selected_fund_to_decompose_te above).
         # Guard checks and lookups here must both reference fund_ex_post /
         # benchmark_ex_post -- checking one dropdown's value and then
         # indexing with another's is how the earlier mismatch bug crept in.
