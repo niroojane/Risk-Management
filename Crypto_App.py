@@ -2671,9 +2671,9 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 positions.to_excel('Positions.xlsx', index=True)
                 if not trades.empty:
                     trades.to_excel('Trade History Reconstructed.xlsx', index=True)
-                    git.push_or_update_file(trades, 'Trade History Reconstructed')
-                git.push_or_update_file(positions, 'Positions')
-                git.push_or_update_file(quantities_holding, 'Quantities')
+                    git.push_or_update_file(trades, 'Trade History Reconstructed',folder='BinancePTF')
+                git.push_or_update_file(positions, 'Positions',folder='BinancePTF')
+                git.push_or_update_file(quantities_holding, 'Quantities',folder='BinancePTF')
 
         push_button = widgets.Button(description='Upload Files', button_style='success')
         push_button.on_click(git_push)
