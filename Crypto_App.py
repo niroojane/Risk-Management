@@ -501,7 +501,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             return
         constraints.append({
             'Asset': dropdown_asset.value,
-            'Sign': dropdown_risk_sign.value,
+            'Sign': dropdown_sign.value,
             'Limit': dropdown_limit.value
         })
         with constraint_output:
