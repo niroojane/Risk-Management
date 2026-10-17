@@ -1,0 +1,45 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { universeService } from '@/services/universeService';
+import { MarketCapTable } from './components/MarketCapTable';
+import { MarketCapFilter } from './components/MarketCapFilter';
+import { ErrorMessage, Loading } from '@/components/common';
+
+function MarketCap() {
+  const [displayCount, setDisplayCount] = useState(100);
+
+  const {
+    data = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['marketCap'],
+    queryFn: universeService.fetchMarketCap,
+  });
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-foreground">Market Cap</h1>
+        <MarketCapFilter
+          displayCount={displayCount}
+          maxValue={data.length}
+          onChange={setDisplayCount}
+        />
+      </div>
+
+      {isLoading && <Loading text="Loading market cap data..." className="py-8" />}
+
+      {error && (
+        <ErrorMessage
+          title="Failed to load market cap data"
+          message={error instanceof Error ? error.message : 'An unexpected error occurred'}
+        />
+      )}
+
+      {!isLoading && !error && <MarketCapTable data={data} displayCount={displayCount} />}
+    </div>
+  );
+}
+
+export default MarketCap;

@@ -1,0 +1,54 @@
+"""Market Cap API schemas Request and response schemas for market cap endpoint"""
+from typing import List
+from pydantic import BaseModel, Field
+
+from app.common import QuoteAsset, APIResponse
+from ...models.investment_universe import MarketCapItem
+
+
+class MarketCapRequest(BaseModel):
+    """Request parameters for market cap endpoint"""
+    quote: QuoteAsset = Field(QuoteAsset.USDT, description="Quote asset")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "quote": "USDT"
+            }]
+        }
+    }
+
+
+class MarketCapResponse(APIResponse):
+    """Response for market cap endpoint"""
+    data: List[MarketCapItem] = Field(..., description="List of assets with market cap")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "success": True,
+                "data": [
+                    {
+                        "symbol": "BTCUSDT",
+                        "long_name": "Bitcoin",
+                        "base_asset": "BTC",
+                        "quote_asset": "USDT",
+                        "price": 42000.50,
+                        "supply": 19000000.0,
+                        "market_cap": 798009500000.0
+                    },
+                    {
+                        "symbol": "ETHUSDT",
+                        "long_name": "Ethereum",
+                        "base_asset": "ETH",
+                        "quote_asset": "USDT",
+                        "price": 2900.00,
+                        "supply": 120000000.0,
+                        "market_cap": 348000000000.0
+                    }
+                ],
+                "message": "Market cap data retrieved successfully",
+                "timestamp": "2024-01-01T12:00:00Z"
+            }]
+        }
+    }

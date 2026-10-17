@@ -1,8 +1,8 @@
 # 📊 Portfolio Management & Risk Analysis Platform
 
-Interactive portfolio management apps built with **ipywidgets** (Jupyter) and **Streamlit**. They cover **portfolio optimization, risk analysis, P&L and strategy backtesting**, for crypto (Binance) and multi-asset universes (ETFs, stocks, indices via Yahoo Finance).
+Interactive portfolio management apps built with **ipywidgets** (Jupyter), **Streamlit** and a **web app** (FastAPI + React). They cover **portfolio optimization, risk analysis, P&L and strategy backtesting**, for crypto (Binance) and multi-asset universes (ETFs, stocks, indices via Yahoo Finance).
 
-The analytics live in a shared library (`src/`) used by every app.
+The analytics live in a shared library (`src/`) used by the notebooks and Streamlit; the web app's backend runs a port of the same code.
 
 ---
 
@@ -14,6 +14,7 @@ The analytics live in a shared library (`src/`) used by every app.
 | **Multi Asset App** (`Multi Asset App.ipynb`) | Yahoo Finance + Excel positions / trades | Same toolkit for ETFs, stocks and indices: Yahoo search bar, predefined universe, prices converted to a base currency |
 | **HMM Regime App** (`HMM Regime App.ipynb`) | Yahoo Finance or CSV / Excel | Detects market regimes with a Hidden Markov Model and backtests a different strategy in each regime |
 | **Streamlit App** (`Streamlit_App.py`) | Binance | Web version of the Crypto App |
+| **Web App** (`backend/` + `frontend/`) | Binance, or Yahoo Finance + Excel positions / trades | Browser version of the Crypto App and Multi Asset App, with the same tabs and sub-tabs. Launched with `start-binance.bat` or `start-yahoo.bat` |
 
 ---
 
@@ -95,7 +96,7 @@ git clone https://github.com/niroojane/Risk-Management
 cd Risk-Management
 ```
 
-### 2. Install dependencies
+### 2. Install dependencies (notebooks and Streamlit)
 
 ```bash
 pip install -r requirements.txt
@@ -103,9 +104,11 @@ pip install -r requirements.txt
 
 Tested with Python 3.13 and the exact versions in `requirements.txt`.
 
+The web app has its own dependencies (`backend/requirements.txt`, `frontend/package.json`), installed automatically by its launchers. See [Run the Apps](#️-run-the-apps).
+
 ### 3. Add your keys
 
-The apps import their credentials from a `keys.py` file at the project root:
+The notebooks and Streamlit import their credentials from a `keys.py` file at the project root:
 
 ```python
 # keys.py
@@ -119,7 +122,13 @@ branch = "main"
 
 The HMM Regime App needs none of them. It only uses the Binance-free Yahoo / file sources.
 
-> ⚠️ Never commit or push `keys.py`; add it to your `.gitignore`.
+The web app reads the same credentials from a single `.env` file at the project root, shared by the backend and the frontend:
+
+```bash
+cp .env.example .env   # then fill in BINANCE_API_KEY, BINANCE_API_SECRET, GITHUB_TOKEN...
+```
+
+> ⚠️ Never commit or push `keys.py` or `.env`. `.env` is already in `.gitignore`; add `keys.py` too.
 > ⚠️ The P&L and positioning tabs need the Excel files (trade history, positions, quantities). By default the apps read them from this repository's `BinancePTF/` and `ETF/` folders.
 
 ---
@@ -141,6 +150,17 @@ Run all cells; the app appears under the last cell.
 ```bash
 streamlit run Streamlit_App.py
 ```
+
+#### Web App (Windows)
+
+Requires Python 3.11+ and [Node.js](https://nodejs.org) LTS. Double-click one of:
+
+| Launcher | Data | Backend | App |
+|---|---|---|---|
+| `start-binance.bat` | Binance prices and account | http://localhost:8000 | http://localhost:5173 |
+| `start-yahoo.bat` | Yahoo Finance prices, portfolio from the `ETF/` Excel files | http://localhost:8001 | http://localhost:5174 |
+
+The first launch creates `backend/.venv` and installs the Python and npm packages. Both versions can run side by side, and each keeps its own workspace in the browser. API documentation: `http://localhost:8000/docs` (or `8001`). See [SETUP.md](SETUP.md) for details.
 
 ---
 
@@ -172,8 +192,16 @@ streamlit run Streamlit_App.py
 ├── Multi Asset App.ipynb     # Multi-asset app (ipywidgets)
 ├── HMM Regime App.ipynb      # Regime detection & regime-based backtests (ipywidgets)
 ├── Streamlit_App.py          # Streamlit application
-├── keys.py                   # Your credentials (not versioned)
-├── requirements.txt
+├── keys.py                   # Your credentials for the notebooks / Streamlit (not versioned)
+├── requirements.txt          # Notebooks and Streamlit dependencies
+│
+├── backend/                  # Web app API (FastAPI) -- see backend/README.md
+├── frontend/                 # Web app UI (React + TypeScript) -- see frontend/README.md
+├── scripts/launch.bat        # Shared web app launcher
+├── start-binance.bat         # Web app, crypto version
+├── start-yahoo.bat           # Web app, multi-asset version
+├── .env.example              # Web app settings template (copy to .env, not versioned)
+├── SETUP.md                  # Detailed setup and troubleshooting
 ├── .streamlit/
 └── README.md
 ```

@@ -1,0 +1,27 @@
+# FastAPI and server
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.5
+pydantic-settings==2.7.1
+
+# Binance and market data
+binance-connector==3.11.0
+pandas==2.3.3
+numpy==2.3.4
+requests==2.32.5
+python-dateutil==2.9.0.post0
+
+# Analytics (ported from the legacy src/ package)
+scipy==1.16.3
+statsmodels==0.14.5
+joblib==1.5.2
+openpyxl==3.1.5  # Positions / Quantities / Trade History Excel files
+yfinance==1.5.1  # Multi-asset profile (start-yahoo.bat): prices, FX, ticker search and details
+
+# Configuration
+python-dotenv==1.0.0
+
+# Optional: Testing
+pytest==8.3.5
+pytest-asyncio==0.24.0
+httpx==0.28.1  # For testing FastAPI endpoints
