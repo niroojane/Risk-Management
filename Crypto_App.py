@@ -67,12 +67,16 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         'Risk Parity': 'risk_parity',
         'Sharpe Ratio': 'sharpe_ratio',
         'Maximum Diversification': 'maximum_diversification',
-        'Eigen Strategy': 'eigenportfolio'}
+        'Eigen Strategy': 'eigenportfolio',
+        # relative to the 'Benchmark' allocation selected for tracking error
+        'Minimum Tracking Error': 'tracking_error',
+        'Maximum Information Ratio': 'information_ratio'}
+    RELATIVE_STRATEGIES = {'tracking_error', 'information_ratio'}
     options_strat = list(dico_strategies.keys())
 
     # 'Vol' is offered in the Risk Type dropdown but there is no downstream
     # implementation for it yet -- only 'Beta' constraints actually get built.
-    RISK_TYPES_IMPLEMENTED = {'Beta','Volatility'}
+    RISK_TYPES_IMPLEMENTED = {'Beta', 'Volatility', 'Tracking Error', 'Information Ratio'}
 
     # --- globals ---
     global tickers_dataframe, tickers, dataframe, returns_to_use, prices
@@ -172,6 +176,29 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         beta_data = beta_rows.iloc[0]
         return beta_constraint(beta, beta_data['Sign'], beta_data['Limit'])
             
+    def build_benchmark_risk_constraints(returns_window, bench_weights, risk_constraint_dataframe):
+        """Tracking-error and information-ratio constraints vs. the weights of
+        the benchmark allocation (the 'Benchmark' selected for tracking error).
+
+        Both are ex-ante and annualized, estimated on `returns_window`:
+          Tracking Error    limit in decimals (0.05 = 5%)
+          Information Ratio limit as a ratio (0.5); 'IR ≥ L' is imposed as
+                            active return - L·TE ≥ 0, so holding the benchmark
+                            itself always satisfies it.
+        Returns [] when neither is requested.
+        """
+        if bench_weights is None or 'Risk' not in risk_constraint_dataframe.columns:
+            return []
+        rows = risk_constraint_dataframe.drop_duplicates(subset=['Risk'], keep='last').set_index('Risk')
+        out = []
+        if 'Tracking Error' in rows.index:
+            row = rows.loc['Tracking Error']
+            out += tracking_error_constraint(returns_window.cov(), bench_weights, row['Sign'], row['Limit'])
+        if 'Information Ratio' in rows.index:
+            row = rows.loc['Information Ratio']
+            out += information_ratio_constraint(returns_window, bench_weights, row['Sign'], row['Limit'])
+        return out
+
     def build_vol_risk_constraints(returns_window, risk_constraint_dataframe):
         """Build the volatility constraint list for `risk.optimize(constraints=...)`.
     
@@ -418,7 +445,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
     selected_fund = widgets.Dropdown(description="Fund:")
     selected_bench = widgets.Dropdown(description="Bench:")
     selected_fund_var = widgets.Dropdown(description="Fund:")
-    options_risk = ['Beta', 'Volatility']
+    options_risk = ['Beta', 'Volatility', 'Tracking Error', 'Information Ratio']
 
     add_strategy_btn = widgets.Button(description='Add Strategy', style={'description_width': '150px'})
     clear_strategy_btn = widgets.Button(description='Clear Strategy', style={'description_width': '150px'})
@@ -833,6 +860,8 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                         all_constraints.extend(risk_cons)
                     if vol_cons:
                         all_constraints.extend(vol_cons)
+                    all_constraints.extend(build_benchmark_risk_constraints(
+                        window_returns, grid.data.loc[benchmark_tracking_error.value], risk_constraint_dataframe))
                 except Exception as e:
                     print("Error building risk constraints:", e)
             elif not risk_constraint_dataframe.empty:
@@ -867,6 +896,21 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 'Eigen Portfolio': eigen_portfolio.tolist(),
                 'Eigen Portfolio Constrained': eigen_portfolio_c.tolist() if eigen_portfolio_c is not None else eigen_portfolio.tolist(),
                 'Equal Weighted': equal_weights.tolist()}
+            # relative strategies, vs the benchmark allocation selected for tracking error
+            if not grid.data.empty and benchmark_tracking_error.value in grid.data.index:
+                bench_w = grid.data.loc[benchmark_tracking_error.value]
+                for key, name in [('tracking_error', 'Min Tracking Error'), ('information_ratio', 'Max Information Ratio')]:
+                    try:
+                        unconstrained = portfolio.optimize(key, bench_weights=bench_w)
+                        constrained = (portfolio.optimize(key, constraints=all_constraints, bench_weights=bench_w)
+                                       if all_constraints else unconstrained)
+                        allocation[name] = list(unconstrained)
+                        allocation[name + ' Constrained'] = list(constrained)
+                    except Exception as e:
+                        print(f"{name} failed: {e}")
+            else:
+                print("ℹ️ Min Tracking Error / Max Information Ratio need a benchmark allocation: "
+                      "select it in 'Benchmark' and click Optimize again.")
             allocation_df = pd.DataFrame(allocation, index=dataframe.columns).T.round(4)
             if set(current_weights.index).issubset(dataframe.columns):
                 allocation_df = allocation_df.combine_first(current_weights.T).fillna(0)
@@ -913,10 +957,12 @@ def display_crypto_app(Binance,Pnl_calculation,git):
             # every thread call -- previously the main perf bottleneck for
             # rolling optimizations with many windows/overlays.
             benchmark_price_series_full = None
+            bench_weights_full = None   # benchmark allocation's weights: tracking error / information ratio
             if not risk_constraint_dataframe.empty and not grid.data.empty and benchmark_tracking_error.value in grid.data.index:
                 benchmark_price_series_full = rebalanced_portfolio(
                     dataframe, grid.data.loc[benchmark_tracking_error.value], frequency=rebalancing_frequency.value
                 ).sum(axis=1)
+                bench_weights_full = grid.data.loc[benchmark_tracking_error.value]
             elif not risk_constraint_dataframe.empty:
                 print("⚠️ Skipping risk constraints: no benchmark allocation selected yet.")
 
@@ -947,6 +993,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                 return
 
             strategy_key = dico_strategies[strat.value]
+            # Min Tracking Error / Max Information Ratio optimize relative to the benchmark allocation
+            relative_bench = (grid.data.loc[benchmark_tracking_error.value]
+                              if not grid.data.empty and benchmark_tracking_error.value in grid.data.index else None)
+            wanted = {strategy_key} | {dico_strategies[row['Strategy']] for row in overlays}
+            if relative_bench is None and wanted & RELATIVE_STRATEGIES:
+                print("⚠️ Min Tracking Error / Max Information Ratio need a benchmark allocation: select it in 'Benchmark' first.")
+                return
             tasks = [(returns_to_use.loc[dates_end[i]:dates_end[i + 1]], dates_end[i], dates_end[i + 1], strategy_key) for i in range(len(dates_end) - 1)]
             overlays_tasks = [
                 (
@@ -990,6 +1043,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                     except Exception as e:
                         print(f"Beta constraint failed {start} -> {end}: {e}")
                         risk_cons = []
+
+                bench_cons = []
+                if bench_weights_full is not None:
+                    try:
+                        bench_cons = build_benchmark_risk_constraints(subset, bench_weights_full, risk_constraint_dataframe)
+                    except Exception as e:
+                        print(f"Tracking error / information ratio constraint failed {start} -> {end}: {e}")
                 
                 
                 try:
@@ -1002,10 +1062,13 @@ def display_crypto_app(Binance,Pnl_calculation,git):
                         constraints_to_use.extend(risk_cons)
                     if vol_cons:
                         constraints_to_use.extend(vol_cons)
+                    if bench_cons:
+                        constraints_to_use.extend(bench_cons)
                     if constraints_to_use:
-                        opt = risk.optimize(objective=strategy_key, constraints=constraints_to_use)
+                        opt = risk.optimize(objective=strategy_key, constraints=constraints_to_use,
+                                            bench_weights=relative_bench if strategy_key in RELATIVE_STRATEGIES else None)
                     else:
-                        opt = risk.optimize(objective=strategy_key)
+                        opt = risk.optimize(objective=strategy_key, bench_weights=relative_bench if strategy_key in RELATIVE_STRATEGIES else None)
 
                     return subset.index[-1], np.round(opt, 6), strategy_key
 
@@ -1582,7 +1645,7 @@ def display_crypto_app(Binance,Pnl_calculation,git):
         shocked_means = (range_returns.mean() * grid_mean_shock.data['Mean Shock']) * 250
 
         corr_matrix = stressed_cov / np.outer(stressed_std, stressed_std)
-        corr_matrix = corr_matrix + np.tril(grid_stress.data) + np.tril(grid_stress.data).T
+        corr_matrix = corr_matrix + np.tril(grid_stress.data, -1) + np.tril(grid_stress.data, -1).T   # off-diagonal shocks only
         corr_matrix = np.clip(corr_matrix, -1, 1)
         corr_matrix = cov_nearest(corr_matrix)
 
