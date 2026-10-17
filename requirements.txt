@@ -1,20 +1,35 @@
-aiohttp==3.11.10
-beautifulsoup4==4.14.3
-binance_connector==3.12.0
-ipydatagrid==1.4.0
-ipython==9.7.0
-ipython==8.30.0
-ipywidgets==8.1.5
-ipywidgets==8.1.8
-joblib==1.4.2
-matplotlib==3.10.9
-numpy==2.4.4
-pandas==3.0.2
-plotly==5.24.1
-Requests==2.33.1
-scipy==1.17.1
+# Tested with Python 3.13.9 and these exact versions.
+
+# Data & analytics
+pandas==2.3.3
+numpy==2.3.5
+scipy==1.16.3
+statsmodels==0.14.5
+joblib==1.5.2
+
+# HMM Regime App
+hmmlearn==0.3.3
+scikit-learn==1.7.2
+
+# Market data & files
+yfinance==1.5.1
+binance-connector==3.13.0
+requests==2.34.2
+openpyxl==3.1.5
+
+# Charts
+plotly==6.3.0
+matplotlib==3.10.6
 seaborn==0.13.2
-statsmodels==0.14.4
-streamlit==1.45.1
-streamlit==1.53.1
-yfinance==0.2.66
+
+# Notebook apps (ipywidgets)
+notebook==7.5.0
+ipython==9.7.0
+ipywidgets==8.1.7
+ipydatagrid==1.4.0
+
+# Streamlit app
+streamlit==1.60.0
+
+# Optional: only for src/PPTx.py (PowerPoint export) -- not installed in the test environment
+python-pptx>=1.0

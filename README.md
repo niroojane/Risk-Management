@@ -1,104 +1,88 @@
-# 📊 Crypto Portfolio Management & Risk Analysis Platform
+# 📊 Portfolio Management & Risk Analysis Platform
 
-An interactive portfolio management application built with **Streamlit** and **Ipywidgets**, designed for **portfolio optimization, risk analysis, and strategy backtesting** in cryptocurrency markets.
+Interactive portfolio management apps built with **ipywidgets** (Jupyter) and **Streamlit**. They cover **portfolio optimization, risk analysis, P&L and strategy backtesting**, for crypto (Binance) and multi-asset universes (ETFs, stocks, indices via Yahoo Finance).
 
-This project provides a modular and extensible framework for analyzing portfolios, constructing optimal allocations, and evaluating investment strategies using real market data.
+The analytics live in a shared library (`src/`) used by every app.
+
+---
+
+## 🧭 The Apps
+
+| App | Data | What it does |
+|---|---|---|
+| **Crypto App** (`Crypto App.ipynb`, `Crypto_App.py`) | Binance | Optimization, rolling backtests, P&L from your Binance positions, risk and VaR analysis |
+| **Multi Asset App** (`Multi Asset App.ipynb`) | Yahoo Finance + Excel positions / trades | Same toolkit for ETFs, stocks and indices: Yahoo search bar, predefined universe, prices converted to a base currency |
+| **HMM Regime App** (`HMM Regime App.ipynb`) | Yahoo Finance or CSV / Excel | Detects market regimes with a Hidden Markov Model and backtests a different strategy in each regime |
+| **Streamlit App** (`Streamlit_App.py`) | Binance | Web version of the Crypto App |
 
 ---
 
 ## 🚀 Key Features
 
-### 📈 Portfolio Analytics
-
-Comprehensive performance and risk analysis:
-
-* **Performance Metrics**
-
-  * Total return (since inception & YTD)
-  * Annualized returns
-
-* **Risk Metrics**
-
-  * Volatility (daily & monthly)
-  * Maximum drawdown
-  * Conditional Value at Risk (CVaR)
-
-* **Visualizations**
-
-  * Portfolio value evolution
-  * Drawdown curves
-  * Rolling volatility
-  * Calendar-based performance
-  * Principal Component Analysis (PCA)
-  * Risk contribution by asset
-
----
-
 ### ⚖️ Portfolio Optimization
 
-Multiple allocation frameworks for robust portfolio construction:
+Long-only, fully-invested portfolios:
 
 * Maximum Sharpe Ratio
 * Minimum Variance
 * Risk Parity
 * Maximum Diversification
-* Equal Weight Portfolio
+* Eigen Portfolio
+* **Minimum Tracking Error** and **Maximum Information Ratio**, both relative to a benchmark allocation
+* Equal Weight
 
-Supports realistic portfolio construction through flexible constraints.
-
----
+Constrained and unconstrained versions are computed side by side. Strategy overlays let you combine a core strategy with tactical sleeves.
 
 ### 🔒 Constraint Engine
 
-Dynamic and customizable constraint system:
+* **Asset constraints**: one asset `≥ / ≤ / =` a weight, or every asset at once (`All ≤ 0.3` caps each weight at 30%).
+* **Risk constraints**, all ex-ante and annualized:
+  * Volatility
+  * Beta to the benchmark allocation
+  * Tracking error to the benchmark allocation
+  * Information ratio to the benchmark allocation
 
-* Asset-level constraints (≥, ≤, =)
-* Global diversification constraints
-* Interactive UI for adding/removing constraints
+Limits are in decimals (`0.05` = 5%); the information ratio is a ratio (`0.5`). If constraints conflict and can't all be met, a warning is raised instead of returning weights that silently break them.
 
----
+### 🔁 Backtesting & Rebalancing
 
-### 🔁 Rebalancing Engine
+* Buy & Hold and periodic rebalancing: weekly, monthly, quarterly, yearly
+* Rolling re-optimization at each rebalancing date, with constraints rebuilt on each window
+* Transaction fees on the traded amount (`rebalanced_dynamic_quantities`)
 
-Evaluate and compare portfolio strategies:
+### 🌦️ Regime-Based Strategies (HMM Regime App)
 
-* Buy & Hold
-* Periodic rebalancing:
+* Gaussian HMM on features built per asset class:
+  * returns and volatility
+  * a PCA market factor
+  * average correlation
+  * drawdown
+* Settings: number of states, covariance type, restarts, training window, walk-forward refits, signal confirmation, and BIC model selection.
+* **No look-ahead by default**: the regime on day *t* only uses data up to *t* (filtered probabilities), and weights decided at *t* earn the returns of *t+1*.
+* Each regime gets its own strategy, exposure (the rest in cash), asset constraints and risk limits.
+* Results:
+  * performance, drawdown, rolling volatility and correlation, with the regime shaded behind each chart
+  * metrics by regime
+  * a weights history and a log of every rebalancing decision
+* Benchmarks: a static strategy, any loaded asset, or other portfolios' returns (e.g. the Crypto App's `global_returns`).
 
-  * Monthly
-  * Quarterly
-  * Yearly
+### 📈 Performance & Risk Analytics
 
-Supports dynamic portfolio adjustments over time.
+* Returns since inception, year-to-date and annualized; calendar (yearly / monthly) returns, volatility, tracking error and Sharpe
+* Volatility (daily, weekly, monthly), maximum drawdown, CVaR
+* Ex-ante volatility, risk contribution (idiosyncratic vs correlation) and tracking-error decomposition over time
+* Beta analysis, PCA, correlation matrices, efficient frontier
 
----
+### 🧩 Value at Risk & Stress Testing
 
-### 📊 Efficient Frontier & Allocation Insights
+* In the apps: multivariate normal, Gaussian copula, Student-t copula, Gumbel copula and Monte Carlo VaR / CVaR, plus their history over time
+* Stress grid: the diagonal multiplies each asset's volatility; the off-diagonal adds correlation shocks; expected returns can be shocked too
+* In `src/RiskMetrics.py` as well: historical and parametric VaR, rolling VaR and the Kupiec backtest
 
-* Interactive efficient frontier visualization
-* Portfolio overlays
-* Sharpe ratio heatmap
-* Correlation matrix
+### 💰 P&L & Positions
 
----
-
-### 💰 P&L & Position Analysis
-
-* Profit & Loss computation using historical positions
-* Strategy comparison (Strategic vs Tactical Allocation)
-* Portfolio positioning analysis
-
----
-
-### 🧩 Risk Decomposition
-
-Advanced breakdown of portfolio risk:
-
-* Asset-level risk contributions
-* Value at Risk (VaR) analysis
-* P&L attribution
-* Historical contribution to volatility and tracking error
-* Market risk exposure analysis
+* P&L rebuilt from the trade history (average-cost method), realized and unrealized
+* Positions and quantities history; ex-post performance of the actual portfolio vs the model allocations
 
 ---
 
@@ -117,48 +101,53 @@ cd Risk-Management
 pip install -r requirements.txt
 ```
 
-### 3. Configure environment
+Tested with Python 3.13 and the exact versions in `requirements.txt`.
 
-Create a `.env` file (recommended) and add:
+### 3. Add your keys
 
+The apps import their credentials from a `keys.py` file at the project root:
+
+```python
+# keys.py
+binance_api_key = "your_binance_key"
+binance_api_secret = "your_binance_secret"
+token = "your_github_token"          # GitHub file updates (src/Git.py)
+repo_owner = "your_github_user"
+repo_name = "your_repo"
+branch = "main"
 ```
-BINANCE_API_KEY=your_key
-BINANCE_SECRET_KEY=your_secret
-GITHUB_TOKEN=your_token
-```
 
-> ⚠️ Never expose your API keys publicly.
-> ⚠️ Make sure to have the relevant Excel Files to Analyze your P&L and Positioning through time
+The HMM Regime App needs none of them. It only uses the Binance-free Yahoo / file sources.
+
+> ⚠️ Never commit or push `keys.py`; add it to your `.gitignore`.
+> ⚠️ The P&L and positioning tabs need the Excel files (trade history, positions, quantities). By default the apps read them from this repository's `BinancePTF/` and `ETF/` folders.
 
 ---
 
-### ▶️ Run the Application
+## ▶️ Run the Apps
 
-#### Streamlit App
+#### Jupyter (ipywidgets)
+
+```bash
+jupyter notebook "Crypto App.ipynb"
+jupyter notebook "Multi Asset App.ipynb"
+jupyter notebook "HMM Regime App.ipynb"
+```
+
+Run all cells; the app appears under the last cell.
+
+#### Streamlit
 
 ```bash
 streamlit run Streamlit_App.py
 ```
 
-#### Jupyter / Ipywidgets
-
-```bash
-jupyter notebook Crypto_App.ipynb
-```
 ---
 
-## 📦 Dependencies
+## 📏 Conventions
 
-Core libraries:
-
-* pandas, numpy, scipy
-* matplotlib, plotly, seaborn
-* statsmodels
-* streamlit, ipywidgets
-* yfinance
-* openpyxl
-* requests, beautifulsoup4
-* binance_connector
+* Returns are daily simple returns; volatilities, tracking errors and information ratios are annualized with **252** periods per year.
+* Ex-ante measures use the covariance and mean of the selected estimation window.
 
 ---
 
@@ -166,21 +155,25 @@ Core libraries:
 
 ```
 ├── src/
-│   ├── Binance_API.py        # Market data retrieval (Binance)
-│   ├── PnL_Computation.py    # Portfolio P&L calculations
-│   ├── RiskMetrics.py        # Risk and portfolio analytics
-│   ├── Rebalancing.py        # Rebalancing strategies
-│   ├── Metrics.py            # Performance metrics
+│   ├── RiskMetrics.py        # Optimization, constraints, VaR, simulations, risk decomposition
+│   ├── Metrics.py            # Performance / risk tables, calendar metrics, efficient frontier
+│   ├── Rebalancing.py        # Buy & hold, periodic and dynamic rebalancing, book cost
+│   ├── Binance_API.py        # Binance market data and account
+│   ├── Yahoo_API.py          # Yahoo Finance search, prices, ticker details, FX conversion
+│   ├── Stock_Data.py         # Yahoo Finance closes (legacy loader)
+│   ├── PnL_Computation.py    # Portfolio P&L from Binance trades
+│   ├── PositionHandler.py    # Positions / quantities Excel files
 │   ├── Git.py                # GitHub integration
+│   ├── PPTx.py               # PowerPoint export
 │   └── __init__.py
 │
-├── Crypto_App.ipynb          # Ipywidgets interface
-├── Crypto_App.py             # Ipywidgets script
+├── Crypto App.ipynb          # Crypto app (ipywidgets)
+├── Crypto_App.py             # Same app as an importable module
+├── Multi Asset App.ipynb     # Multi-asset app (ipywidgets)
+├── HMM Regime App.ipynb      # Regime detection & regime-based backtests (ipywidgets)
 ├── Streamlit_App.py          # Streamlit application
+├── keys.py                   # Your credentials (not versioned)
 ├── requirements.txt
-├── Trade_History.xlsx        # Trades Excel File
-├── Positions.xlsx            # Marke To Market History
-├── Quantities.xlsx           # Historical Quantities
 ├── .streamlit/
 └── README.md
 ```
@@ -189,10 +182,11 @@ Core libraries:
 
 ## 🧠 Use Cases
 
-* Portfolio construction and optimization
-* Risk monitoring and reporting
-* Strategy comparison (Buy & Hold vs Rebalancing)
-* Crypto asset allocation research
+* Portfolio construction and optimization under realistic constraints
+* Benchmark-relative investing (tracking error / information ratio budgets)
+* Regime-aware allocation research
+* Risk monitoring, VaR and stress testing
+* Strategy comparison (Buy & Hold vs Rebalancing vs regime-based)
 * Educational tool for quantitative finance
 
 ---
