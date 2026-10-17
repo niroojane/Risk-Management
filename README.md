@@ -57,7 +57,7 @@ Limits are in decimals (`0.05` = 5%); the information ratio is a ratio (`0.5`). 
   * a PCA market factor
   * average correlation
   * drawdown
-* Settings: number of states, covariance type, restarts, training window, walk-forward refits, signal confirmation, and BIC model selection.
+* Settings: number of states, covariance type, restarts, training window, walk-forward refits (growing or sliding window), signal confirmation, and BIC model selection.
 * **No look-ahead by default**: the regime on day *t* only uses data up to *t* (filtered probabilities), and weights decided at *t* earn the returns of *t+1*.
 * Each regime gets its own strategy, exposure (the rest in cash), asset constraints and risk limits.
 * Results:
