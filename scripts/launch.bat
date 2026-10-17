@@ -11,7 +11,6 @@ set "LABEL=%~4"
 set "ROOT=%~dp0.."
 set "BACKEND=%ROOT%\backend"
 set "FRONTEND=%ROOT%\frontend"
-set "BASE_PYTHON=C:\Users\Admin\anaconda3\python.exe"
 
 where npm.cmd >nul 2>nul
 if errorlevel 1 (
@@ -20,10 +19,17 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not exist "%BACKEND%\.venv\Scripts\python.exe" (
-    echo Creating the backend Python environment...
-    "%BASE_PYTHON%" -m venv "%BACKEND%\.venv" || goto :error
+if exist "%BACKEND%\.venv\Scripts\python.exe" goto :venv_ready
+call :find_python
+if not defined PYTHON_EXE (
+    echo Python 3.11 or newer was not found. Install it from https://www.python.org/downloads
+    echo or Anaconda, or set BASE_PYTHON to its python.exe, then run this file again.
+    pause
+    exit /b 1
 )
+echo Creating the backend Python environment with %PYTHON_EXE%...
+"%PYTHON_EXE%" -m venv "%BACKEND%\.venv" || goto :error
+:venv_ready
 "%BACKEND%\.venv\Scripts\python.exe" -c "import fastapi, scipy, statsmodels, openpyxl, yfinance" >nul 2>nul
 if errorlevel 1 (
     echo Installing the backend packages...
@@ -52,3 +58,23 @@ echo.
 echo Setup failed - see the messages above.
 pause
 exit /b 1
+
+rem Python 3.11+ used to create backend\.venv (first run only), in this order:
+rem BASE_PYTHON if set, the py launcher, python on the PATH, then the usual Anaconda / Miniconda folders.
+:find_python
+set "PYTHON_EXE="
+if defined BASE_PYTHON call :try_python "%BASE_PYTHON%"
+if defined PYTHON_EXE exit /b 0
+for /f "delims=" %%P in ('py -3 -c "import sys; print(sys.executable)" 2^>nul') do if not defined PYTHON_EXE call :try_python "%%P"
+if defined PYTHON_EXE exit /b 0
+for /f "delims=" %%P in ('where python 2^>nul') do if not defined PYTHON_EXE call :try_python "%%P"
+if defined PYTHON_EXE exit /b 0
+for %%P in ("%USERPROFILE%\anaconda3\python.exe" "%USERPROFILE%\miniconda3\python.exe" "%LOCALAPPDATA%\anaconda3\python.exe" "%LOCALAPPDATA%\miniconda3\python.exe" "%ProgramData%\anaconda3\python.exe" "%ProgramData%\miniconda3\python.exe") do if not defined PYTHON_EXE call :try_python %%P
+exit /b 0
+
+:try_python
+if not exist "%~1" exit /b 1
+rem Skips the Microsoft Store placeholder and versions older than 3.11
+"%~1" -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>nul || exit /b 1
+set "PYTHON_EXE=%~1"
+exit /b 0

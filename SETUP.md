@@ -52,7 +52,13 @@ In Jupyter, run all cells: the app appears under the last cell.
 
 ### 1. Prerequisites
 
-- **Python 3.11+**. The launcher creates `backend/.venv` from the Python set in `BASE_PYTHON` at the top of `scripts/launch.bat` (`C:\Users\Admin\anaconda3\python.exe` by default). Edit that line if your Python is elsewhere.
+- **Python 3.11+** from python.org or Anaconda / Miniconda. On the first run, the launcher creates `backend/.venv` from the first suitable Python it finds:
+  1. the `BASE_PYTHON` environment variable, if set
+  2. the `py` launcher
+  3. `python` on the PATH
+  4. the usual Anaconda / Miniconda folders
+
+  If yours is somewhere else, run `set BASE_PYTHON=C:\path\to\python.exe` before the launcher.
 - **Node.js LTS** from https://nodejs.org (provides `npm`).
 
 ### 2. Create `.env` at the project root
