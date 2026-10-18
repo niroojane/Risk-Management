@@ -17,7 +17,7 @@ from ....schemas.profile_schemas import (
     TickersRequest,
 )
 from ....schemas.workspace import ViewResponse
-from ....services.yahoo.yahoo_api import QUOTE_TYPE_CLASS
+from src.Yahoo_API import QUOTE_TYPE_CLASS
 
 router = APIRouter(tags=["Profile"])
 

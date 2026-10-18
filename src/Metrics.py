@@ -9,15 +9,29 @@
 import pandas as pd
 import random
 import numpy as np
-import matplotlib.pyplot as plt
 import datetime
-import seaborn as sns
-
-import plotly.express as px
-import plotly.graph_objects as go
 from scipy.stats import norm, chi2,gumbel_l
 
-from IPython.display import HTML
+# Charts and Jupyter display: used by the notebooks / Streamlit only. Optional, so the
+# web app backend can use the calculations below without installing them.
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+try:
+    import seaborn as sns
+except ImportError:
+    sns = None
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+except ImportError:
+    px = go = None
+try:
+    from IPython.display import HTML
+except ImportError:
+    HTML = None
+
 from io import BytesIO
 import requests
 from requests.exceptions import RequestException
@@ -377,45 +391,54 @@ def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Ye
         
     return dico_fig
             
-def get_frontier(returns,dataframe,cons=None):
-    
-    portfolio=RiskAnalysis(returns)
-    frontier_weights, frontier_returns, frontier_risks, frontier_sharpe_ratio = portfolio.efficient_frontier()
+def frontier_data(returns, dataframe, cons=None, points=100):
+    """Efficient frontier (unconstrained and, with `cons`, constrained) and
+    the return / volatility / Sharpe ratio of each allocation of `dataframe`.
 
-    if cons is not None:
-        frontier_weights_c, frontier_returns_c, frontier_risks_c, frontier_sharpe_ratio_c = portfolio.efficient_frontier(constraints=cons)
+    Returns (indicators, frontier, frontier_constrained or None).
+    """
+    portfolio = RiskAnalysis(returns)
+    _, frontier_returns, frontier_risks, frontier_sharpe_ratio = portfolio.efficient_frontier(points=points)
+
+    frontier = pd.DataFrame({
+        "Returns": frontier_returns,
+        "Volatility": frontier_risks,
+        "Sharpe Ratio": frontier_sharpe_ratio,
+    })
+
+    frontier_c = None
+    if cons:
+        _, returns_c, risks_c, sharpe_c = portfolio.efficient_frontier(constraints=cons, points=points)
         frontier_c = pd.DataFrame({
-            "Returns Constrained": frontier_returns_c,
-            "Volatility Constrained": frontier_risks_c,
-            "Sharpe Ratio Constrained": frontier_sharpe_ratio_c,
+            "Returns": returns_c,
+            "Volatility": risks_c,
+            "Sharpe Ratio": sharpe_c,
         })
-    
-    weight_matrix={}
 
-    for idx in dataframe.index:
-        
-        weight_matrix[idx]=dataframe.loc[idx].to_numpy()
-    
-    metrics = {
-        'Returns': {},
-        'Volatility': {},
-        'Sharpe Ratio': {}
-    }
-    for key in weight_matrix:
-        
-        metrics['Returns'][key]=(np.round(portfolio.performance(weight_matrix[key]), 4))
-        metrics['Volatility'][key]=(np.round(portfolio.variance(weight_matrix[key]), 4))
-        metrics['Sharpe Ratio'][key]=np.round(metrics['Returns'][key]/metrics['Volatility'][key],4)
+    metrics = {'Returns': {}, 'Volatility': {}, 'Sharpe Ratio': {}}
+    for key in dataframe.index:
+        weights = dataframe.loc[key].to_numpy()
+        metrics['Returns'][key] = np.round(portfolio.performance(weights), 4)
+        metrics['Volatility'][key] = np.round(portfolio.variance(weights), 4)
+        metrics['Sharpe Ratio'][key] = np.round(metrics['Returns'][key] / metrics['Volatility'][key], 4)
 
-    
-    frontier = pd.DataFrame(
-        {
-            "Returns": frontier_returns,
-            "Volatility": frontier_risks,
-            "Sharpe Ratio": frontier_sharpe_ratio,
-        }
-    )
-    
+    indicators = pd.DataFrame(metrics, index=dataframe.index).T
+
+    return indicators, frontier, frontier_c
+
+
+def get_frontier(returns,dataframe,cons=None):
+    """frontier_data drawn as a Plotly chart: (indicators, figure)"""
+    indicators, frontier, frontier_c = frontier_data(returns, dataframe, cons)
+    if frontier_c is None and cons is not None:
+        frontier_c = frontier.copy()          # an empty constraint list: same frontier, still drawn
+    if frontier_c is not None:
+        frontier_c = frontier_c.rename(columns=lambda c: c + " Constrained")
+    metrics = {'Returns': indicators.loc['Returns'].to_dict(),
+               'Volatility': indicators.loc['Volatility'].to_dict(),
+               'Sharpe Ratio': indicators.loc['Sharpe Ratio'].to_dict()}
+    weight_matrix = {idx: None for idx in dataframe.index}
+
     # fig = px.scatter(
     #     frontier,
     #     y="Returns",
@@ -443,7 +466,7 @@ def get_frontier(returns,dataframe,cons=None):
         name='Efficient Frontier'
     )
 
-    if cons is not None:
+    if frontier_c is not None:
         fig.add_scatter(
             x=frontier_c['Volatility Constrained'],
             y=frontier_c['Returns Constrained'],
@@ -512,7 +535,6 @@ def get_frontier(returns,dataframe,cons=None):
     
     fig.update_layout(showlegend=True)
     fig.update_layout(hoverlabel_namelength=-1)
-    indicators = pd.DataFrame(metrics,index=weight_matrix.keys()).T
 
     return indicators,fig
 

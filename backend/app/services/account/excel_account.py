@@ -15,11 +15,12 @@ import pandas as pd
 
 from .base import AccountHistory, PortfolioAccount
 from .github_storage import GitHubStorage
-from ..analytics import account as crypto_account
-from ..analytics import multi_asset_account as ma
+from src import Account as crypto_account
+from src import MultiAsset as ma
 from ..infrastructure.cache_service import CacheService
 from ..yahoo import YahooMarketData
-from ..yahoo import position_handler, yahoo_api
+from src import PositionHandler as position_handler
+from src import Yahoo_API as yahoo_api
 from ...core.exceptions import DataValidationError, ExternalAPIError
 from ...core.market import CurrencySettings, MarketProfile
 

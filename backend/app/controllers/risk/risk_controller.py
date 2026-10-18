@@ -16,7 +16,7 @@ from ...schemas.workspace import (
     VaRHistoryRequest,
     ViewResponse,
 )
-from ...services.analytics import workspace as ws_analytics
+from src import Workspace as ws_analytics
 
 
 class RiskController(WorkspaceController):

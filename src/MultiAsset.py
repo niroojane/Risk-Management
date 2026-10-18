@@ -1,10 +1,12 @@
 """Real multi-asset portfolio from Excel files: trades, ledger, holdings and P&L.
 
-Port of the Multi Asset App notebook's helpers (read_current_portfolio,
-read_trade_history, get_book_cost / get_pnl / build_ledger,
-pnl_history_from_ledger, and the P&L table of get_holdings). Pure functions on
-DataFrames: reading the files and fetching prices / FX live in
-`app.services.account.excel_account`.
+Shared by the Multi Asset App notebook and the web app: Current Portfolio
+units, trade parsing (fees, trading currencies), the average-cost ledger,
+the P&L history and the holdings / P&L tables. Pure functions on DataFrames:
+reading the files and fetching prices / FX stay in the apps.
+
+Settings (TICKER_MAP, CURRENCY_MAP, INCLUDE_FEES_IN_BOOK_COST) are module
+globals: change them on the module, e.g. `MultiAsset.TICKER_MAP['GOLD'] = 'GOLD.PA'`.
 
 Money columns of trades, book cost, realized P&L and fees are in each asset's
 trading currency; they are translated to the base currency with the day's FX.
@@ -15,7 +17,9 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from ...core.market import FIAT_CURRENCIES
+# Cash lines / trading currencies recognised in the Excel files
+FIAT_CURRENCIES: Tuple[str, ...] = ('USD', 'EUR', 'GBP', 'CHF', 'JPY', 'CAD', 'AUD', 'HKD', 'SEK', 'NOK',
+                                    'DKK', 'SGD', 'HUF', 'PLN', 'CZK', 'NZD', 'ZAR', 'ILS', 'CNY', 'INR')
 
 # Asset code (the 'asset' column / the Market without its currency) -> Yahoo ticker.
 # Anything not listed maps to itself (XLK -> XLK), e.g. {'GOLD': 'GOLD.PA'}.

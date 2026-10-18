@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.core.dependencies import get_account_service, get_required_account_service, get_required_price_service
 from app.main import app
 from app.services.account import AccountHistory, AccountService
-from app.services.analytics import account as account_analytics
+from src import Account as account_analytics
 
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT"]
 DATES = pd.date_range("2022-01-01", "2024-12-31", freq="D")

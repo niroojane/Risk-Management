@@ -14,7 +14,12 @@ Risk-Management is a portfolio management and risk analysis system in Python: po
 
 ### Core Library (`src/`)
 
-Shared by the notebooks and Streamlit:
+Shared by the notebooks, Streamlit and the web app backend. Submodules load on first use (`src/__init__.py`), and the chart libraries in `Metrics.py` are optional, so the backend doesn't need them.
+
+- **Backtest.py**: Rolling optimization (core strategy + overlays) behind 'Get Results'
+- **Workspace.py**: Weight series of every portfolio (Fund, Rebalanced / Buy and Hold X, Historical Portfolio) and the tab views
+- **Account.py**: Crypto holdings, positioning, P&L history, history merge
+- **MultiAsset.py**: Multi-asset trades, average-cost ledger with fees and FX, holdings and P&L tables
 
 - **Binance_API.py**: Binance API interactions (market data, prices, positions, trades)
 - **Yahoo_API.py**: Yahoo Finance search, prices, ticker details, FX conversion to a base currency
@@ -32,7 +37,7 @@ Shared by the notebooks and Streamlit:
 
 ### Web App (`backend/` + `frontend/`)
 
-- The backend ports the `src/` analytics to `backend/app/services/analytics/` (parity verified) and exposes them through FastAPI. Layers: routes (`api/v1`) → controllers → services.
+- The backend imports the analytics from `src/` (no copies) and exposes them through FastAPI. Layers: routes (`api/v1`) → controllers → services. A change in `src/` affects the notebooks, Streamlit and the web app alike.
 - A market profile chosen with the `MARKET` environment variable selects the data sources. `crypto` uses Binance prices and the Binance account. `multi_asset` uses Yahoo Finance prices converted to a base currency, and the Excel portfolio in `ETF/` on GitHub.
 - The frontend reads `GET /api/v1/profile` at startup (benchmark, cash assets, crypto-only pages) and mirrors the notebook tabs and sub-tabs.
 

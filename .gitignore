@@ -5,8 +5,8 @@
 keys.py
 
 # --- Not used by any app ---------------------------------------------------
-Old/
-Yahoo/
+/Old/
+/Yahoo/
 make_fake_portfolio.py
 # Copies of BinancePTF/*.xlsx: the apps read BinancePTF/ from GitHub
 /Positions.xlsx
@@ -21,3 +21,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 ~$*.xlsx
+
+# Module copy of the Crypto App notebook (the notebook is the version kept in the repo)
+/Crypto_App.py

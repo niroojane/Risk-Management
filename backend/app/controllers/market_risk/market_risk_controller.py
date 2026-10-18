@@ -1,7 +1,7 @@
 """Market Risk Controller - Business logic for PCA, correlation and market drivers"""
 from ..workspace_controller import WorkspaceController
 from ...schemas.workspace import CorrelationViewRequest, MarketDriversRequest, PCAViewRequest, ViewResponse
-from ...services.analytics import workspace as ws_analytics
+from src import Workspace as ws_analytics
 
 
 class MarketRiskController(WorkspaceController):

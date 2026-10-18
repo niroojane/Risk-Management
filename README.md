@@ -2,7 +2,7 @@
 
 Interactive portfolio management apps built with **ipywidgets** (Jupyter), **Streamlit** and a **web app** (FastAPI + React). They cover **portfolio optimization, risk analysis, P&L and strategy backtesting**, for crypto (Binance) and multi-asset universes (ETFs, stocks, indices via Yahoo Finance).
 
-The analytics live in a shared library (`src/`) used by the notebooks and Streamlit; the web app's backend runs a port of the same code.
+The analytics live in one shared library (`src/`) used by the notebooks, Streamlit and the web app's backend.
 
 ---
 
@@ -178,6 +178,10 @@ The first launch creates `backend/.venv` and installs the Python and npm package
 │   ├── RiskMetrics.py        # Optimization, constraints, VaR, simulations, risk decomposition
 │   ├── Metrics.py            # Performance / risk tables, calendar metrics, efficient frontier
 │   ├── Rebalancing.py        # Buy & hold, periodic and dynamic rebalancing, book cost
+│   ├── Backtest.py           # Rolling optimization with overlays ('Get Results')
+│   ├── Workspace.py          # Weight series of every portfolio and the risk / performance views
+│   ├── Account.py            # Crypto holdings, positioning and P&L history
+│   ├── MultiAsset.py         # Multi-asset trades, ledger, holdings and P&L
 │   ├── Binance_API.py        # Binance market data and account
 │   ├── Yahoo_API.py          # Yahoo Finance search, prices, ticker details, FX conversion
 │   ├── Stock_Data.py         # Yahoo Finance closes (legacy loader)

@@ -9,13 +9,14 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Dict, List, Tuple
 
+from src import MultiAsset
+
 from .config import settings
 
 CRYPTO = 'crypto'
 MULTI_ASSET = 'multi_asset'
 
-FIAT_CURRENCIES: Tuple[str, ...] = ('USD', 'EUR', 'GBP', 'CHF', 'JPY', 'CAD', 'AUD', 'HKD', 'SEK', 'NOK',
-                                    'DKK', 'SGD', 'HUF', 'PLN', 'CZK', 'NZD', 'ZAR', 'ILS', 'CNY', 'INR')
+FIAT_CURRENCIES: Tuple[str, ...] = MultiAsset.FIAT_CURRENCIES
 BASE_CURRENCY_CHOICES: Tuple[str, ...] = ('USD', 'EUR', 'GBP', 'CHF', 'JPY', 'HUF', 'CAD', 'AUD', 'SEK', 'NOK',
                                           'DKK', 'PLN', 'CZK')
 

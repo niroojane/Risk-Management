@@ -13,8 +13,8 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from .rebalancing import rebalanced_dynamic_quantities, rebalanced_portfolio
-from .risk_metrics import (
+from .Rebalancing import rebalanced_dynamic_quantities, rebalanced_portfolio
+from .RiskMetrics import (
     RiskAnalysis,
     beta_constraint,
     build_constraint,
@@ -81,10 +81,15 @@ def run_backtest(
 ) -> dict:
     """Rolling optimization of `objective` blended with `overlays` [(objective, weight)].
 
-    Returns the Fund (final), Core and Overlay weight schedules, the Model
-    allocation (`model_row`: -2 = last complete period as the Crypto App,
-    -1 = last row as the Multi Asset App), their simulated values and the
-    metrics table shown by the notebook. `benchmark` = (series name, ticker).
+    Returns the Fund (final), Core and Overlay weight schedules (Overlay is None
+    without overlays), the Model allocation (`model_row`: -2 = last complete
+    period as the Crypto App, -1 = last row as the Multi Asset App), the units
+    and simulated values of each schedule, the metrics table and the optimizer
+    warnings. `benchmark` = (series name, ticker).
+
+    Risk constraints: {'volatility' | 'beta' | 'tracking_error' |
+    'information_ratio': (sign, limit)}; beta, tracking error and information
+    ratio are measured against `bench_weights` and skipped without it.
     """
     risk_constraints = risk_constraints or {}
     returns = prices.pct_change(fill_method=None)
@@ -114,18 +119,24 @@ def run_backtest(
         raise ValueError("Not enough anchor dates to perform a rolling optimization")
 
     failures: List[str] = []
+    errors: List[str] = []
 
     def worker(subset, strategy):
         if subset.empty or len(subset) < 2:
             return None
-        constraints = window_constraints(subset, weight_cons, risk_constraints, bench_weights, bench_returns)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter('always')
-            weights = RiskAnalysis(subset).optimize(
-                objective=strategy,
-                constraints=constraints or False,
-                bench_weights=bench_weights if strategy in RELATIVE_OBJECTIVES else None,
-            )
+        try:
+            constraints = window_constraints(subset, weight_cons, risk_constraints, bench_weights, bench_returns)
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter('always')
+                weights = RiskAnalysis(subset).optimize(
+                    objective=strategy,
+                    constraints=constraints or False,
+                    bench_weights=bench_weights if strategy in RELATIVE_OBJECTIVES else None,
+                )
+        except Exception as exc:  # one failing period is skipped, as in the notebooks
+            errors.append(f"{strategy}: optimization failed {subset.index[0].date()} -> "
+                          f"{subset.index[-1].date()} ({exc})")
+            return None
         if caught:
             failures.append(strategy)
         return subset.index[-1], np.round(weights, 6), strategy
@@ -144,11 +155,18 @@ def run_backtest(
         raise ValueError("The optimization failed on every period")
 
     periods = len(dates) - 1
-    messages = [
+    messages = errors + [
         f"{strategy}: the optimizer did not converge on {failures.count(strategy)} of {periods} periods "
         f"-- those weights may not satisfy every constraint."
         for strategy in dict.fromkeys(failures)
     ]
+
+    # An overlay that failed on every period is left out; its weight goes back to the core strategy
+    skipped = [name for name, _ in overlays if name not in results]
+    for name in skipped:
+        messages.append(f"Overlay '{name}' failed on every period, skipped.")
+    overlays = [(name, limit) for name, limit in overlays if name in results]
+    core_weight = max(1 - sum(limit for _, limit in overlays), 0.0)
 
     def schedule(strategy):
         return pd.DataFrame(results[strategy], index=columns).T.sort_index()
@@ -166,10 +184,9 @@ def run_backtest(
     overlay = pd.concat([first_row, overlay / denominator])
 
     schedules = {'Fund': final, 'Core': core, 'Overlay': overlay if overlays else None}
-    values = pd.DataFrame({
-        name: (rebalanced_dynamic_quantities(prices, matrix) * prices).sum(axis=1)
-        for name, matrix in schedules.items() if matrix is not None
-    })
+    quantities = {name: rebalanced_dynamic_quantities(prices, matrix)
+                  for name, matrix in schedules.items() if matrix is not None}
+    values = pd.DataFrame({name: (units * prices).sum(axis=1) for name, units in quantities.items()})
     benchmark_name, benchmark_ticker = benchmark
     if benchmark_ticker in prices.columns:
         values[benchmark_name] = prices[benchmark_ticker]
@@ -181,6 +198,8 @@ def run_backtest(
         'model': final.iloc[model_row] if len(final) >= abs(model_row) else final.iloc[-1],
         'metrics': metrics,
         'warnings': messages,
+        'quantities': quantities,   # units held per schedule (Fund / Core / Overlay)
+        'values': values,           # simulated value of each schedule (+ the benchmark's price)
     }
 
 

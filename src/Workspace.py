@@ -1,7 +1,7 @@
 """Named portfolio series shared by the app tabs, and the views built on them.
 
-Port of the Crypto App notebook's `_build_weight_series_dict` /
-`_build_ex_post_return_series` and of the tab computations that consume them
+The computations behind the Crypto App's `_build_weight_series_dict` /
+`_build_ex_post_return_series` and the tabs that consume them
 (strategy performance, calendar, return / beta analysis, risk trajectory,
 tracking error, VaR history, risk contribution, stress preview, market risk).
 
@@ -19,21 +19,21 @@ import numpy as np
 import pandas as pd
 from statsmodels.stats.correlation_tools import cov_nearest
 
-from .metrics import (
-    get_frontier,
+from .Metrics import (
+    frontier_data,
     get_monthly_metrics,
     get_portfolio_risk,
     get_yearly_metrics,
     rebalanced_metrics,
 )
-from .rebalancing import (
+from .Rebalancing import (
     buy_and_hold,
     get_rebalancing_dates,
     rebalanced_book_cost,
     rebalanced_dynamic_quantities,
     rebalanced_portfolio,
 )
-from .risk_metrics import (
+from .RiskMetrics import (
     RiskAnalysis,
     compute_per_asset_betas,
     compute_rolling_per_asset_betas,
@@ -244,7 +244,7 @@ def performance_view(
 
     if len(allocations) and frontier_points:
         try:
-            indicators, frontier, frontier_c = get_frontier(
+            indicators, frontier, frontier_c = frontier_data(
                 range_prices.pct_change(fill_method=None), allocations, constraints or None, points=frontier_points
             )
             result['frontier'] = {'indicators': indicators, 'frontier': frontier, 'constrained': frontier_c}

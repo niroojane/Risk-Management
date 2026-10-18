@@ -8,7 +8,7 @@ import pandas as pd
 
 from .base import AccountHistory, PortfolioAccount
 from .github_storage import POSITIONS_FILE, QUANTITIES_FILE, TRADES_FILE, GitHubStorage
-from ..analytics import account as account_analytics
+from src import Account as account_analytics
 from ..binance import BinanceClient, PriceService, QuantityService
 from ..infrastructure.cache_service import CacheService
 from ...core.config import CACHE_INVENTORY_TTL

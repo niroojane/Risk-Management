@@ -1,6 +1,6 @@
 # Risk Management API - Backend
 
-FastAPI backend of the Risk Management web app. It serves the analytics of the Crypto App and Multi Asset App notebooks (ported from `src/`) to the React frontend: optimization, backtests, performance, P&L, risk decomposition, VaR and market risk.
+FastAPI backend of the Risk Management web app. It serves the analytics of the Crypto App and Multi Asset App notebooks to the React frontend: optimization, backtests, performance, P&L, risk decomposition, VaR and market risk. The calculations come from the project's shared `src/` package (one folder up), the same code the notebooks use.
 
 ## 📋 Prerequisites
 
@@ -91,9 +91,9 @@ backend/
 │   ├── models/              # Domain entities
 │   ├── common/              # Enums, response base, DataFrame serialization
 │   └── services/
-│       ├── analytics/       # Port of src/: risk_metrics, rebalancing, metrics, pnl, workspace, backtest...
+│       ├── analytics/       # API-oriented computations; the analytics come from the project's src/ package
 │       ├── binance/         # Binance client, prices, market data, quantities
-│       ├── yahoo/           # Yahoo Finance prices, FX, search, details, position files
+│       ├── yahoo/           # Yahoo Finance prices and FX (cached), on top of src/Yahoo_API.py
 │       ├── account/         # Real portfolio: Binance account or Excel files (GitHub storage)
 │       └── infrastructure/  # Cache
 ├── tests/

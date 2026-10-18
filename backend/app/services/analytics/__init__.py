@@ -1,20 +1,9 @@
-"""Portfolio and risk analytics (ported from the legacy `src/` package)
+"""API-oriented computations used by the controllers.
 
-- risk_metrics: Portfolio / RiskAnalysis classes, constraints, rolling risk
-- rebalancing: buy-and-hold and rebalanced portfolio simulations
-- metrics: performance and risk tables
-- pnl: book cost and realized PnL from a trade history
-- portfolio_analytics: API-oriented computations used by the controllers
+The analytics themselves (RiskMetrics, Rebalancing, Metrics, Backtest, Workspace, Account,
+MultiAsset, PnL_Computation, Yahoo_API, PositionHandler) live in the project's shared `src`
+package, also used by the notebooks and the Streamlit app.
 """
-from . import metrics, pnl, portfolio_analytics, rebalancing, risk_metrics
-from .risk_metrics import Portfolio, RiskAnalysis
+from . import portfolio_analytics
 
-__all__ = [
-    "metrics",
-    "pnl",
-    "portfolio_analytics",
-    "rebalancing",
-    "risk_metrics",
-    "Portfolio",
-    "RiskAnalysis",
-]
+__all__ = ["portfolio_analytics"]

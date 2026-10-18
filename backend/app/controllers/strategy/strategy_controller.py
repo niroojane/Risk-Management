@@ -9,9 +9,9 @@ from ...common import frame_to_dict, to_payload
 from ...schemas.analytics_schemas import WeightConstraint
 from ...schemas.workspace import BacktestRequest, ViewResponse
 from ...core.market import MULTI_ASSET, get_profile
-from ...services.analytics.backtest import run_backtest
-from ...services.analytics.rebalancing import rebalanced_portfolio
-from ...services.analytics.workspace import clean_prices
+from src.Backtest import run_backtest
+from src.Rebalancing import rebalanced_portfolio
+from src.Workspace import clean_prices
 from ...schemas.strategy import OptimizationData, OptimizationRequest, OptimizationResponse
 from ...services.analytics import portfolio_analytics as analytics
 

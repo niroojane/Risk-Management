@@ -10,7 +10,7 @@ from ..core.exceptions import DataValidationError
 from ..core.market import get_profile
 from ..schemas.workspace import ViewResponse, WorkspaceRequest
 from ..services.account import PortfolioAccount
-from ..services.analytics import workspace as ws_analytics
+from src import Workspace as ws_analytics
 from ..services.analytics.portfolio_analytics import allocation_frame
 from ..services.binance import PriceService
 

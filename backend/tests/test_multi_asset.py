@@ -21,7 +21,9 @@ from app.core.dependencies import (
 from app.core.market import MULTI_ASSET_PROFILE, get_currency_settings
 from app.main import app
 from app.services.account import ExcelAccountService
-from app.services.yahoo import YahooMarketData, YahooPriceService, position_handler, yahoo_api
+from app.services.yahoo import YahooMarketData, YahooPriceService
+from src import PositionHandler as position_handler
+from src import Yahoo_API as yahoo_api
 
 FX = {'EUR': 1.1, 'GBP': 1.3}
 

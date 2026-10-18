@@ -16,6 +16,146 @@ import numpy as np
 from .Binance_API import BinanceAPI
 
 
+# =============================================================================
+# P&L maths on a trade history (shared by the notebooks, Streamlit and the web app)
+# =============================================================================
+# `trades`: Binance trade history with the columns Date(UTC), Market, Type (BUY/SELL),
+# Amount, Price in USDT, Total in USDT and Pair Price (see PnL.get_trade_in_usdt).
+
+def get_crypto_traded(trades):
+    """Every asset appearing in a traded market, as base or quote."""
+    crypto_list = set()
+    for market in set(trades['Market']):
+        if market.endswith('USDT'):
+            crypto_list.add(market[:-4])
+            crypto_list.add('USDT')
+        else:
+            crypto_list.add(market[:-3])
+            crypto_list.add(market[-3:])
+
+    return crypto_list
+
+
+def get_book_cost(trades):
+    """Average book cost per asset in USDT, weighted-average cost method:
+
+        new_cost_price = (old_cost_price * old_balance + purchase_cost) / new_balance
+
+    Cost price only changes on acquisitions (buys of the base asset, or
+    receiving the quote asset). Disposals reduce the balance only; a fully
+    closed position resets the cost basis.
+    """
+    book_costs = {}
+
+    for crypto in get_crypto_traded(trades):
+
+        dataset = trades[(trades['Market'].str[:len(crypto)] == crypto) |
+                         (trades['Market'].str[-len(crypto):] == crypto)]
+
+        events = []  # (date, amount_delta, total_usdt_delta)
+
+        # --- BASE asset (e.g., ETH in ETHBTC) ---
+        base_dataset = dataset[dataset['Market'].str[:len(crypto)] == crypto]
+        for _, row in base_dataset.iterrows():
+            amount = float(row['Amount'])
+            total_usdt = float(row['Total in USDT'])
+            if row['Type'] == 'BUY':
+                events.append((row['Date(UTC)'], amount, total_usdt))
+            elif row['Type'] == 'SELL':
+                events.append((row['Date(UTC)'], -amount, -total_usdt))
+
+        # --- QUOTE asset (e.g., BTC in ETHBTC) ---
+        quote_dataset = dataset[dataset['Market'].str[-len(crypto):] == crypto]
+        for _, row in quote_dataset.iterrows():
+            total_usdt = float(row['Total in USDT'])
+            amount_in_quote = total_usdt / float(row['Pair Price'])
+
+            if row['Type'] == 'BUY':
+                # buying base with quote -> disposing quote
+                events.append((row['Date(UTC)'], -amount_in_quote, -total_usdt))
+            elif row['Type'] == 'SELL':
+                # selling base for quote -> acquiring quote
+                events.append((row['Date(UTC)'], amount_in_quote, total_usdt))
+
+        if not events:
+            continue
+
+        # Aggregate multiple trades on the same date
+        events_df = (pd.DataFrame(events, columns=['Date', 'Amount', 'Total'])
+                     .groupby('Date').sum().sort_index())
+
+        balance = 0.0
+        cost_price = 0.0
+        dates, cost_prices = [], []
+
+        for date, row in events_df.iterrows():
+            amount_delta = row['Amount']
+
+            if amount_delta > 0:
+                new_balance = balance + amount_delta
+                if new_balance != 0:
+                    cost_price = (cost_price * balance + row['Total']) / new_balance
+                balance = new_balance
+            else:
+                balance += amount_delta
+                if balance <= 1e-12:
+                    balance = 0.0
+                    cost_price = 0.0  # position fully closed, reset cost basis
+
+            dates.append(date)
+            cost_prices.append(cost_price)
+
+        book_costs[crypto + 'USDT'] = pd.Series(cost_prices, index=dates)
+
+    return pd.DataFrame(book_costs).sort_index().ffill().fillna(0)
+
+
+def get_pnl(book_cost, trades):
+    """Realized PnL per asset: (sell price - book cost) x quantity sold.
+
+    Returns (realized PnL table, {asset: PnL per trade date}).
+    """
+    profit_and_loss = {}
+    pnl_per_crypto = {}
+
+    for crypto in get_crypto_traded(trades):
+        if crypto + 'USDT' not in book_cost.columns:
+            continue
+
+        temp = trades[trades['Market'].str[:len(crypto)] == crypto].copy()
+        temp['Flows'] = np.where(temp['Type'] == 'SELL', -temp['Amount'], temp['Amount'])
+        temp = temp.set_index('Date(UTC)').sort_index()
+        temp['Cost'] = book_cost[crypto + 'USDT']
+        temp['Cost'] = temp['Cost'].ffill()
+        temp[crypto] = np.where(temp['Type'] == 'SELL', (temp['Cost'] - temp['Price in USDT']) * temp['Flows'], 0)
+
+        profit_and_loss[crypto] = temp[crypto]
+        pnl_per_crypto[crypto + 'USDT'] = profit_and_loss[crypto].sum()
+
+    realized_pnl = pd.DataFrame(pnl_per_crypto.values(), index=pnl_per_crypto.keys(), columns=['Realized PnL'])
+
+    return realized_pnl, profit_and_loss
+
+
+def get_historical_positions(trades):
+    """Cumulative units held per base asset at the end of each day."""
+    dataframe_total = {}
+
+    for crypto in get_crypto_traded(trades):
+        dataset = trades[trades['Market'].str[:len(crypto)] == crypto].copy()
+        dataset['Quantities'] = np.where(dataset['Type'] == "SELL",
+                                         -dataset['Amount'].astype(float),
+                                         dataset['Amount'].astype(float))
+
+        temp = dataset[['Date(UTC)', 'Quantities']].rename(columns={'Date(UTC)': 'Date'}).groupby(by='Date').sum()
+        dataframe_total[crypto] = dict(zip(temp.index, temp['Quantities']))
+
+    historical_positions = pd.DataFrame(dataframe_total).sort_index()
+    historical_positions = historical_positions.groupby(historical_positions.index).sum()
+    historical_positions.index = historical_positions.index.round('d')
+    return historical_positions.groupby(historical_positions.index).sum().cumsum()
+
+
 # In[2]:
 
 
@@ -113,23 +253,7 @@ class PnL:
 
         
     def get_crypto_traded(self, price):
-    
-        traded_crypto = set(price['Market'])  # include all trades, BUY and SELL
-    
-        crypto_list = set()
-        for key in traded_crypto:
-            if key.endswith('USDT'):
-                base = key[:-4]
-                crypto_list.add(base)
-                crypto_list.add('USDT')  # include USDT explicitly
-            else:
-                base = key[:-3]
-                quote = key[-3:]
-                crypto_list.add(base)
-                crypto_list.add(quote)
-    
-        return crypto_list
-        
+        return get_crypto_traded(price)
 
     # def get_book_cost(self, price):
     #     """
@@ -199,156 +323,12 @@ class PnL:
     #     return book_cost
         
     def get_book_cost(self, price):
-        """
-        Compute average book cost per asset in USDT terms, using the
-        weighted-average cost method:
-        
-            new_cost_price = (old_cost_price * old_balance + purchase_cost) / new_balance
-        
-        Cost price only changes on acquisitions (buys of the base asset,
-        or receiving the quote asset). Disposals (sells of the base asset,
-        or spending the quote asset) reduce balance only — cost price is
-        left unchanged, since it reflects the remaining holdings.
-        """
-        
-        crypto_list = self.get_crypto_traded(price)
-        
-        dynamic_average_total = {}
-        dynamic_average_amount = {}
-        
-        for crypto in crypto_list:
-        
-            dataset = price[(price['Market'].str[:len(crypto)] == crypto) |
-                            (price['Market'].str[-len(crypto):] == crypto)].copy()
-        
-            events = []  # (date, amount_delta, total_usdt_delta)
-        
-            # --- BASE asset logic (e.g., ETH in ETHBTC) ---
-            base_dataset = dataset[dataset['Market'].str[:len(crypto)] == crypto]
-            for idx, row in base_dataset.iterrows():
-                trade_date = row['Date(UTC)']
-                amount = float(row['Amount'])
-                total_usdt = float(row['Total in USDT'])
-                if row['Type'] == 'BUY':
-                    events.append((trade_date, amount, total_usdt))       # acquisition
-                elif row['Type'] == 'SELL':
-                    events.append((trade_date, -amount, -total_usdt))     # disposal
-        
-            # --- QUOTE asset logic (e.g., BTC in ETHBTC) ---
-            quote_dataset = dataset[dataset['Market'].str[-len(crypto):] == crypto]
-            for idx, row in quote_dataset.iterrows():
-                trade_date = row['Date(UTC)']
-                total_usdt = float(row['Total in USDT'])
-                pair_price = float(row['Pair Price'])
-                amount_in_quote = total_usdt / pair_price
-        
-                if row['Type'] == 'BUY':
-                    # buying base with quote → spending/disposing quote
-                    events.append((trade_date, -amount_in_quote, -total_usdt))
-                elif row['Type'] == 'SELL':
-                    # selling base for quote → acquiring quote
-                    events.append((trade_date, amount_in_quote, total_usdt))
-        
-            if not events:
-                continue
-        
-            # Aggregate multiple trades on the same date
-            events_df = (pd.DataFrame(events, columns=['Date', 'Amount', 'Total'])
-                           .groupby('Date').sum().sort_index())
-        
-            # Sequentially walk through events, applying the weighted-average formula
-            balance = 0.0
-            cost_price = 0.0
-            dates, cost_prices, balances = [], [], []
-        
-            for date, row in events_df.iterrows():
-                amount_delta = row['Amount']
-                total_delta = row['Total']
-        
-                if amount_delta > 0:
-                    # Acquisition: recompute weighted-average cost price
-                    new_balance = balance + amount_delta
-                    if new_balance != 0:
-                        cost_price = (cost_price * balance + total_delta) / new_balance
-                    balance = new_balance
-                else:
-                    # Disposal: balance shrinks, cost price of remaining units unchanged
-                    balance += amount_delta
-                    if balance <= 1e-12:
-                        balance = 0.0
-                        cost_price = 0.0  # position fully closed, reset cost basis
-        
-                dates.append(date)
-                cost_prices.append(cost_price)
-                balances.append(balance)
-        
-            dynamic_average_total[crypto + 'USDT'] = pd.Series(cost_prices, index=dates)
-            dynamic_average_amount[crypto + 'USDT'] = pd.Series(balances, index=dates)
-        
-        book_cost = pd.DataFrame(dynamic_average_total).sort_index().ffill().fillna(0)
-        
-        return book_cost
+        """Average book cost per asset in USDT (weighted-average cost method)"""
+        return get_book_cost(price)
+
     def get_pnl(self,book_cost,price):
-    
-        positions_history={}
-        transaction_type={}
-        results={}
-        profit_and_loss={}
-        pnl_per_crypto={}
-    
-        crypto_list=self.get_crypto_traded(price)
-        
-        for crypto in crypto_list:
-    
-            dataset=price[price['Market'].str[:len(crypto)]==crypto]
-    
-            grouped=dataset.groupby(by='Date(UTC)').sum()
-            positions_history[crypto]=dict(zip(grouped.index,grouped['Amount'].astype(float)))
-            transaction_type[crypto]=list(zip(dataset['Date(UTC)'],dataset['Type']))
-    
-            temp=price[price['Market'].str[:len(crypto)]==crypto].copy()
-            temp['Flows']=np.where(temp['Type']=='SELL',-temp['Amount'],temp['Amount'])
-            temp['Flows'].sum()
-            temp=temp.set_index('Date(UTC)').sort_index()
-            temp['Cost']=book_cost[crypto+'USDT']
-            #temp['Cost']=temp['Cost'].fillna(method='ffill')
-            temp['Cost']=temp['Cost'].ffill()
-            temp[crypto]=np.where(temp['Type']=='SELL',(temp['Cost']-temp['Price in USDT'])*temp['Flows'],0)
-            
-            profit_and_loss[crypto]=temp[crypto]
-    
-            pnl_per_crypto[crypto+'USDT']=profit_and_loss[crypto].sum()
-            
-        realized_pnl=pd.DataFrame(pnl_per_crypto.values(),index=pnl_per_crypto.keys(),columns=['Realized PnL'])
-        
-        return realized_pnl,profit_and_loss
+        return get_pnl(book_cost, price)
 
     def get_historical_positions(self,price):
-    
-        crypto_list=self.get_crypto_traded(price)
-        quantities={}
-        dataframe_total={}
-    
-    
-        for crypto in crypto_list:
-    
-            dataset=price[price['Market'].str[:len(crypto)]==crypto].copy()
-            dataset['Quantities']=np.where(dataset['Type']=="SELL",-dataset['Amount'].astype(float),dataset['Amount'].astype(float))
-    
-            quantities[crypto]=list(zip(dataset['Date(UTC)'],dataset['Quantities']))
-            temp=pd.DataFrame(quantities[crypto],columns=['Date','Quantities']).groupby(by='Date').sum()
-            dataframe_total[crypto]=dict(zip(temp.index,temp['Quantities']))
-    
-        historical_positions=pd.DataFrame(dataframe_total).sort_index()
-        historical_positions=historical_positions.groupby(historical_positions.index).sum()
-        historical_positions.index=historical_positions.index.round('d')
-        historical_positions=historical_positions.groupby(historical_positions.index).sum().cumsum()
-    
-        return historical_positions
-
-
-# In[ ]:
-
-
-
+        return get_historical_positions(price)
 

@@ -1,15 +1,15 @@
 """Real-portfolio computations: holdings, positioning vs. the model, P&L.
 
-Port of the Crypto App notebook's `get_holdings`, `get_pnl_on_click`,
+The computations behind the Crypto App's `get_holdings`, `get_pnl_on_click`,
 `check_connection` and `get_ex_post_returns`. Pure functions: the Binance /
-GitHub I/O lives in `app.services.account`.
+GitHub calls stay in the apps.
 """
 from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
 
-from .pnl import get_book_cost, get_pnl
+from .PnL_Computation import get_book_cost, get_pnl
 
 VALUE = 'Current Portfolio in USDT'
 WEIGHT = 'Current Weights'

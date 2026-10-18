@@ -13,12 +13,12 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from .metrics import (
+from src.Metrics import (
     get_asset_returns,
     get_asset_risk,
     get_expected_metrics,
 )
-from .risk_metrics import (
+from src.RiskMetrics import (
     RiskAnalysis,
     beta_constraint,
     build_constraint,

@@ -30,23 +30,26 @@ services/binance/
 └── transformers/            # Kline / balance transformations
 ```
 
-**Analytics (ported from the project's `src/`):**
+**Analytics: the project's shared `src/` package** (also used by the notebooks and Streamlit; no copies here)
 ```
+src/                         # one folder up, made importable by app/__init__.py and pytest.ini
+├── RiskMetrics.py           # Portfolio / RiskAnalysis, SLSQP constraints, VaR, PCA, rolling
+├── Rebalancing.py           # Buy-and-hold / rebalanced portfolios
+├── Metrics.py               # Performance and risk tables (charts only load if plotly is installed)
+├── PnL_Computation.py       # Book cost / realized P&L from a trade history
+├── Backtest.py              # Rolling optimization: Fund / Core / Overlay
+├── Workspace.py             # Workspace of named series and the views of the app tabs
+├── Account.py               # Crypto holdings, positioning and P&L tables
+├── MultiAsset.py            # Multi-asset trades, ledger, holdings, P&L
+├── Yahoo_API.py             # yfinance prices, FX, search, details
+└── PositionHandler.py       # Update Files (Quantities / Positions)
 services/analytics/
-├── risk_metrics.py          # Portfolio / RiskAnalysis, SLSQP constraints, VaR, PCA, rolling
-├── rebalancing.py           # Buy-and-hold / rebalanced portfolios
-├── metrics.py               # Performance and risk tables (no plotly)
-├── pnl.py                   # Book cost / realized P&L from a trade history
-├── portfolio_analytics.py   # API-oriented computations (constraints, optimization, VaR, asset metrics)
-├── workspace.py             # Workspace of named series and the views of the app tabs
-├── backtest.py              # Rolling optimization: Fund / Core / Overlay
-├── account.py               # Crypto holdings, positioning and P&L tables
-└── multi_asset_account.py   # Multi-asset trades, ledger, holdings, P&L (Multi Asset App port)
+└── portfolio_analytics.py   # API-oriented computations (constraints, optimization, VaR, asset metrics)
 ```
-Synchronous CPU functions with no I/O. Controllers extend `AnalyticsController` (`controllers/analytics_controller.py`), or `WorkspaceController` for views that need the workspace. `AnalyticsController` loads prices through `PriceService.get_price_frame()` and runs the computation in a thread (`_compute`, which turns a ValueError into HTTP 400). Keep the logic identical to `src/` (parity verified). Allocation grids are index = names, columns = symbols.
+Synchronous CPU functions with no I/O. Controllers extend `AnalyticsController` (`controllers/analytics_controller.py`), or `WorkspaceController` for views that need the workspace. `AnalyticsController` loads prices through `PriceService.get_price_frame()` and runs the computation in a thread (`_compute`, which turns a ValueError into HTTP 400). A change in `src/` changes the notebooks too: run the backend tests and check the notebooks. Allocation grids are index = names, columns = symbols.
 
 **Other services:**
-- `services/yahoo/`: `YahooMarketData` (cached prices, currencies, FX, search, details), `YahooPriceService` (same interface as the Binance `PriceService`, converts to the base currency), `yahoo_api.py` / `position_handler.py` (copies of `src/Yahoo_API.py` / `src/PositionHandler.py`)
+- `services/yahoo/`: `YahooMarketData` (cached prices, currencies, FX, search, details) and `YahooPriceService` (same interface as the Binance `PriceService`, converts to the base currency), on top of `src/Yahoo_API.py`
 - `services/account/`: `PortfolioAccount` interface (`base.py`) implemented by `AccountService` (Binance) and `ExcelAccountService` (Excel files via `GitHubStorage`)
 
 ## Configuration

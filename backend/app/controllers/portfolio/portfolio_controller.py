@@ -13,8 +13,8 @@ from ...schemas.workspace import (
     ViewResponse,
     WorkspaceRequest,
 )
-from ...services.analytics import account as account_analytics
-from ...services.analytics import workspace as ws_analytics
+from src import Account as account_analytics
+from src import Workspace as ws_analytics
 from ...services.analytics.portfolio_analytics import allocation_frame, build_constraints
 
 
