@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { FrameChart } from '@/components/charts';
+import { FrameChart, DataTable } from '@/components/data';
 import {
-  DataTable,
   Grid2,
   Notice,
   NumberField,
@@ -13,7 +12,7 @@ import {
   SelectField,
   Toolbar,
   ViewStatus,
-} from '@/components/workspace';
+} from '@/components/ui';
 import { apiErrorMessage, useBenchmark, useView, useWorkspacePayload } from '@/hooks/useWorkspace';
 import { workspaceService } from '@/services/workspaceService';
 import { useWorkspaceStore } from '@/store/workspaceStore';

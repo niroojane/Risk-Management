@@ -1,6 +1,6 @@
 import { apiClient } from './api';
 import type { AssetMetrics, MarketCapData } from '../types/universe';
-import type { PricesResponse } from '../types/prices';
+import type { PricesResponse } from '../types/universe';
 import type { ViewResponse } from '../types/workspace';
 
 export const universeService = {

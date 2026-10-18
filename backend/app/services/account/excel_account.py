@@ -17,7 +17,7 @@ from .base import AccountHistory, PortfolioAccount
 from .github_storage import GitHubStorage
 from src import Account as crypto_account
 from src import MultiAsset as ma
-from ..infrastructure.cache_service import CacheService
+from ..cache import CacheService
 from ..yahoo import YahooMarketData
 from src import PositionHandler as position_handler
 from src import Yahoo_API as yahoo_api

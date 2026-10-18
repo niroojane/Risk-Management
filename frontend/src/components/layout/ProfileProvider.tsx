@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { profileService } from '@/services/profileService';
-import { Loading } from '@/components/common';
+import { Loading } from '@/components/ui';
 import { apiErrorMessage } from '@/hooks/useWorkspace';
 import { PROFILE_KEY, ProfileContext } from '@/hooks/useProfile';
 

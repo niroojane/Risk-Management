@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FrameChart } from '@/components/charts';
+import { FrameChart } from '@/components/data';
 import {
   Grid2,
   NumberField,
@@ -8,7 +8,7 @@ import {
   RunButton,
   Toolbar,
   ViewStatus,
-} from '@/components/workspace';
+} from '@/components/ui';
 import {
   HISTORICAL,
   useBenchmark,

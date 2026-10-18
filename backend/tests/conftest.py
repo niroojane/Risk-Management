@@ -25,7 +25,7 @@ def event_loop():
 @pytest.fixture
 async def cache_service():
     """Fixture providing a CacheService instance for testing"""
-    from app.services.infrastructure.cache_service import CacheService
+    from app.services.cache import CacheService
 
     cache = CacheService(default_ttl=5, cleanup_interval=60)
     await cache.start()
@@ -40,7 +40,7 @@ def rate_limiter():
     """
     Fixture providing a RateLimiter instance for testing
     """
-    from app.core.rate_limiter import RateLimiter
+    from app.services.binance.rate_limiter import RateLimiter
 
     limiter = RateLimiter(max_calls=10, period=1, name="test")
     return limiter
@@ -51,7 +51,7 @@ def binance_rate_limiter():
     """
     Fixture providing a BinanceRateLimiter instance for testing
     """
-    from app.core.rate_limiter import BinanceRateLimiter
+    from app.services.binance.rate_limiter import BinanceRateLimiter
 
     limiter = BinanceRateLimiter(max_calls=100, period=1)
     return limiter

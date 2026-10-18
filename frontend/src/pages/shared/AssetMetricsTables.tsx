@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { DataTable, RangeFields, RunButton, Toolbar, ViewStatus } from '@/components/workspace';
+import { RangeFields, RunButton, Toolbar, ViewStatus } from '@/components/ui';
+import { DataTable } from '@/components/data';
 import { useView } from '@/hooks/useWorkspace';
 import { universeService } from '@/services/universeService';
 import { useWorkspaceStore } from '@/store/workspaceStore';

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { EChartsCoreOption } from 'echarts/core';
-import { EChart, chartTheme, formatValue } from '@/components/charts';
+import { EChart, chartTheme, formatValue } from '@/components/data';
 import type { Frame, PerformanceView } from '@/types/workspace';
 import { frameColumn } from '@/utils/frame';
 

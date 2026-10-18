@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FrameChart, HeatmapChart } from '@/components/charts';
+import { FrameChart, HeatmapChart } from '@/components/data';
 import {
   Grid2,
   Notice,
@@ -10,7 +10,7 @@ import {
   SelectField,
   Toolbar,
   ViewStatus,
-} from '@/components/workspace';
+} from '@/components/ui';
 import { useView } from '@/hooks/useWorkspace';
 import { workspaceService } from '@/services/workspaceService';
 import { useWorkspaceStore } from '@/store/workspaceStore';

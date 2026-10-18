@@ -21,3 +21,17 @@ export interface AssetMetrics {
   max_drawdown: number | null;
   max_drawdown_date: string | null;
 }
+
+export interface PricesResponse {
+  success: boolean;
+  data: {
+    symbols: string[];
+    start_date: string;
+    end_date: string;
+    data: {
+      [date: string]: {
+        [symbol: string]: number;
+      };
+    };
+  };
+}

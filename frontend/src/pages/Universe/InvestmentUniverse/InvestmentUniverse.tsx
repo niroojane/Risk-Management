@@ -5,9 +5,8 @@ import { useWorkspaceStore } from '@/store/workspaceStore';
 import { apiErrorMessage, useBenchmark } from '@/hooks/useWorkspace';
 import { useProfile } from '@/hooks/useProfile';
 import { Slider } from '@/components/ui/slider';
-import { FrameChart } from '@/components/charts';
+import { FrameChart, DataTable } from '@/components/data';
 import {
-  DataTable,
   DateField,
   Field,
   Grid2,
@@ -15,8 +14,8 @@ import {
   Panel,
   RunButton,
   Toolbar,
-} from '@/components/workspace';
-import { Loading } from '@/components/common';
+  Loading,
+} from '@/components/ui';
 import { formatMarketCap, formatUSD } from '@/utils/formatters';
 import type { Profile } from '@/types/profile';
 import { AssetMetricsTables } from '../../shared/AssetMetricsTables';

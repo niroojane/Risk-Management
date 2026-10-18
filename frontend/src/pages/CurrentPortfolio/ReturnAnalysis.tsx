@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { FrameChart } from '@/components/charts';
-import { Grid2, Panel, RangeFields, RunButton, Toolbar, ViewStatus } from '@/components/workspace';
+import { FrameChart } from '@/components/data';
+import { Grid2, Panel, RangeFields, RunButton, Toolbar, ViewStatus } from '@/components/ui';
 import { HISTORICAL, useSeriesNames, useView, useWorkspacePayload } from '@/hooks/useWorkspace';
 import { useSeriesPair } from '@/hooks/useSeriesPair';
 import { workspaceService } from '@/services/workspaceService';

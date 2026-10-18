@@ -1,13 +1,6 @@
 import { useMemo } from 'react';
-import {
-  DataTable,
-  Panel,
-  RangeFields,
-  RunButton,
-  SelectField,
-  Toolbar,
-  ViewStatus,
-} from '@/components/workspace';
+import { Panel, RangeFields, RunButton, SelectField, Toolbar, ViewStatus } from '@/components/ui';
+import { DataTable } from '@/components/data';
 import { useAllocationMap, useView } from '@/hooks/useWorkspace';
 import { useSeriesPair } from '@/hooks/useSeriesPair';
 import { workspaceService } from '@/services/workspaceService';

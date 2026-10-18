@@ -1,4 +1,4 @@
-import type { PricesResponse } from '@/types/prices';
+import type { PricesResponse } from '@/types/universe';
 import type { AssetMetrics } from '@/types/universe';
 import type { Cell, Frame } from '@/types/workspace';
 

@@ -6,11 +6,10 @@ from .enums import (
     VaRMethod,
 )
 from .responses import APIResponse, ErrorResponse
-from .date import split_date_range
 from .serialization import to_json_value, series_to_dict, frame_to_dict, frame_to_split, to_payload
 
 __all__ = [
     "QuoteAsset", "RebalancingFrequency", "OptimizationObjective", "ConstraintSign", "VaRMethod",
-    "APIResponse", "ErrorResponse", "split_date_range",
+    "APIResponse", "ErrorResponse",
     "to_json_value", "series_to_dict", "frame_to_dict", "frame_to_split", "to_payload",
 ]

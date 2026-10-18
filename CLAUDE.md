@@ -20,8 +20,9 @@ Shared by the notebooks, Streamlit and the web app backend. Submodules load on f
 - **Workspace.py**: Weight series of every portfolio (Fund, Rebalanced / Buy and Hold X, Historical Portfolio) and the tab views
 - **Account.py**: Crypto holdings, positioning, P&L history, history merge
 - **MultiAsset.py**: Multi-asset trades, average-cost ledger with fees and FX, holdings and P&L tables
+- **PortfolioAnalytics.py**: Whole allocation grids for the web app: constraints from the UI, optimization, VaR, per-asset metrics
 
-- **Binance_API.py**: Binance API interactions (market data, prices, positions, trades)
+- **Binance_API.py**: Binance API interactions (market data, prices, positions, trades); its module functions are shared with the backend services
 - **Yahoo_API.py**: Yahoo Finance search, prices, ticker details, FX conversion to a base currency
 - **RiskMetrics.py**: Core quantitative finance engine:
   - `Portfolio` class: portfolio construction and optimization

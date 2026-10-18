@@ -7,7 +7,7 @@ from typing import Iterable, List, Optional, Sequence, Tuple
 import pandas as pd
 
 from src import Yahoo_API as yahoo_api
-from ..infrastructure.cache_service import CacheService
+from ..cache import CacheService
 from ...core.config import CACHE_PRICES_TTL
 
 logger = logging.getLogger(__name__)

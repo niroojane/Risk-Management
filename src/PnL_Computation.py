@@ -8,12 +8,11 @@
 # In[1]:
 
 
-from binance.spot import Spot
 import pandas as pd
 import requests
 import datetime
 import numpy as np
-from .Binance_API import BinanceAPI
+from .Binance_API import BinanceAPI, pair_price
 
 
 # =============================================================================
@@ -191,42 +190,10 @@ class PnL:
             if pd.isna(trade_history.iloc[index]['Pair Quantity']):
                 
                 market = trade_history.iloc[index]['Market']
-        
-                if market.endswith('USDT'):
-                    ticker = market
-                elif market.endswith('TRY'):
-                    ticker = 'USDT' + market[-3:]
-                else:
-                    ticker = market[-3:] + 'USDT'
-        
                 time_of_trade = trade_history.iloc[index]['Date(UTC)']
-                time_of_trade_stamp = int(time_of_trade.round(freq='min').timestamp() - 60) * 1000
-        
-                price_data_api = self.binance.binance_api.klines(
-                    ticker, interval='1m', startTime=time_of_trade_stamp, limit=2
-                )
-                price_data = pd.DataFrame(price_data_api)
-                numeric_columns = ['Open Time', 'Open', 'High', 'Low', 'Close', 'Volume', 
-                                   'Close Time', 'Quote Asset Volume', 'Number of Trades', 
-                                   'TB Base Volume', 'TB Quote Volume', 'Ignore']
-                price_data.columns = numeric_columns
-                price_data['Close Time'] = pd.to_datetime(price_data['Close Time'], unit='ms')
-        
-                close_prev = float(price_data.iloc[0]["Close"])
-                close_next = float(price_data.iloc[1]["Close"])
-                t_prev = price_data.iloc[0]["Close Time"]
-                t_next = price_data.iloc[1]["Close Time"]
-        
-                total_diff = (t_next - t_prev) / pd.Timedelta(minutes=1)
-                weight_prev = (t_next - time_of_trade) / pd.Timedelta(minutes=1) / total_diff
-                weight_next = (time_of_trade - t_prev) / pd.Timedelta(minutes=1) / total_diff
-        
-                pair_price = close_prev * weight_prev + close_next * weight_next
-        
-                if market.endswith('TRY'):
-                    pair_price = 1 / pair_price
-        
-                trade_price[index] = (time_of_trade, market, pair_price)
+
+                trade_price[index] = (time_of_trade, market,
+                                      pair_price(self.binance.binance_api, market, time_of_trade))
 
                 print(index,trade_price[index][0],trade_price[index][1],trade_price[index][2])
             else:

@@ -6,7 +6,7 @@ import pytest
 from app.common import frame_to_dict, series_to_dict, to_json_value
 from src import PnL_Computation as pnl
 from src.RiskMetrics import RiskAnalysis
-from app.services.analytics import portfolio_analytics as analytics
+from src import PortfolioAnalytics as analytics
 from src.Rebalancing import get_rebalancing_dates, rebalanced_portfolio
 
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]

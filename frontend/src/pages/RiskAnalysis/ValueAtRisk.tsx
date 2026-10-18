@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import type { EChartsCoreOption } from 'echarts/core';
-import { EChart, PALETTE, chartTheme, formatValue } from '@/components/charts';
+import { EChart, PALETTE, chartTheme, formatValue, DataTable } from '@/components/data';
 import { Button } from '@/components/ui/button';
 import {
-  DataTable,
   Grid2,
   Notice,
   NumberField,
@@ -14,7 +13,7 @@ import {
   SelectField,
   Toolbar,
   ViewStatus,
-} from '@/components/workspace';
+} from '@/components/ui';
 import { apiErrorMessage, useAllocationMap } from '@/hooks/useWorkspace';
 import { useSeriesPair } from '@/hooks/useSeriesPair';
 import { workspaceService } from '@/services/workspaceService';

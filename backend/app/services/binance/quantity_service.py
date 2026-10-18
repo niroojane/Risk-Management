@@ -3,10 +3,9 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
+from src import Binance_API as binance_api
 from .binance_client import BinanceClient
-from .transformers import BalanceTransformer
 from ...core.config import CACHE_PRICES_TTL
-from ...schemas.external.binance import BinanceAccountSnapshotDTO
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +45,7 @@ class QuantityService:
                 endTime=timestamp_end
             )
 
-            snapshot_dto = BinanceAccountSnapshotDTO(**raw_snapshot)
-            snapshots_data = BalanceTransformer.snapshot_to_dict(snapshot_dto)
+            snapshots_data = binance_api.snapshot_balances(raw_snapshot)
 
             return {
                 "end_date": end_date.isoformat(),

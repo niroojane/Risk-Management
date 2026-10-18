@@ -1,6 +1,6 @@
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { apiErrorMessage } from '@/hooks/useWorkspace';
-import { Notice } from '@/components/workspace';
+import { Notice } from '@/components/ui';
 import type { useLoadUniverse } from './useLoadUniverse';
 
 /** Result of 'Get Prices' */

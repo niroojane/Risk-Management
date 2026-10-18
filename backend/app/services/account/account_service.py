@@ -9,8 +9,9 @@ import pandas as pd
 from .base import AccountHistory, PortfolioAccount
 from .github_storage import POSITIONS_FILE, QUANTITIES_FILE, TRADES_FILE, GitHubStorage
 from src import Account as account_analytics
+from src import Binance_API as binance_api
 from ..binance import BinanceClient, PriceService, QuantityService
-from ..infrastructure.cache_service import CacheService
+from ..cache import CacheService
 from ...core.config import CACHE_INVENTORY_TTL
 from ...core.exceptions import DataValidationError
 
@@ -108,25 +109,7 @@ class AccountService(PortfolioAccount):
 
     async def _pair_price(self, market: str, time: pd.Timestamp) -> float:
         """USDT price of the quote asset of `market` at `time`, interpolated on 1-minute klines"""
-        if market.endswith('USDT'):
-            ticker = market
-        elif market.endswith('TRY'):
-            ticker = 'USDT' + market[-3:]
-        else:
-            ticker = market[-3:] + 'USDT'
-
-        start = int(time.round(freq='min').timestamp() - 60) * 1000
-        klines = await self._client._run_in_executor(
-            self._client.spot.klines, ticker, interval='1m', startTime=start, limit=2
-        )
-        close_prev, close_next = float(klines[0][4]), float(klines[1][4])
-        t_prev, t_next = pd.to_datetime(klines[0][6], unit='ms'), pd.to_datetime(klines[1][6], unit='ms')
-
-        total = (t_next - t_prev) / pd.Timedelta(minutes=1)
-        weight_prev = (t_next - time) / pd.Timedelta(minutes=1) / total
-        weight_next = (time - t_prev) / pd.Timedelta(minutes=1) / total
-        price = close_prev * weight_prev + close_next * weight_next
-        return 1 / price if market.endswith('TRY') else price
+        return await self._client._run_in_executor(binance_api.pair_price, self._client.spot, market, time)
 
     async def get_trades(self, use_cache: bool = True) -> pd.DataFrame:
         """Trade history with prices and totals converted to USDT"""

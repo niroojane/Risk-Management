@@ -18,7 +18,7 @@ if TYPE_CHECKING:
         PriceService,
         QuantityService,
     )
-    from ..services.infrastructure.cache_service import CacheService
+    from ..services.cache import CacheService
     from ..services.account import PortfolioAccount
     from ..services.yahoo import YahooMarketData
 
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 @lru_cache()
 def get_cache_service():
     """Get singleton CacheService instance"""
-    from ..services.infrastructure.cache_service import CacheService
+    from ..services.cache import CacheService
     logger.info("Creating CacheService instance")
     return CacheService(default_ttl=CACHE_DEFAULT_TTL)
 

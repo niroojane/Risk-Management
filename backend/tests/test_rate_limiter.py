@@ -1,7 +1,7 @@
 """Tests for RateLimiter and BinanceRateLimiter"""
 import pytest
 import asyncio
-from app.core.rate_limiter import RateLimitExceeded
+from app.services.binance.rate_limiter import RateLimitExceeded
 
 
 @pytest.mark.asyncio

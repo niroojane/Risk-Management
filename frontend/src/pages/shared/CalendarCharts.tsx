@@ -1,5 +1,5 @@
-import { FrameChart } from '@/components/charts';
-import { Grid2 } from '@/components/workspace';
+import { FrameChart } from '@/components/data';
+import { Grid2 } from '@/components/ui';
 import type { CalendarView } from '@/types/workspace';
 
 /** Returns / Volatility / Tracking Error / Sharpe Ratio bars by period (notebook's get_calendar_graph) */

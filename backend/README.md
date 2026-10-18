@@ -85,17 +85,15 @@ backend/
 ├── app/
 │   ├── main.py              # Entry point
 │   ├── core/                # Settings, market profiles, dependencies, exceptions, rate limiter
-│   ├── api/v1/              # Routes (HTTP only)
-│   ├── controllers/         # Load data, run the analytics in a worker thread, build responses
+│   ├── api/v1/              # Routes (HTTP only), one file per notebook tab
+│   ├── controllers/         # Load data, run the analytics in a worker thread, build responses (same file names)
 │   ├── schemas/             # Pydantic request / response models (validation, /docs)
-│   ├── models/              # Domain entities
 │   ├── common/              # Enums, response base, DataFrame serialization
 │   └── services/
-│       ├── analytics/       # API-oriented computations; the analytics come from the project's src/ package
+│       ├── cache.py         # In-memory cache
 │       ├── binance/         # Binance client, prices, market data, quantities
 │       ├── yahoo/           # Yahoo Finance prices and FX (cached), on top of src/Yahoo_API.py
-│       ├── account/         # Real portfolio: Binance account or Excel files (GitHub storage)
-│       └── infrastructure/  # Cache
+│       └── account/         # Real portfolio: Binance account or Excel files (GitHub storage)
 ├── tests/
 └── requirements.txt
 ```

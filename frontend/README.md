@@ -43,25 +43,22 @@ At startup the app loads the backend's market profile (`GET /api/v1/profile`) an
 ```
 src/
 ├── components/
-│   ├── charts/        # TimeSeriesChart (Lightweight Charts), EChart, FrameChart
-│   ├── workspace/     # DataTable, fields, panels, TabLayout
-│   ├── layout/        # Layout, Sidebar, ProfileProvider
-│   ├── common/        # Loading, error boundaries, tables, pagination
-│   └── ui/            # Base UI components (button, input, dialog...)
+│   ├── ui/            # Controls (button, input, slider, alert), fields, panels, loading, error boundaries
+│   ├── data/          # DataTable, TimeSeriesChart (Lightweight Charts), EChart, FrameChart
+│   └── layout/        # Layout, Sidebar, TabLayout, ProfileProvider
 ├── pages/             # One folder per notebook tab
 │   ├── Universe/      # Investment Universe (+ crypto-only Market Cap, Prices)
 │   ├── Strategy/      # Strategy, Strategy Return
-│   ├── Positioning/   # Positioning (Strategy and Current Portfolio)
 │   ├── CurrentPortfolio/
 │   ├── RiskAnalysis/
 │   ├── MarketRisk/
-│   └── shared/        # Components shared by several pages
+│   └── shared/        # Shared by several pages (Positioning, guards, asset tables...)
 ├── routes/            # Route tree (routes.config.ts) mirroring the notebook tabs
 ├── services/          # API clients (workspace, universe, profile)
 ├── store/             # Zustand workspace store
 ├── hooks/             # useWorkspace, useProfile, useSeriesPair
 ├── types/             # API types
-└── utils/             # Formatters, frame helpers
+└── utils/             # Formatters, frame helpers, cn (class names)
 ```
 
 ## Pages

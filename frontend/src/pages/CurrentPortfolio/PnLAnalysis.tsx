@@ -1,15 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
-import { FrameChart } from '@/components/charts';
-import {
-  DataTable,
-  Grid2,
-  Notice,
-  Panel,
-  RangeFields,
-  RunButton,
-  Toolbar,
-  ViewStatus,
-} from '@/components/workspace';
+import { FrameChart, DataTable } from '@/components/data';
+import { Grid2, Notice, Panel, RangeFields, RunButton, Toolbar, ViewStatus } from '@/components/ui';
 import { apiErrorMessage, useBenchmark, useView, useWorkspacePayload } from '@/hooks/useWorkspace';
 import { useIsMultiAsset } from '@/hooks/useProfile';
 import { workspaceService } from '@/services/workspaceService';

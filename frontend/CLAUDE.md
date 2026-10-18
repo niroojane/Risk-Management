@@ -63,30 +63,21 @@ Workspace views send the named series with `useWorkspacePayload`: the allocation
 
 ### Charts
 
-`src/components/charts`:
+`src/components/data`:
 - `TimeSeriesChart`: TradingView Lightweight Charts, for date-indexed lines. It has a clickable legend and shows values under the crosshair.
 - `EChart`: Apache ECharts (tree-shaken), for bars, heatmaps, scatter and histograms.
 - `FrameChart`: picks between the two for a `Frame`. Pass `visible` to choose the series shown at first.
 
-### Table Component Pattern
+### Tables
 
-For complex tables (TanStack Table, e.g. Market Cap, Prices):
+Every table, the Market Cap and Prices explorers included, is a `DataTable` (`src/components/data`) fed a `Frame`, with a per-column `format` (`number` / `percent` / `currency`).
 
-```
-pages/FeatureName/
-├── FeatureName.tsx
-├── components/
-│   ├── FeatureTable.tsx           # Main table (orchestration)
-│   ├── FeatureTableHeader.tsx     # Header rendering
-│   └── FeatureTableBody.tsx       # Body rendering
-├── hooks/
-│   ├── useFeatureColumns.tsx      # Column definitions
-│   └── useFeatureTable.ts         # Table logic (state, filters, pagination)
-└── constants/
-    └── table.ts                   # Headers, messages, config
-```
+### Components
 
-Simple frames use `DataTable` (`src/components/workspace`) with a per-column `format` (`number` / `percent` / `currency`).
+- `@/components/ui`: app building blocks (`Field`, `SelectField`, `DateField`, `RangeFields`, `Toolbar`, `Panel`, `RunButton`, `Notice`, `ViewStatus`, `Loading`, error boundaries). The basic shadcn controls are imported by path (`@/components/ui/button`, `input`, `slider`, `alert`).
+- `@/components/data`: `DataTable` and the charts.
+- `@/components/layout`: `Layout`, `Sidebar`, `TabLayout`, `ProfileProvider`.
+- `cn()` (class name merge) is in `@/utils/cn`.
 
 ### Environment Variables
 

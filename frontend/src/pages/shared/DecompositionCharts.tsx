@@ -1,4 +1,4 @@
-import { FrameChart } from '@/components/charts';
+import { FrameChart } from '@/components/data';
 import type { DecompositionView } from '@/types/workspace';
 
 /** Volatility / correlation / idiosyncratic contribution charts of a rolling decomposition */

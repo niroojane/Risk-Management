@@ -113,6 +113,9 @@ def run_backtest(
     bench_returns = None
     if bench_weights is not None and risk_constraints:
         bench_returns = rebalanced_portfolio(prices, bench_weights, frequency=frequency).sum(axis=1).pct_change()
+        # The worker threads all reindex this series: pandas builds an index's lookup table on first use,
+        # and two threads building it at once can see 'duplicate labels'. Build it here, before them.
+        bench_returns.index.is_unique
 
     dates = anchor_dates(prices, returns, frequency)
     if len(dates) < 2:

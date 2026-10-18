@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Prerequisite } from '@/components/workspace';
+import { Prerequisite } from '@/components/ui';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 
 /** Renders children once 'Get Prices' has loaded the universe */

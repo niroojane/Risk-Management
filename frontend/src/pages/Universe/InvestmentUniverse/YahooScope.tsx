@@ -4,7 +4,6 @@ import { X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
-  DataTable,
   DateField,
   Field,
   Notice,
@@ -13,8 +12,9 @@ import {
   SelectField,
   Toolbar,
   ViewStatus,
-} from '@/components/workspace';
-import { Loading } from '@/components/common';
+  Loading,
+} from '@/components/ui';
+import { DataTable } from '@/components/data';
 import { PROFILE_KEY, useProfile } from '@/hooks/useProfile';
 import { apiErrorMessage, useView } from '@/hooks/useWorkspace';
 import { profileService } from '@/services/profileService';

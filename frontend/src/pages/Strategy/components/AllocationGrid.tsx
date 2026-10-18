@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 import type { AllocationRow } from '@/store/workspaceStore';
 
 interface AllocationGridProps {

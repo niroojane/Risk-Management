@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/config/queryClient';
 import { Layout } from '@/components/layout';
-import { ErrorBoundary } from '@/components/common';
+import { ErrorBoundary } from '@/components/ui';
 import { ProfileProvider } from '@/components/layout/ProfileProvider';
 import { useProfile } from '@/hooks/useProfile';
 import { routesFor, generateRoutes } from '@/routes';

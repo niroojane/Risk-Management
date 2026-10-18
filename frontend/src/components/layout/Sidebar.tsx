@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 import { routesFor } from '@/routes';
 import { useProfile } from '@/hooks/useProfile';
 

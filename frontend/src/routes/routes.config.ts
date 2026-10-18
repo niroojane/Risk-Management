@@ -25,7 +25,7 @@ export const routesFor = (market: MarketName, list: RouteConfig[] = routes): Rou
       route.children ? { ...route, children: routesFor(market, route.children) } : route
     );
 
-const Positioning = lazy(() => import('@/pages/Positioning/Positioning'));
+const Positioning = lazy(() => import('@/pages/shared/Positioning'));
 
 export const routes: RouteConfig[] = [
   {

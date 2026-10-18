@@ -5,11 +5,10 @@ FastAPI backend of the Risk Management web app (crypto and multi-asset portfolio
 ## Architecture
 
 **Layers:**
-- `app/api/v1/`: FastAPI routes (HTTP only)
-- `app/controllers/`: Orchestration: load prices / account data, run the analytics, build the response
-- `app/schemas/`: Pydantic schemas (request / response API contracts)
-- `app/models/`: Domain entities
-- `app/services/`: Data sources and analytics
+- `app/api/v1/`: FastAPI routes (HTTP only), one file per notebook tab: `health`, `universe`, `strategy`, `portfolio`, `risk` (risk views + `/metrics/var`), `market_risk`, `account`, `profile`
+- `app/controllers/`: Orchestration: load prices / account data, run the analytics, build the response. Same file names as the routes, plus `base.py` (`AnalyticsController`, `WorkspaceController`)
+- `app/schemas/`: Pydantic schemas (request / response API contracts), same file names, plus `analytics.py` and `workspace.py` shared by several tabs
+- `app/services/`: Data sources only (Binance, Yahoo, account, cache); the analytics live in the project's `src/` package
 - `app/core/`: Settings, market profiles, dependency injection, exceptions, rate limiter, middleware
 - `app/common/`: Enums, response base class, DataFrame serialization (`to_payload`, split layout)
 
@@ -22,13 +21,15 @@ Route → Controller → Service (Binance / Yahoo / account) → pandas
 
 **Binance services:**
 ```
-services/binance/
-├── binance_client.py        # Async base client (rate limiting, cache)
-├── market_data_service.py   # Market cap, public data
-├── price_service.py         # Historical klines / prices
-├── quantity_service.py      # Account snapshots
-└── transformers/            # Kline / balance transformations
+services/binance/            # async, cache and rate limiting around src/Binance_API.py
+├── binance_client.py        # Async base client (rate limiting, cache) on the Spot client of src/Binance_API.py
+├── market_data_service.py   # Market cap (src get_market_cap)
+├── price_service.py         # Daily closes in 3-month chunks fetched in parallel (src fetch_closes)
+├── quantity_service.py      # Account snapshots (src snapshot_balances)
+├── rate_limiter.py          # Request weight limiter
+└── dates.py                 # Date-range splitting
 ```
+The Binance parsing (market cap table, klines to closes, snapshot balances, 1-minute pair price of a trade) lives in `src/Binance_API.py`, shared with the notebooks.
 
 **Analytics: the project's shared `src/` package** (also used by the notebooks and Streamlit; no copies here)
 ```
@@ -42,11 +43,10 @@ src/                         # one folder up, made importable by app/__init__.py
 ├── Account.py               # Crypto holdings, positioning and P&L tables
 ├── MultiAsset.py            # Multi-asset trades, ledger, holdings, P&L
 ├── Yahoo_API.py             # yfinance prices, FX, search, details
-└── PositionHandler.py       # Update Files (Quantities / Positions)
-services/analytics/
-└── portfolio_analytics.py   # API-oriented computations (constraints, optimization, VaR, asset metrics)
+├── PositionHandler.py       # Update Files (Quantities / Positions)
+└── PortfolioAnalytics.py    # Whole-grid computations of the app (constraints, optimization, VaR, asset metrics)
 ```
-Synchronous CPU functions with no I/O. Controllers extend `AnalyticsController` (`controllers/analytics_controller.py`), or `WorkspaceController` for views that need the workspace. `AnalyticsController` loads prices through `PriceService.get_price_frame()` and runs the computation in a thread (`_compute`, which turns a ValueError into HTTP 400). A change in `src/` changes the notebooks too: run the backend tests and check the notebooks. Allocation grids are index = names, columns = symbols.
+Synchronous CPU functions with no I/O. Controllers extend `AnalyticsController` (`controllers/base.py`), or `WorkspaceController` for views that need the workspace. `AnalyticsController` loads prices through `PriceService.get_price_frame()` and runs the computation in a thread (`_compute`, which turns a ValueError into HTTP 400). A change in `src/` changes the notebooks too: run the backend tests and check the notebooks. Allocation grids are index = names, columns = symbols.
 
 **Other services:**
 - `services/yahoo/`: `YahooMarketData` (cached prices, currencies, FX, search, details) and `YahooPriceService` (same interface as the Binance `PriceService`, converts to the base currency), on top of `src/Yahoo_API.py`
@@ -99,8 +99,8 @@ Services in `app/core/dependencies.py` (singletons via `@lru_cache()`):
 ## Adding an endpoint
 
 1. Schema (Request + Response) in `app/schemas/<domain>/`
-2. Controller in `app/controllers/<domain>/`, with the services injected
-3. Route in `app/api/v1/<domain>/`, using dependency injection
+2. Controller in `app/controllers/<tab>.py`, with the services injected
+3. Route in `app/api/v1/<tab>.py`, using dependency injection
 4. Register the router in `app/api/v1/__init__.py`
 5. Add a test in `tests/`
 

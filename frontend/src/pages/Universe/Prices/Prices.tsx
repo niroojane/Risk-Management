@@ -1,94 +1,102 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
-import { FilterComponent } from './components/FilterComponent';
-import { FilterDialog } from './components/FilterDialog';
-import { PricesTable } from './components/PricesTable';
-import { getDefaultDateRange, getDefaultSymbols } from './utils/defaults';
-import { transformPricesData } from './utils/transformPricesData';
+import { useMemo, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { universeService } from '@/services/universeService';
-import { Loading, ErrorMessage } from '@/components/common';
-import type { DateRange } from './types/filters';
+import { apiErrorMessage } from '@/hooks/useWorkspace';
+import { Button } from '@/components/ui/button';
+import { DateField, Notice, Panel, RunButton, Toolbar } from '@/components/ui';
+import { DataTable } from '@/components/data';
+import { pricesToFrame } from '../InvestmentUniverse/universe';
 
+/** Symbols offered by the Prices explorer */
+const SYMBOLS = [
+  'BTCUSDT',
+  'ETHUSDT',
+  'BNBUSDT',
+  'TRXUSDT',
+  'WLFIUSDT',
+  'XLMUSDT',
+  'TONUSDT',
+  'UNIUSDT',
+  'TAOUSDT',
+  'POLUSDT',
+  'GUNUSDT',
+  'GNOUSDT',
+  'IOTAUSDT',
+];
+
+const isoDaysAgo = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
+};
+
+/** Binance closes of a few symbols over a date range */
 const Prices = () => {
-  const [showTable, setShowTable] = useState(false);
-  const [symbols, setSymbols] = useState<string[]>(getDefaultSymbols());
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(getDefaultDateRange());
-
-  const {
-    data: pricesData,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: ['prices', symbols, dateRange],
-    queryFn: async () => {
-      if (!dateRange?.from || !dateRange?.to) {
-        throw new Error('Date range is required');
-      }
-
-      const startDate = format(dateRange.from, 'yyyy-MM-dd');
-      const endDate = format(dateRange.to, 'yyyy-MM-dd');
-
-      return universeService.fetchPrices(symbols, startDate, endDate);
-    },
-    enabled: false,
+  const [symbols, setSymbols] = useState<string[]>(SYMBOLS);
+  const [start, setStart] = useState(isoDaysAgo(365));
+  const [end, setEnd] = useState(isoDaysAgo(0));
+  const prices = useMutation({
+    mutationFn: () => universeService.fetchPrices(symbols, start, end),
   });
+  const frame = useMemo(() => (prices.data ? pricesToFrame(prices.data) : null), [prices.data]);
 
-  const handleGenerateTable = () => {
-    if (symbols.length === 0) {
-      alert('Please select at least one symbol');
-      return;
-    }
-
-    if (!dateRange?.from || !dateRange?.to) {
-      alert('Please select a date range');
-      return;
-    }
-
-    setShowTable(true);
-    refetch();
-  };
-
-  const tableData = pricesData ? transformPricesData(pricesData) : [];
+  const toggle = (symbol: string) =>
+    setSymbols((current) =>
+      current.includes(symbol) ? current.filter((s) => s !== symbol) : [...current, symbol]
+    );
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Prices Data</h1>
-          <p className="text-muted-foreground mt-2">
-            Select crypto symbols and date range to view price history
-          </p>
+    <Panel title="Prices">
+      <fieldset className="space-y-1">
+        <legend className="text-xs font-medium text-muted-foreground">
+          Symbols ({symbols.length})
+        </legend>
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+          {SYMBOLS.map((symbol) => (
+            <label key={symbol} className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={symbols.includes(symbol)}
+                onChange={() => toggle(symbol)}
+              />
+              {symbol}
+            </label>
+          ))}
+          <Button variant="outline" size="sm" onClick={() => setSymbols(SYMBOLS)}>
+            Select All
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setSymbols([])}>
+            Clear All
+          </Button>
         </div>
-
-        {showTable && (
-          <FilterDialog
-            symbols={symbols}
-            onSymbolsChange={setSymbols}
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-            onGenerateTable={handleGenerateTable}
-          />
-        )}
-      </div>
-
-      {!showTable ? (
-        <FilterComponent
-          symbols={symbols}
-          onSymbolsChange={setSymbols}
-          dateRange={dateRange}
-          onDateRangeChange={setDateRange}
-          onGenerateTable={handleGenerateTable}
-        />
-      ) : (
-        <div>
-          {isLoading && <Loading />}
-          {error && <ErrorMessage message="Failed to fetch prices data" />}
-          {!isLoading && !error && pricesData && <PricesTable data={tableData} symbols={symbols} />}
-        </div>
-      )}
-    </div>
+      </fieldset>
+      <Toolbar>
+        <DateField label="Start" value={start} onChange={setStart} />
+        <DateField label="End" value={end} onChange={setEnd} />
+        {[7, 30, 90, 365].map((days) => (
+          <Button
+            key={days}
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setStart(isoDaysAgo(days));
+              setEnd(isoDaysAgo(0));
+            }}
+          >
+            {days === 365 ? '1 year' : `${days} days`}
+          </Button>
+        ))}
+        <RunButton
+          onClick={() => prices.mutate()}
+          loading={prices.isPending}
+          disabled={symbols.length === 0}
+        >
+          Get Prices
+        </RunButton>
+      </Toolbar>
+      {prices.error && <Notice tone="error">{apiErrorMessage(prices.error)}</Notice>}
+      <DataTable frame={frame} indexLabel="Date" decimals={6} maxHeight="70vh" />
+    </Panel>
   );
 };
 

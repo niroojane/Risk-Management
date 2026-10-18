@@ -1,4 +1,4 @@
-import { SelectField } from '@/components/workspace';
+import { SelectField } from '@/components/ui';
 
 interface PairSelectProps {
   names: string[];

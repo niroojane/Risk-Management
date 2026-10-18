@@ -5,10 +5,10 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta, timezone
 import pandas as pd
 
+from src import Binance_API as binance_api
 from .binance_client import BinanceClient
-from .transformers import KlineTransformer
 from ...core.config import CACHE_PRICES_TTL
-from ...common import split_date_range
+from .dates import split_date_range
 
 logger = logging.getLogger(__name__)
 
@@ -30,30 +30,13 @@ class PriceService:
         cache_key = f"prices_chunk:{','.join(sorted(symbols))}:{start_date.date()}:{end_date.date()}"
 
         async def fetch():
-            start_timestamp = int(start_date.timestamp() * 1000)
-            end_timestamp = int(end_date.timestamp() * 1000)
-
-            symbols_klines = {}
-            for symbol in symbols:
-                try:
-                    if symbol == 'USDTUSDT':
-                        symbols_klines[symbol] = []
-                        continue
-
-                    klines = await self._client._run_in_executor(
-                        self._client.spot.klines,
-                        symbol=symbol,
-                        interval="1d",
-                        startTime=start_timestamp,
-                        endTime=end_timestamp
-                    )
-                    symbols_klines[symbol] = klines if klines else []
-
-                except Exception as e:
-                    logger.warning(f"Failed to fetch {symbol}: {e}")
-                    continue
-
-            return KlineTransformer.merge_symbols_to_dataframe(symbols_klines)
+            return await self._client._run_in_executor(
+                binance_api.fetch_closes,
+                self._client.spot,
+                symbols,
+                int(start_date.timestamp() * 1000),
+                int(end_date.timestamp() * 1000),
+            )
 
         result = await self._client.fetch_with_cache(
             cache_key=cache_key,
@@ -128,6 +111,8 @@ class PriceService:
             price_data = pd.concat(chunk_dataframes, axis=0).sort_index()
             # Remove duplicate dates that may occur at chunk boundaries
             price_data = price_data[~price_data.index.duplicated(keep='first')]
+            # Symbols with no klines in the whole range
+            price_data = price_data.dropna(axis=1, how='all')
         else:
             price_data = pd.DataFrame()
 

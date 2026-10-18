@@ -1,13 +1,14 @@
-"""Low-level async wrapper around Binance Spot API"""
+"""Async wrapper around the Binance Spot client of src/Binance_API.py: rate limiting, cache"""
 import logging
 import asyncio
 from typing import Dict, Any, Optional, Callable
 import pandas as pd
 
 from binance.spot import Spot
-from ...core.rate_limiter import BinanceRateLimiter, RateLimitExceeded
+from src.Binance_API import BinanceAPI
+from .rate_limiter import BinanceRateLimiter, RateLimitExceeded
 from ...core.exceptions import ExternalAPIError
-from ..infrastructure.cache_service import CacheService
+from ..cache import CacheService
 from ...core.config import BINANCE_RATE_LIMIT_CALLS, BINANCE_RATE_LIMIT_PERIOD
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ class BinanceClient:
         cache: Optional[CacheService] = None,
         enable_rate_limiting: bool = True,
     ):
-        self._spot = Spot(api_key=api_key, api_secret=api_secret)
+        self._spot = BinanceAPI(api_key, api_secret).binance_api
         self._cache = cache
 
         self._rate_limiter = None

@@ -1,6 +1,6 @@
 import { Navigate, Route } from 'react-router-dom';
-import { LazyRoute } from '@/components/common';
-import { TabLayout } from '@/components/workspace';
+import { LazyRoute } from '@/components/ui';
+import { TabLayout } from '@/components/layout';
 import type { RouteConfig } from './routes.config';
 
 /** Pages become routes; groups become a tab bar whose index redirects to the first tab */
