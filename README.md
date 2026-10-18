@@ -182,7 +182,8 @@ The first launch creates `backend/.venv` and installs the Python and npm package
 │   ├── Workspace.py          # Weight series of every portfolio and the risk / performance views
 │   ├── Account.py            # Crypto holdings, positioning and P&L history
 │   ├── MultiAsset.py         # Multi-asset trades, ledger, holdings and P&L
-│   ├── Binance_API.py        # Binance market data and account
+│   ├── PortfolioAnalytics.py # Whole allocation grids for the web app: constraints, optimization, VaR, asset metrics
+│   ├── Binance_API.py        # Binance market data and account (also used by the web app's backend)
 │   ├── Yahoo_API.py          # Yahoo Finance search, prices, ticker details, FX conversion
 │   ├── Stock_Data.py         # Yahoo Finance closes (legacy loader)
 │   ├── PnL_Computation.py    # Portfolio P&L from Binance trades
@@ -192,7 +193,7 @@ The first launch creates `backend/.venv` and installs the Python and npm package
 │   └── __init__.py
 │
 ├── Crypto App.ipynb          # Crypto app (ipywidgets)
-├── Crypto_App.py             # Same app as an importable module
+├── Crypto_App.py             # Same app as an importable module (local only, not versioned)
 ├── Multi Asset App.ipynb     # Multi-asset app (ipywidgets)
 ├── HMM Regime App.ipynb      # Regime detection & regime-based backtests (ipywidgets)
 ├── Streamlit_App.py          # Streamlit application
