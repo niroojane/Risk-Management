@@ -184,8 +184,8 @@ class ExcelAccountService(PortfolioAccount):
             'warnings': ctx['warnings'],
         }
 
-    async def positioning(self, model_weights: pd.Series) -> Dict[str, Any]:
-        ctx = await self._holdings_context()
+    async def positioning(self, model_weights: pd.Series, use_cache: bool = True) -> Dict[str, Any]:
+        ctx = await self._holdings_context(use_cache)
         current = ctx['holdings'][['Market Value', 'Weights']].rename(
             columns={'Market Value': 'Current Portfolio', 'Weights': 'Current Weights'})
         current.loc[ma.TOTAL] = current.sum()

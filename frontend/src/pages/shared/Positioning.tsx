@@ -34,11 +34,12 @@ const cellFormat = (column: string): CellFormat =>
 const Positioning = () => {
   const model = useModelWeights();
   const multiAsset = useIsMultiAsset();
+  // The buttons always read the live account, not the backend cache
   const positions = useView('positioning', model ? { model } : null, ({ model }) =>
-    workspaceService.positioning(model)
+    workspaceService.positioning(model, true)
   );
-  const holdings = useView('holdings', {}, () => workspaceService.holdings());
-  const pnl = useView('account-pnl', {}, () => workspaceService.accountPnl());
+  const holdings = useView('holdings', {}, () => workspaceService.holdings(true));
+  const pnl = useView('account-pnl', {}, () => workspaceService.accountPnl(true));
 
   return (
     <div className="space-y-6">

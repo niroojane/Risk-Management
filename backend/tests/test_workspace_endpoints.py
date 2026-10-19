@@ -57,6 +57,7 @@ class FakeAccountService(AccountService):
         return book_cost, realized, self.trades
 
     async def get_holdings(self, use_cache=True):
+        self.holdings_use_cache = use_cache
         balances = pd.DataFrame({"free": [0.5, 4.0, 1000.0], "locked": [0.0, 0.0, 0.0]},
                                 index=["BTCUSDT", "ETHUSDT", "USDTUSDT"])
         prices = _prices(["BTCUSDT", "ETHUSDT", "USDTUSDT"]).iloc[-1]
@@ -276,6 +277,19 @@ class TestAccount:
         total = table.loc["Total"]
         assert total["Model"] == pytest.approx(total["Current Portfolio in USDT"])
         assert table.loc["SOLUSDT", "Spread"] < 0
+
+    @pytest.mark.parametrize("method, url, body", [
+        ("get", "/api/v1/account/holdings", None),
+        ("post", "/api/v1/account/positioning", {"model_weights": {"BTCUSDT": 1.0}}),
+        ("get", "/api/v1/account/pnl", None),
+    ])
+    def test_refresh_skips_cache(self, client, method, url, body):
+        account = app.dependency_overrides[get_required_account_service]()
+        kwargs = {"json": body} if body else {}
+        assert client.request(method, url, **kwargs).status_code == 200
+        assert account.holdings_use_cache is True
+        assert client.request(method, url + "?use_cache=false", **kwargs).status_code == 200
+        assert account.holdings_use_cache is False
 
     def test_pnl(self, client):
         response = client.get("/api/v1/account/pnl")

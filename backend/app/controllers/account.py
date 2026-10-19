@@ -26,9 +26,9 @@ class AccountController:
         data = await self._service.holdings_view(use_cache)
         return self._response(data, f"{len(data['tickers'])} assets held")
 
-    async def positioning(self, request: PositioningRequest) -> ViewResponse:
+    async def positioning(self, request: PositioningRequest, use_cache: bool = True) -> ViewResponse:
         """Current holdings vs. the model allocation"""
-        data = await self._service.positioning(pd.Series(request.model_weights, dtype=float))
+        data = await self._service.positioning(pd.Series(request.model_weights, dtype=float), use_cache)
         return self._response(data, "Positioning vs model")
 
     async def pnl(self, use_cache: bool = True) -> ViewResponse:

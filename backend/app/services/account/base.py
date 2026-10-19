@@ -21,7 +21,7 @@ class PortfolioAccount(ABC):
         """{'holdings': table, 'tickers': held assets, 'weights': {ticker: weight} without cash}"""
 
     @abstractmethod
-    async def positioning(self, model_weights: pd.Series) -> Dict[str, Any]:
+    async def positioning(self, model_weights: pd.Series, use_cache: bool = True) -> Dict[str, Any]:
         """{'positioning': current holdings vs the model, 'holdings': table}"""
 
     @abstractmethod

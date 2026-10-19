@@ -16,9 +16,10 @@ async def holdings(account_service: RequiredAccountServiceDep, use_cache: bool =
 
 
 @router.post("/positioning", response_model=ViewResponse)
-async def positioning(request: PositioningRequest, account_service: RequiredAccountServiceDep) -> ViewResponse:
+async def positioning(request: PositioningRequest, account_service: RequiredAccountServiceDep,
+                      use_cache: bool = True) -> ViewResponse:
     """Current holdings vs the model allocation"""
-    return await AccountController(account_service).positioning(request)
+    return await AccountController(account_service).positioning(request, use_cache)
 
 
 @router.get("/pnl", response_model=ViewResponse)

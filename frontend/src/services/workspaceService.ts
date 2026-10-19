@@ -35,13 +35,13 @@ import type {
 /** Rolling / simulation views can take minutes, like the notebook */
 const LONG_REQUEST = { timeout: 15 * 60 * 1000 };
 
-const post = async <T>(url: string, body: unknown): Promise<ViewResponse<T>> => {
-  const response = await apiClient.post(`/api/v1${url}`, body, LONG_REQUEST);
+const post = async <T>(url: string, body: unknown, params?: object): Promise<ViewResponse<T>> => {
+  const response = await apiClient.post(`/api/v1${url}`, body, { ...LONG_REQUEST, params });
   return response.data;
 };
 
-const get = async <T>(url: string): Promise<ViewResponse<T>> => {
-  const response = await apiClient.get(`/api/v1${url}`, LONG_REQUEST);
+const get = async <T>(url: string, params?: object): Promise<ViewResponse<T>> => {
+  const response = await apiClient.get(`/api/v1${url}`, { ...LONG_REQUEST, params });
   return response.data;
 };
 
@@ -146,10 +146,16 @@ export const workspaceService = {
     }
   ) => post<MarketDriversView>('/market-risk/drivers', params),
 
-  // Account
-  holdings: () => get<HoldingsView>('/account/holdings'),
-  positioning: (modelWeights: Weights) =>
-    post<PositioningView>('/account/positioning', { model_weights: modelWeights }),
-  accountPnl: () => get<AccountPnLView>('/account/pnl'),
+  // Account (`fresh` skips the backend cache: live balances / prices, like the notebook)
+  holdings: (fresh = false) =>
+    get<HoldingsView>('/account/holdings', fresh ? { use_cache: false } : undefined),
+  positioning: (modelWeights: Weights, fresh = false) =>
+    post<PositioningView>(
+      '/account/positioning',
+      { model_weights: modelWeights },
+      fresh ? { use_cache: false } : undefined
+    ),
+  accountPnl: (fresh = false) =>
+    get<AccountPnLView>('/account/pnl', fresh ? { use_cache: false } : undefined),
   upload: () => post<UploadResult>('/account/upload', {}),
 };
