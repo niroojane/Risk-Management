@@ -64,7 +64,8 @@ export const TimeSeriesChart = ({
       },
       grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.08 } },
-      timeScale: { borderVisible: false },
+      // The default 0.5px minimum keeps fitContent from showing long daily histories in full
+      timeScale: { borderVisible: false, minBarSpacing: 0.001 },
       localization: { priceFormatter: (price: number) => formatValue(price, format) },
     });
 
@@ -88,6 +89,15 @@ export const TimeSeriesChart = ({
     seriesRef.current = map;
     chart.timeScale().fitContent();
 
+    // The box may only get its final width after the first layout: show the whole history again
+    let width = container.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (container.clientWidth === width) return;
+      width = container.clientWidth;
+      chart.timeScale().fitContent();
+    });
+    observer.observe(container);
+
     const onMove = (param: MouseEventParams) => {
       if (!param.time) {
         setHover(null);
@@ -103,6 +113,7 @@ export const TimeSeriesChart = ({
     chart.subscribeCrosshairMove(onMove);
 
     return () => {
+      observer.disconnect();
       chart.unsubscribeCrosshairMove(onMove);
       chart.remove();
       seriesRef.current = new Map();
