@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { FrameChart } from '@/components/data';
 import {
   Grid2,
+  Notice,
   NumberField,
   Panel,
   RangeFields,
@@ -10,7 +11,12 @@ import {
   Toolbar,
   ViewStatus,
 } from '@/components/ui';
-import { HISTORICAL, useSeriesNames, useView, useWorkspacePayload } from '@/hooks/useWorkspace';
+import {
+  HISTORICAL,
+  useRangeView,
+  useSeriesNames,
+  useWorkspacePayload,
+} from '@/hooks/useWorkspace';
 import { useSeriesPair } from '@/hooks/useSeriesPair';
 import { workspaceService } from '@/services/workspaceService';
 import { useWorkspaceStore } from '@/store/workspaceStore';
@@ -40,13 +46,13 @@ const VaRHistoryPage = () => {
   const [meanFactor, setMeanFactor] = useState(1);
 
   const workspace = useWorkspacePayload('risk', pnlFrequency, historical);
+  // Every series keeps its per-asset VaR: changing the fund only picks another one
   const params = useMemo(
     () =>
       workspace &&
       [rollingWindow, centile, iterations, stressFactor, meanFactor].every(Number.isFinite)
         ? {
             ...workspace,
-            selected: fund,
             method,
             window: rollingWindow,
             var_centile: centile,
@@ -55,10 +61,11 @@ const VaRHistoryPage = () => {
             mean_factor: meanFactor,
           }
         : null,
-    [workspace, fund, method, rollingWindow, centile, iterations, stressFactor, meanFactor]
+    [workspace, method, rollingWindow, centile, iterations, stressFactor, meanFactor]
   );
-  const view = useView('var-history', params, workspaceService.varHistory);
+  const view = useRangeView('var-history', params, workspaceService.varHistory);
   const data = view.data;
+  const selected = data?.contributions[fund];
 
   return (
     <Panel>
@@ -109,6 +116,7 @@ const VaRHistoryPage = () => {
         </RunButton>
       </Toolbar>
       <ViewStatus {...view} />
+      {data && !selected && <Notice>No Value at Risk history for {fund}: see the warnings.</Notice>}
       {data && (
         <Grid2>
           <FrameChart
@@ -123,18 +131,22 @@ const VaRHistoryPage = () => {
             format="percent"
             visible={[HISTORICAL, 'Fund']}
           />
-          <FrameChart
-            frame={data.selected_var}
-            title={`Value at Risk History — ${fund}`}
-            format="percent"
-            visible={['Portfolio']}
-          />
-          <FrameChart
-            frame={data.selected_cvar}
-            title={`Expected Shortfall History — ${fund}`}
-            format="percent"
-            visible={['Portfolio']}
-          />
+          {selected && (
+            <>
+              <FrameChart
+                frame={selected.var}
+                title={`Value at Risk History — ${fund}`}
+                format="percent"
+                visible={['Portfolio']}
+              />
+              <FrameChart
+                frame={selected.cvar}
+                title={`Expected Shortfall History — ${fund}`}
+                format="percent"
+                visible={['Portfolio']}
+              />
+            </>
+          )}
         </Grid2>
       )}
     </Panel>

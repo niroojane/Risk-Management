@@ -196,24 +196,90 @@ def get_var_contribution(func_name, args, returns, weights_series,
     return var_dataframe, cvar_dataframe
 
 
+def _rolling_covariances(returns, window):
+    """Daily sample covariance of every rolling window (T - window + 1, N, N),
+    pairwise on the days both assets have a return, like DataFrame.cov.
+
+    Running sums instead of one estimate per window: the sum over a window is
+    the difference of two cumulative sums, so cov_ij = (Σ r_i r_j - Σ r_i Σ r_j / n) / (n - 1)
+    costs one subtraction whatever the window. The returns are centred first
+    (the covariance does not change) to keep the sums small.
+    """
+    values = returns.to_numpy(dtype=float)
+    present = ~np.isnan(values)
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', RuntimeWarning)   # mean of a column with no return
+        centred = np.where(present, values - np.nanmean(values, axis=0), 0.0)
+    count = present.astype(float)
+
+    # blocks of windows: the cumulative sums of one block hold (block + window) x N x N
+    # values, so memory stays bounded for long histories and large universes
+    windows = max(len(values) - window + 1, 0)
+    cov = np.empty((windows, values.shape[1], values.shape[1]))
+    block = 256
+    for first in range(0, windows, block):
+        last = min(first + block, windows)
+        rows = slice(first, last + window - 1)
+        cov[first:last] = _window_covariances(centred[rows], count[rows], window)
+    return cov
+
+
+def _window_covariances(centred, count, window):
+    """Pairwise covariance of every window of `window` rows (see _rolling_covariances)"""
+
+    def window_sums(a, b):
+        # Σ over each window of a_i * b_j, from the cumulative sums
+        cumulative = np.cumsum(np.einsum('ti,tj->tij', a, b), axis=0)
+        cumulative = np.concatenate([np.zeros((1,) + cumulative.shape[1:]), cumulative])
+        return cumulative[window:] - cumulative[:-window]
+
+    n = window_sums(count, count)              # days both assets have a return
+    sums = window_sums(centred, count)         # Σ r_i on those days
+    products = window_sums(centred, centred)   # Σ r_i r_j
+    with np.errstate(divide='ignore', invalid='ignore'):
+        cov = (products - sums * sums.transpose(0, 2, 1) / n) / (n - 1)
+    cov[n < 2] = np.nan
+    return cov
+
+
+def _rolling_risk(weights_series, returns, window):
+    """Ex-ante volatility and its per-asset decomposition on every date from the
+    window-th row of `returns`, with that date's weights (annualized, √252).
+
+    Same numbers as RiskAnalysis.variance / var_contrib on each window: only the
+    assets held that day count, and an asset not held has no contribution (NaN).
+    Returns (dates, columns, vol, vol contribution, idiosyncratic, correlation).
+    """
+    returns = returns.sort_index()
+    dates = returns.index[window - 1:]
+    weights = weights_series.loc[dates].fillna(0.0)
+    held_any = weights.columns[(weights != 0).any(axis=0)]   # the others never count
+    weights = weights[held_any].to_numpy(dtype=float)
+    held = weights != 0
+
+    if len(dates) == 0 or len(held_any) == 0:
+        empty = np.full((len(dates), len(held_any)), np.nan)
+        return dates, held_any, np.zeros(len(dates)), empty, empty, empty
+
+    cov = _rolling_covariances(returns[held_any], window) * 252
+    cov = np.where(held[:, :, None] & held[:, None, :], cov, 0.0)
+    cov_weights = np.einsum('tij,tj->ti', cov, weights)
+    vol = np.sqrt(np.einsum('ti,ti->t', weights, cov_weights))
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        contribution = weights * cov_weights / vol[:, None]
+        idiosyncratic = weights ** 2 * np.einsum('tii->ti', cov) / vol[:, None]
+    correlation = contribution - idiosyncratic
+    for frame in (contribution, idiosyncratic, correlation):
+        frame[~held] = np.nan
+    return dates, held_any, vol, contribution, idiosyncratic, correlation
+
+
 def get_ex_ante_vol(weights_series, returns, window=252, n_jobs=-1):
+    """Rolling ex-ante volatility, one column (0). `n_jobs` is kept for callers."""
+    dates, _, vol, *_ = _rolling_risk(weights_series, returns, window)
+    return pd.DataFrame({0: vol}, index=dates)
 
-    def process_window(i):
-        subset = returns.iloc[i:i+window]
-        weights = weights_series.loc[subset.index[-1]]
-        weights = weights[weights != 0]
-
-        portfolio_class = RiskAnalysis(subset.loc[:, weights.index])
-        return subset.index[-1], portfolio_class.variance(weights)
-
-    results = Parallel(n_jobs=n_jobs, backend="loky")(
-        delayed(process_window)(i)
-        for i in range(returns.shape[0] - window + 1)   # +1: the last window ends on the latest date
-    )
-
-    dataframe = pd.DataFrame.from_dict(dict(results), orient='index').sort_index()
-
-    return dataframe
     
 def get_ex_ante_vol_contribution_in_pct(weights_series, returns, window=252, n_jobs=-1):
 
@@ -235,97 +301,52 @@ def get_ex_ante_vol_contribution_in_pct(weights_series, returns, window=252, n_j
     return dataframe    
 
     
+def get_ex_ante_vol_decomposition(weights_series, returns, window=252, n_jobs=-1):
+    """Volatility, correlation and idiosyncratic contributions of every rolling
+    window, in one pass.
+
+    The vol contributions add up to the portfolio volatility, so 'Total Vol'
+    is the ex-ante volatility of get_ex_ante_vol.
+    """
+    dates, columns, _, contribution, idiosyncratic, correlation = _rolling_risk(weights_series, returns, window)
+    decomposition = {}
+    for key, values, total in [('vol_contribution', contribution, 'Total Vol'),
+                               ('correlation_contribution', correlation, 'Total Correlation'),
+                               ('idiosyncratic_contribution', idiosyncratic, 'Total Idiosyncratic Vol')]:
+        dataframe = pd.DataFrame(values, index=dates, columns=columns)
+        dataframe[total] = dataframe.sum(axis=1)
+        decomposition[key] = dataframe
+    return decomposition
+
+
 def get_ex_ante_vol_contribution(weights_series, returns, window=252, n_jobs=-1):
+    return get_ex_ante_vol_decomposition(weights_series, returns, window)['vol_contribution']
 
-    def process_window(i):
-        subset=returns.iloc[i:i+window]
-        weights=weights_series.loc[subset.index[-1]]
-        weights=weights[weights != 0]
-        portfolio_class=RiskAnalysis(subset.loc[:,weights.index])
-        return subset.index[-1],portfolio_class.var_contrib(weights)[0]['Vol Contribution']
-
-    results = Parallel(n_jobs=n_jobs, backend="loky")(
-        delayed(process_window)(i)
-        for i in range(returns.shape[0] - window + 1)   # +1: the last window ends on the latest date
-    )
-    
-    dataframe = pd.DataFrame.from_dict(dict(results), orient='index').sort_index()
-    dataframe['Total Vol']=dataframe.sum(axis=1)
-    
-    return dataframe    
 
 def get_correlation_contribution(weights_series, returns, window=252, n_jobs=-1):
+    return get_ex_ante_vol_decomposition(weights_series, returns, window)['correlation_contribution']
 
-    def process_window(i):
-        subset=returns.iloc[i:i+window]
-        weights=weights_series.loc[subset.index[-1]]
-        weights=weights[weights != 0]
-        portfolio_class=RiskAnalysis(subset.loc[:,weights.index])
-        return subset.index[-1],portfolio_class.var_contrib(weights)[0]['Correlation']
 
-    results = Parallel(n_jobs=n_jobs, backend="loky")(
-        delayed(process_window)(i)
-        for i in range(returns.shape[0] - window + 1)   # +1: the last window ends on the latest date
-    )
-    
-    dataframe = pd.DataFrame.from_dict(dict(results), orient='index').sort_index()
-    dataframe['Total Correlation']=dataframe.sum(axis=1)
-    
-    return dataframe 
-    
 def get_idiosyncratic_contribution(weights_series, returns, window=252, n_jobs=-1):
+    return get_ex_ante_vol_decomposition(weights_series, returns, window)['idiosyncratic_contribution']
 
-    def process_window(i):
-        subset=returns.iloc[i:i+window]
-        weights=weights_series.loc[subset.index[-1]]
-        weights=weights[weights != 0]
-        portfolio_class=RiskAnalysis(subset.loc[:,weights.index])
-        return subset.index[-1],portfolio_class.var_contrib(weights)[0]['Idiosyncratic Risk']
-
-    results = Parallel(n_jobs=n_jobs, backend="loky")(
-        delayed(process_window)(i)
-        for i in range(returns.shape[0] - window + 1)   # +1: the last window ends on the latest date
-    )
-    
-    dataframe = pd.DataFrame.from_dict(dict(results), orient='index').sort_index()
-    dataframe['Total Idiosyncratic Vol']=dataframe.sum(axis=1)
-    
-    return dataframe
-    
 
 def first_pca_over_time(returns, window=252, n_jobs=-1):
-
-    def process_window(i):
-        temp = returns.iloc[i:i+window]
-
-        # skip incomplete window
-        if temp.shape[0] < window:
-            return None
-
-        index = temp.index[-1]
-
-        cov_matrix = temp.cov()
-        eig_val, _ = np.linalg.eigh(cov_matrix)
-
-        # sort descending
-        eig_val = eig_val[::-1]
-
-        variance_explained = eig_val / eig_val.sum()
-
-        return index, variance_explained[0]
-
-    results = Parallel(n_jobs=n_jobs, backend="loky")(
-        delayed(process_window)(i)
-        for i in range(returns.shape[0])
-    )
-
-    # remove None results
-    results = [r for r in results if r is not None]
-
-    dico = dict(results)
-    dataframe = pd.DataFrame.from_dict(dico, orient='index').sort_index()
-
-    return dataframe
+    """Share of the variance explained by the first principal component of every
+    rolling window, one column (0). The covariances come from the running sums
+    of _rolling_covariances and every window's eigenvalues from one batched
+    call; a window whose covariance is undefined (an asset without returns) is
+    NaN. `n_jobs` is kept for callers."""
+    returns = returns.sort_index()
+    dates = returns.index[window - 1:]
+    explained = np.full(len(dates), np.nan)
+    if len(dates):
+        cov = _rolling_covariances(returns, window)
+        finite = np.isfinite(cov).all(axis=(1, 2))
+        if finite.any():
+            eigenvalues = np.linalg.eigvalsh(cov[finite])   # ascending
+            explained[finite] = eigenvalues[:, -1] / eigenvalues.sum(axis=1)
+    return pd.DataFrame({0: explained}, index=dates)
 
     
 def halton_sequences(number,base=2):

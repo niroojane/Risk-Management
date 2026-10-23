@@ -27,21 +27,21 @@ async def contribution(request: RiskContributionRequest, price_service: Required
 @router.post("/trajectory", response_model=ViewResponse)
 async def trajectory(request: RiskTrajectoryRequest, price_service: RequiredPriceServiceDep,
                      account_service: AccountServiceDep) -> ViewResponse:
-    """Rolling ex-ante volatility of every series and decomposition of the selected one"""
+    """Rolling ex-ante volatility of every series and its decomposition"""
     return await RiskController(price_service, account_service).trajectory(request)
 
 
 @router.post("/tracking-error", response_model=ViewResponse)
 async def tracking_error(request: TrackingErrorViewRequest, price_service: RequiredPriceServiceDep,
                          account_service: AccountServiceDep) -> ViewResponse:
-    """Rolling ex-ante tracking error of every series and decomposition of the selected spread"""
+    """Rolling ex-ante tracking error of every series and decomposition of every spread"""
     return await RiskController(price_service, account_service).tracking_error(request)
 
 
 @router.post("/var-history", response_model=ViewResponse)
 async def var_history(request: VaRHistoryRequest, price_service: RequiredPriceServiceDep,
                       account_service: AccountServiceDep) -> ViewResponse:
-    """Rolling simulated VaR / CVaR of every series and per-asset VaR / CVaR of the selected one"""
+    """Rolling simulated VaR / CVaR of every series and their per-asset VaR / CVaR"""
     return await RiskController(price_service, account_service).var_history(request)
 
 

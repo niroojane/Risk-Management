@@ -32,7 +32,7 @@ npm run lint         # ESLint + Prettier
 
 1. **State management**
    - **Zustand** (`src/store/workspaceStore.ts`): the notebook's shared state (universe, date ranges, constraints, overlays, allocation grid, backtest, dropdown selections), persisted in localStorage (`risk-management-workspace`, with a version + migrate)
-   - **TanStack Query**: server data. Views are button-driven with `useView` (`src/hooks/useWorkspace.ts`), like the notebook's buttons: results are cached per parameters and kept on screen when they change. Pass `auto` for views that should load on their own.
+   - **TanStack Query**: server data. Views are button-driven with `useView` (`src/hooks/useWorkspace.ts`), like the notebook's buttons: results are cached per parameters and kept on screen when they change. Pass `auto` for views that should load on their own. Rolling views whose values don't depend on the date range (Risk Trajectory, Tracking Error, VaR History, Market Drivers: the first window reaches back before the start date, and the market index is simulated on the whole history) use `useRangeView` instead: a date range inside the loaded one is sliced in the browser, and a run loads the union of both ranges. Market Drivers then rebases its performance and counts its P&L from the first date (`rebaseFrame`, `fromFirstRow`).
 
 2. **Market profile**
    - `ProfileProvider` (`src/components/layout/ProfileProvider.tsx`) loads `GET /api/v1/profile` before rendering. `useProfile()` / `useIsMultiAsset()` (`src/hooks/useProfile.ts`) expose it.
@@ -101,7 +101,7 @@ VITE_API_URL=http://localhost:8000    # Backend API (start-*.bat sets it)
 ```typescript
 // src/services/workspaceService.ts -- post() prefixes /api/v1 and returns a ViewResponse<T>
 export const workspaceService = {
-  riskTrajectory: (params: WorkspacePayload & { selected: string; window: number }) =>
+  riskTrajectory: (params: WorkspacePayload & { window: number }) =>
     post<RiskTrajectoryView>('/risk/trajectory', params),
 };
 

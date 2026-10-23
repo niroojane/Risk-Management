@@ -41,7 +41,7 @@ class RiskController(WorkspaceController):
         warnings: List[str] = []
         ws = await self._load_workspace(request, warnings)
         start, end = self._window(request)
-        data = await self._compute(ws_analytics.risk_trajectory_view, ws, start, end, request.selected, request.window)
+        data = await self._compute(ws_analytics.risk_trajectory_view, ws, start, end, request.window)
         return self._response(data, warnings, f"Ex-ante volatility of {len(ws.names)} series")
 
     async def tracking_error(self, request: TrackingErrorViewRequest) -> ViewResponse:
@@ -49,7 +49,7 @@ class RiskController(WorkspaceController):
         ws = await self._load_workspace(request, warnings)
         start, end = self._window(request)
         data = await self._compute(
-            ws_analytics.tracking_error_view, ws, start, end, request.selected, request.benchmark, request.window
+            ws_analytics.tracking_error_view, ws, start, end, request.benchmark, request.window
         )
         return self._response(data, warnings, f"Ex-ante tracking error vs '{request.benchmark}'")
 
@@ -58,7 +58,7 @@ class RiskController(WorkspaceController):
         ws = await self._load_workspace(request, warnings)
         start, end = self._window(request)
         data = await self._compute(
-            ws_analytics.var_history_view, ws, start, end, request.selected, request.method.value, request.window,
+            ws_analytics.var_history_view, ws, start, end, request.method.value, request.window,
             request.var_centile, request.iterations, request.stress_factor, request.mean_factor,
         )
         return self._response(data, warnings, f"Rolling {request.method.value} VaR of {len(ws.names)} series")

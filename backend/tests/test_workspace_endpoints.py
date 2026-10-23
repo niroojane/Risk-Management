@@ -190,32 +190,51 @@ class TestRiskViews:
 
     def test_trajectory(self, client):
         response = client.post("/api/v1/risk/trajectory", json={
-            **WINDOW, "include_historical": True, "selected": "Historical Portfolio", "window": 120,
+            **WINDOW, "include_historical": True, "window": 120,
         })
         assert response.status_code == 200, response.text
         data = response.json()["data"]
         vol = frame(data["volatility"])
         assert {"Historical Portfolio", "Rebalanced Optimal Portfolio", "Bitcoin"} <= set(vol.columns)
-        assert "Total Vol" in frame(data["vol_contribution"]).columns
+        assert set(data["decomposition"]) == set(vol.columns)
+        historical = data["decomposition"]["Historical Portfolio"]
+        assert "Total Vol" in frame(historical["vol_contribution"]).columns
+        assert "Total Correlation" in frame(historical["correlation_contribution"]).columns
+
+    def test_trajectory_range_is_a_slice(self, client):
+        """The first window ends on the start date: a narrower range is a slice of a wider one"""
+        def volatility(start):
+            response = client.post("/api/v1/risk/trajectory", json={**WINDOW, "start_date": start, "window": 120})
+            assert response.status_code == 200, response.text
+            return frame(response.json()["data"]["volatility"])
+
+        wide, narrow = volatility("2023-07-01T00:00:00"), volatility("2024-03-01T00:00:00")
+        assert wide.index[0] == "2023-07-01" and narrow.index[0] == "2024-03-01"
+        pd.testing.assert_frame_equal(narrow, wide.loc["2024-03-01":])
 
     def test_tracking_error(self, client):
         response = client.post("/api/v1/risk/tracking-error", json={
-            **WINDOW, "selected": "Rebalanced Optimal Portfolio", "benchmark": "Bitcoin", "window": 120,
-        })
-        assert response.status_code == 200, response.text
-        te = frame(response.json()["data"]["tracking_error"])
-        assert te["Bitcoin"].dropna().abs().max() == pytest.approx(0.0)
-        assert te["Rebalanced Optimal Portfolio"].dropna().gt(0).all()
-
-    def test_var_history(self, client):
-        response = client.post("/api/v1/risk/var-history", json={
-            **WINDOW, "start_date": "2024-06-01T00:00:00", "selected": "Rebalanced Optimal Portfolio",
-            "method": "multivariate", "window": 150, "iterations": 300,
+            **WINDOW, "benchmark": "Bitcoin", "window": 120,
         })
         assert response.status_code == 200, response.text
         data = response.json()["data"]
-        assert frame(data["var"]).lt(0).all().all()
-        assert "Portfolio" in frame(data["selected_var"]).columns
+        te = frame(data["tracking_error"])
+        assert te["Bitcoin"].dropna().abs().max() == pytest.approx(0.0)
+        assert te["Rebalanced Optimal Portfolio"].dropna().gt(0).all()
+        assert "Total Vol" in frame(data["decomposition"]["Rebalanced Optimal Portfolio"]["vol_contribution"]).columns
+
+    def test_var_history(self, client):
+        response = client.post("/api/v1/risk/var-history", json={
+            **WINDOW, "start_date": "2024-06-01T00:00:00", "method": "multivariate", "window": 150,
+            "iterations": 300,
+        })
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        var = frame(data["var"])
+        assert var.index[0] == "2024-06-01"  # the windows reach back before the start date
+        assert var.lt(0).all().all()
+        selected = frame(data["contributions"]["Rebalanced Optimal Portfolio"]["var"])
+        np.testing.assert_allclose(selected["Portfolio"], var["Rebalanced Optimal Portfolio"])
 
     def test_stress_preview(self, client):
         grid = (np.eye(4) * 1.5).tolist()
@@ -251,6 +270,37 @@ class TestMarketRiskViews:
         data = response.json()["data"]
         assert list(frame(data["rolling_correlation"]).columns) == ["BTCUSDT/ETHUSDT"]
         assert frame(data["matrix"]).loc["BTCUSDT", "BTCUSDT"] == 1.0
+
+    def test_correlation_reaches_back_one_window(self, client):
+        response = client.post("/api/v1/market-risk/correlation-analysis", json={
+            "symbols": SYMBOLS, "history_start": "2022-01-01T00:00:00", "start_date": "2023-07-01T00:00:00",
+            "end_date": "2024-12-31T00:00:00", "asset1": "BTCUSDT", "asset2": "ETHUSDT", "window": 90,
+        })
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        for key in ("rolling_correlation", "rolling_mean_returns", "first_component"):
+            assert frame(data[key]).index[0] == "2023-07-01", key
+        assert frame(data["first_component"])["PC1"].between(0, 1).all()
+
+    def test_drivers_range_is_a_slice(self, client):
+        """The index is simulated on the whole history: a narrower range is a slice of a wider
+        one, with the performance rebased and the P&L counted from its first date"""
+        def drivers(start):
+            response = client.post("/api/v1/market-risk/drivers", json={
+                **WINDOW, "start_date": start, "eigen_frequency": "Quarterly", "component": "PC1", "window": 90,
+            })
+            assert response.status_code == 200, response.text
+            return {key: frame(value) for key, value in response.json()["data"].items()}
+
+        wide, narrow = drivers("2023-07-01T00:00:00"), drivers("2024-03-01T00:00:00")
+        sliced = {key: value.loc["2024-03-01":] for key, value in wide.items()}
+        for key in ("vol_contribution", "correlation_contribution", "idiosyncratic_contribution", "weights"):
+            assert narrow[key].index[0] == "2024-03-01", key
+            pd.testing.assert_frame_equal(narrow[key], sliced[key], rtol=1e-9)
+        pd.testing.assert_frame_equal(narrow["performance"], sliced["performance"] / sliced["performance"].iloc[0] * 100,
+                                      rtol=1e-9)
+        pd.testing.assert_frame_equal(narrow["drivers"], sliced["drivers"] - sliced["drivers"].iloc[0], rtol=1e-9,
+                                      atol=1e-9)
 
     def test_drivers(self, client):
         response = client.post("/api/v1/market-risk/drivers", json={

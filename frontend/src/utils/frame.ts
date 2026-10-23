@@ -44,3 +44,35 @@ export const frameValue = (frame: Frame, row: string, column: string): Cell => {
   const j = frame.columns.indexOf(column);
   return i < 0 || j < 0 ? null : frame.data[i][j];
 };
+
+const firstRow = (frame: Frame): Cell[] => frame.data[0] ?? [];
+
+/** Every column as `base` × value / its first value (levels rebased on the first date) */
+export const rebaseFrame = (frame: Frame, base = 100): Frame => {
+  const first = firstRow(frame);
+  return {
+    ...frame,
+    data: frame.data.map((row) =>
+      row.map((value, j) =>
+        typeof value === 'number' && typeof first[j] === 'number' && first[j] !== 0
+          ? (base * value) / (first[j] as number)
+          : value
+      )
+    ),
+  };
+};
+
+/** Every column minus its first value (a cumulative P&L counted from the first date) */
+export const fromFirstRow = (frame: Frame): Frame => {
+  const first = firstRow(frame);
+  return {
+    ...frame,
+    data: frame.data.map((row) =>
+      row.map((value, j) =>
+        typeof value === 'number' && typeof first[j] === 'number'
+          ? value - (first[j] as number)
+          : value
+      )
+    ),
+  };
+};

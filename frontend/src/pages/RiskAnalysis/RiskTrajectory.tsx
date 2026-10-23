@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { FrameChart } from '@/components/data';
 import {
   Grid2,
+  Notice,
   NumberField,
   Panel,
   RangeFields,
@@ -10,7 +11,12 @@ import {
   Toolbar,
   ViewStatus,
 } from '@/components/ui';
-import { HISTORICAL, useSeriesNames, useView, useWorkspacePayload } from '@/hooks/useWorkspace';
+import {
+  HISTORICAL,
+  useRangeView,
+  useSeriesNames,
+  useWorkspacePayload,
+} from '@/hooks/useWorkspace';
 import { useSeriesPair } from '@/hooks/useSeriesPair';
 import { workspaceService } from '@/services/workspaceService';
 import { useWorkspaceStore } from '@/store/workspaceStore';
@@ -26,15 +32,15 @@ const RiskTrajectoryPage = () => {
   const [rollingWindow, setRollingWindow] = useState(252);
 
   const workspace = useWorkspacePayload('risk', pnlFrequency, historical);
+  // Every series is decomposed: changing the fund only picks another one
   const params = useMemo(
     () =>
-      workspace && Number.isFinite(rollingWindow)
-        ? { ...workspace, selected: fund, window: rollingWindow }
-        : null,
-    [workspace, fund, rollingWindow]
+      workspace && Number.isFinite(rollingWindow) ? { ...workspace, window: rollingWindow } : null,
+    [workspace, rollingWindow]
   );
-  const view = useView('risk-trajectory', params, workspaceService.riskTrajectory);
+  const view = useRangeView('risk-trajectory', params, workspaceService.riskTrajectory);
   const data = view.data;
+  const decomposition = data?.decomposition[fund];
 
   return (
     <Panel>
@@ -53,6 +59,9 @@ const RiskTrajectoryPage = () => {
         </RunButton>
       </Toolbar>
       <ViewStatus {...view} />
+      {data && !decomposition && (
+        <Notice>{fund} has fewer days than the rolling window in this date range.</Notice>
+      )}
       {data && (
         <Grid2>
           <FrameChart
@@ -61,7 +70,7 @@ const RiskTrajectoryPage = () => {
             format="percent"
             visible={[HISTORICAL, 'Fund']}
           />
-          <DecompositionCharts view={data} />
+          {decomposition && <DecompositionCharts view={decomposition} />}
         </Grid2>
       )}
     </Panel>

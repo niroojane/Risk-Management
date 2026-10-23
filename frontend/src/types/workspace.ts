@@ -128,19 +128,22 @@ export interface DecompositionView {
   idiosyncratic_contribution: Frame;
 }
 
-export interface RiskTrajectoryView extends DecompositionView {
+/** Every series is decomposed, so switching the fund needs no request */
+export interface RiskTrajectoryView {
   volatility: Frame;
+  decomposition: Record<string, DecompositionView>;
 }
 
-export interface TrackingErrorView extends DecompositionView {
+export interface TrackingErrorView {
   tracking_error: Frame;
+  decomposition: Record<string, DecompositionView>;
 }
 
 export interface VaRHistoryView {
   var: Frame;
   cvar: Frame;
-  selected_var: Frame;
-  selected_cvar: Frame;
+  /** Per-asset VaR / CVaR of every series ('Portfolio' = total) */
+  contributions: Record<string, { var: Frame; cvar: Frame }>;
 }
 
 export interface StressPreview {

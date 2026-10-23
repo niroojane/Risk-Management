@@ -39,10 +39,7 @@ from .RiskMetrics import (
     compute_rolling_per_asset_betas,
     drawdown_contribution,
     first_pca_over_time,
-    get_correlation_contribution,
-    get_ex_ante_vol,
-    get_ex_ante_vol_contribution,
-    get_idiosyncratic_contribution,
+    get_ex_ante_vol_decomposition,
     get_var_contribution,
     performance_contribution,
 )
@@ -370,29 +367,48 @@ def risk_contribution_view(prices: pd.DataFrame, allocations: pd.DataFrame, fund
     }
 
 
-def risk_trajectory_view(ws: Workspace, start, end, selected: str, window: int = 252, n_jobs: int = -1) -> dict:
-    """Rolling ex-ante volatility of every series and the decomposition of the
-    selected one (Volatility Analysis > Risk Trajectory)."""
-    ws.require(selected)
-    _check_window(ws.returns.loc[start:end], window)
+def _lookback(frame: pd.DataFrame, start, end, window: int) -> pd.DataFrame:
+    """`frame` up to `end`, from `window` - 1 rows before `start`: the first rolling
+    window ends on `start` (when the history allows it), so a rolling value never
+    depends on the date range and a narrower range is a slice of a wider one."""
+    frame = frame.loc[:end]
+    first = frame.index.searchsorted(pd.Timestamp(start))
+    return frame.iloc[max(first - window + 1, 0):]
 
-    def inputs(name):
-        weights, returns = ws.aligned(name)
-        return weights.loc[start:end], returns.loc[start:end]
 
-    volatility = {}
+def _check_history(ws: Workspace, start, end, window: int) -> None:
+    rows = len(_lookback(ws.returns, start, end, window))
+    if rows < window:
+        raise ValueError(f"Price history up to the end date ({rows} days) is shorter than the rolling window "
+                         f"({window})")
+
+
+def _decompositions(ws: Workspace, inputs, window: int, n_jobs: int) -> Dict[str, dict]:
+    """Rolling vol / correlation / idiosyncratic decomposition of every series long
+    enough for the window, {name: decomposition}"""
+    decompositions = {}
     for name in ws.names:
         weights, returns = inputs(name)
         if len(weights) >= window:
-            volatility[name] = get_ex_ante_vol(weights, returns, window, n_jobs=n_jobs).iloc[:, 0]
+            decompositions[name] = get_ex_ante_vol_decomposition(weights, returns, window, n_jobs=n_jobs)
+    return decompositions
 
-    weights, returns = inputs(selected)
-    _check_window(weights, window, selected)
+
+def risk_trajectory_view(ws: Workspace, start, end, window: int = 252, n_jobs: int = -1) -> dict:
+    """Rolling ex-ante volatility of every series and its decomposition
+    (Volatility Analysis > Risk Trajectory). The volatility is the sum of the
+    contributions, so one pass per series gives both."""
+    _check_history(ws, start, end, window)
+
+    def inputs(name):
+        weights, returns = ws.aligned(name)
+        weights = _lookback(weights, start, end, window)
+        return weights, returns.loc[weights.index]
+
+    decompositions = _decompositions(ws, inputs, window, n_jobs)
     return {
-        'volatility': pd.DataFrame(volatility),
-        'vol_contribution': get_ex_ante_vol_contribution(weights, returns, window, n_jobs=n_jobs),
-        'correlation_contribution': get_correlation_contribution(weights, returns, window, n_jobs=n_jobs),
-        'idiosyncratic_contribution': get_idiosyncratic_contribution(weights, returns, window, n_jobs=n_jobs),
+        'volatility': pd.DataFrame({name: d['vol_contribution']['Total Vol'] for name, d in decompositions.items()}),
+        'decomposition': decompositions,
     }
 
 
@@ -405,31 +421,21 @@ def _spread(ws: Workspace, name: str, benchmark: str) -> pd.DataFrame:
             - bench.reindex(index=index, columns=cols, fill_value=0)).fillna(0.0)
 
 
-def tracking_error_view(ws: Workspace, start, end, selected: str, benchmark: str, window: int = 252,
-                        n_jobs: int = -1) -> dict:
+def tracking_error_view(ws: Workspace, start, end, benchmark: str, window: int = 252, n_jobs: int = -1) -> dict:
     """Rolling ex-ante tracking error of every series vs. the benchmark and the
-    decomposition of the selected spread (Volatility Analysis > Tracking Error)."""
-    ws.require(selected, benchmark)
-    _check_window(ws.returns.loc[start:end], window)
+    decomposition of every spread (Volatility Analysis > Tracking Error)."""
+    ws.require(benchmark)
+    _check_history(ws, start, end, window)
 
     def inputs(name):
-        spread = _spread(ws, name, benchmark).loc[start:end]
+        spread = _lookback(_spread(ws, name, benchmark), start, end, window)
         returns = ws.all_returns.reindex(index=spread.index, columns=spread.columns)
         return spread, returns
 
-    tracking_error = {}
-    for name in ws.names:
-        spread, returns = inputs(name)
-        if len(spread) >= window:
-            tracking_error[name] = get_ex_ante_vol(spread, returns, window, n_jobs=n_jobs).iloc[:, 0]
-
-    spread, returns = inputs(selected)
-    _check_window(spread, window, selected)
+    decompositions = _decompositions(ws, inputs, window, n_jobs)
     return {
-        'tracking_error': pd.DataFrame(tracking_error),
-        'vol_contribution': get_ex_ante_vol_contribution(spread, returns, window, n_jobs=n_jobs),
-        'correlation_contribution': get_correlation_contribution(spread, returns, window, n_jobs=n_jobs),
-        'idiosyncratic_contribution': get_idiosyncratic_contribution(spread, returns, window, n_jobs=n_jobs),
+        'tracking_error': pd.DataFrame({name: d['vol_contribution']['Total Vol'] for name, d in decompositions.items()}),
+        'decomposition': decompositions,
     }
 
 
@@ -442,41 +448,39 @@ def _simulation_args(method: str, columns, last_prices: pd.Series, iterations: i
     return (iterations, stress_factor, mean_factor)
 
 
-def var_history_view(ws: Workspace, start, end, selected: str, method: str = 'gumbel_copula',
+def var_history_view(ws: Workspace, start, end, method: str = 'gumbel_copula',
                      window: int = 252, var_centile: float = 0.05, iterations: int = 10000,
                      stress_factor: float = 1.0, mean_factor: float = 1.0, n_jobs: int = -1) -> dict:
-    """Rolling simulated VaR / CVaR of every series and the per-asset VaR / CVaR
-    of the selected one (Value at Risk > Value at Risk History)."""
-    ws.require(selected)
+    """Rolling simulated VaR / CVaR of every series and their per-asset VaR / CVaR
+    (Value at Risk > Value at Risk History)."""
     if method not in SIMULATION_FUNCTIONS:
         raise ValueError(f"Unknown VaR method {method!r}")
     func_name = SIMULATION_FUNCTIONS[method]
-    _check_window(ws.returns.loc[start:end], window)
+    _check_history(ws, start, end, window)
     last_prices = ws.prices.ffill().iloc[-1]
 
     def run(name):
         weights, returns = ws.aligned(name)
-        weights, returns = weights.loc[start:end], returns.loc[start:end]
+        weights = _lookback(weights, start, end, window)
+        returns = returns.loc[weights.index]
         _check_window(weights, window, name)
         args = _simulation_args(method, weights.columns, last_prices, iterations, stress_factor, mean_factor)
         return get_var_contribution(func_name, args, returns, weights, window, var_centile, n_jobs=n_jobs)
 
-    var, cvar, warnings = {}, {}, []
+    contributions, warnings = {}, []
     for name in ws.names:
         if name == HISTORICAL and method == 'monte_carlo':
             continue  # Monte Carlo needs spot prices of every held asset
         try:
             var_data, cvar_data = run(name)
-            var[name], cvar[name] = var_data['Portfolio'], cvar_data['Portfolio']
+            contributions[name] = {'var': var_data, 'cvar': cvar_data}
         except Exception as exc:  # one series failing (e.g. a delisted asset) must not hide the others
             warnings.append(str(exc) if str(exc).startswith(name) else f"{name}: {exc}")
 
-    selected_var, selected_cvar = run(selected)
     return {
-        'var': pd.DataFrame(var),
-        'cvar': pd.DataFrame(cvar),
-        'selected_var': selected_var,
-        'selected_cvar': selected_cvar,
+        'var': pd.DataFrame({name: c['var']['Portfolio'] for name, c in contributions.items()}),
+        'cvar': pd.DataFrame({name: c['cvar']['Portfolio'] for name, c in contributions.items()}),
+        'contributions': contributions,
         'warnings': warnings,
     }
 
@@ -548,34 +552,44 @@ def pca_view(returns: pd.DataFrame, num_components: int = 5, component: str = 'P
     }
 
 
-def correlation_view(returns: pd.DataFrame, asset1: str, asset2: str, window: int = 252) -> dict:
+def correlation_view(returns: pd.DataFrame, asset1: str, asset2: str, window: int = 252,
+                     start=None, end=None) -> dict:
     """Rolling pair correlation, rolling mean returns, PC1's explained variance
-    over time and the correlation matrix (Market Risk > Correlation)."""
+    over time and the correlation matrix of [start, end] (Market Risk > Correlation).
+
+    `returns` may start before `start`: the rolling charts then reach back one
+    window, so they start on `start` whatever the date range."""
     for asset in (asset1, asset2):
         if asset not in returns.columns:
             raise ValueError(f"'{asset}' is not in the universe")
     if asset1 == asset2:
         raise ValueError("Select two different assets")
-    _check_window(returns, window)
+    start = returns.index[0] if start is None else start
+    end = returns.index[-1] if end is None else end
+    rolling = _lookback(returns, start, end, window)
+    _check_window(rolling, window)
 
     return {
-        'rolling_correlation': returns[asset1].rolling(window).corr(returns[asset2]).dropna()
+        'rolling_correlation': rolling[asset1].rolling(window).corr(rolling[asset2]).dropna()
         .to_frame(f"{asset1}/{asset2}"),
-        'rolling_mean_returns': returns.rolling(window).mean().dropna(how='all') * 252,
-        'first_component': first_pca_over_time(returns, window=window).rename(columns={0: 'PC1'}),
-        'matrix': returns.corr().round(2),
+        'rolling_mean_returns': rolling.rolling(window).mean().dropna(how='all') * 252,
+        'first_component': first_pca_over_time(rolling, window=window).rename(columns={0: 'PC1'}),
+        'matrix': returns.loc[start:end].corr().round(2),
     }
 
 
 def market_drivers_view(ws: Workspace, start, end, frequency: str = 'Quarterly', component: str = 'PC1',
                         window: int = 252, n_jobs: int = -1) -> dict:
     """Eigen-portfolio market index rebalanced at `frequency`, its drivers and
-    risk decomposition, compared with the workspace series (Market Risk > Market Drivers)."""
-    range_prices = ws.prices.loc[start:end]
-    range_returns = ws.returns.loc[start:end]
-    _check_window(range_returns, window)
+    risk decomposition, compared with the workspace series (Market Risk > Market Drivers).
 
-    dates = get_rebalancing_dates(range_returns, frequency=frequency)
+    Like every workspace series, the index is simulated on the full price
+    history and cropped, so its path does not depend on the date range. The
+    drivers are the P&L since `start` and the decomposition's first window
+    ends on `start`."""
+    _check_history(ws, start, end, window)
+
+    dates = get_rebalancing_dates(ws.returns, frequency=frequency)
     schedule = {}
     for i in range(len(dates) - 1):
         subset = ws.returns.loc[dates[i]:dates[i + 1]]
@@ -585,25 +599,26 @@ def market_drivers_view(ws: Workspace, start, end, frequency: str = 'Quarterly',
         if component in components.columns:
             schedule[subset.index[-1]] = np.round(np.real(components[component].to_numpy()), 6)
     if not schedule:
-        raise ValueError("No valid eigen portfolio could be computed on this range")
+        raise ValueError("No valid eigen portfolio could be computed on this price history")
 
-    weights = pd.DataFrame(schedule, index=range_prices.columns).T
-    quantities = rebalanced_dynamic_quantities(range_prices, weights)
-    market_portfolio = quantities * range_prices
+    weights = pd.DataFrame(schedule, index=ws.prices.columns).T
+    quantities = rebalanced_dynamic_quantities(ws.prices, weights)
+    market_portfolio = quantities * ws.prices
     market_index = market_portfolio.sum(axis=1)
     market_weights = market_portfolio.div(market_index, axis=0)
 
     comparison = pd.concat([market_index.pct_change(fill_method=None).rename('Market Index'),
-                            ws.series_returns().loc[start:end]], axis=1)
-    drivers = market_portfolio - rebalanced_book_cost(range_prices, quantities)
+                            ws.series_returns()], axis=1).loc[start:end]
+    range_prices = ws.prices.loc[start:end]
+    range_quantities = quantities.loc[range_prices.index]
+    drivers = range_quantities * range_prices - rebalanced_book_cost(range_prices, range_quantities)
     drivers['Market Index'] = drivers.sum(axis=1)
 
+    decomposition_weights = _lookback(market_weights, start, end, window)
     return {
         'performance': levels(comparison),
         'drivers': drivers,
-        'correlation_contribution': get_correlation_contribution(market_weights, range_returns, window, n_jobs=n_jobs),
-        'vol_contribution': get_ex_ante_vol_contribution(market_weights, range_returns, window, n_jobs=n_jobs),
-        'idiosyncratic_contribution': get_idiosyncratic_contribution(market_weights, range_returns, window,
-                                                                     n_jobs=n_jobs),
-        'weights': market_weights,
+        **get_ex_ante_vol_decomposition(decomposition_weights, ws.returns.loc[decomposition_weights.index], window,
+                                        n_jobs=n_jobs),
+        'weights': market_weights.loc[start:end],
     }

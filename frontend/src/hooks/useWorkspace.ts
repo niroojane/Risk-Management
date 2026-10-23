@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import { useProfile } from '@/hooks/useProfile';
-import type { RangeKey } from '@/store/workspaceStore';
+import type { DateRange, RangeKey } from '@/store/workspaceStore';
 import type {
+  Frame,
   RebalancingFrequency,
   ViewResponse,
   Weights,
@@ -117,6 +118,90 @@ export const useView = <P, T>(
     stale: query.isPlaceholderData && !!query.data,
     run: () => {
       if (params) void query.refetch();
+    },
+  };
+};
+
+const isFrame = (value: object): value is Frame =>
+  'index' in value && 'columns' in value && 'data' in value && Array.isArray(value.index);
+
+/** Rows of every date-indexed frame of a view within [start, end] (yyyy-MM-dd) */
+const sliceFrames = (value: unknown, start: string, end: string): unknown => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
+  if (isFrame(value)) {
+    const rows = value.index.flatMap((date, i) => {
+      const day = date.slice(0, 10);
+      return day >= start && day <= end ? [i] : [];
+    });
+    return {
+      ...value,
+      index: rows.map((i) => value.index[i]),
+      data: rows.map((i) => value.data[i]),
+    };
+  }
+  return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, sliceFrames(v, start, end)]));
+};
+
+/**
+ * `useView` for rolling views whose values do not depend on the date range (the
+ * first window reaches back before the start date): a range inside the one
+ * loaded is a slice of it, without a request. `run()` loads the union of the
+ * loaded and the requested ranges, so the loaded range only grows.
+ */
+export const useRangeView = <P extends { start_date: string; end_date: string }, T>(
+  key: string,
+  params: P | null,
+  fetcher: (params: P) => Promise<ViewResponse<T>>
+) => {
+  const { range, rest } = useMemo(() => {
+    if (!params) return { range: null, rest: null };
+    const { start_date, end_date, ...rest } = params;
+    return { range: { start: start_date.slice(0, 10), end: end_date.slice(0, 10) }, rest };
+  }, [params]);
+  const fetchRange = useRef(range);
+
+  const query = useQuery({
+    queryKey: ['range-view', key, rest],
+    queryFn: async () => {
+      const loaded = fetchRange.current as DateRange;
+      const response = await fetcher({
+        ...(rest as Omit<P, 'start_date' | 'end_date'>),
+        start_date: loaded.start,
+        end_date: loaded.end,
+      } as P);
+      return { response, range: loaded };
+    },
+    enabled: false,
+    placeholderData: keepPreviousData,
+    staleTime: Infinity,
+    gcTime: 60 * 60 * 1000,
+    retry: false,
+  });
+
+  const loaded = query.isPlaceholderData ? undefined : query.data;
+  const covered =
+    !!loaded && !!range && loaded.range.start <= range.start && loaded.range.end >= range.end;
+  const data = useMemo(() => {
+    const response = query.data?.response.data;
+    if (response === undefined || !covered || !range) return response;
+    return sliceFrames(response, range.start, range.end) as T;
+  }, [query.data, covered, range]);
+
+  return {
+    data,
+    warnings: query.data?.response.warnings ?? [],
+    isFetching: query.isFetching,
+    error: query.error ? apiErrorMessage(query.error) : null,
+    stale: !!query.data && !covered,
+    run: () => {
+      if (!range) return;
+      fetchRange.current = loaded
+        ? {
+            start: loaded.range.start < range.start ? loaded.range.start : range.start,
+            end: loaded.range.end > range.end ? loaded.range.end : range.end,
+          }
+        : range;
+      void query.refetch();
     },
   };
 };

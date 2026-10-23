@@ -23,7 +23,7 @@ class RiskContributionRequest(AllocationsRequest):
 
 
 class RiskTrajectoryRequest(WorkspaceRequest):
-    selected: str = Field(..., description="Series whose volatility is decomposed")
+    """Every series is decomposed: the fund to show is picked client-side"""
     window: int = Field(252, ge=10, le=2000, description="Rolling window")
 
 

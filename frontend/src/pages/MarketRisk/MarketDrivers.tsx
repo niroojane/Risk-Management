@@ -10,10 +10,11 @@ import {
   Toolbar,
   ViewStatus,
 } from '@/components/ui';
-import { HISTORICAL, useBenchmark, useView, useWorkspacePayload } from '@/hooks/useWorkspace';
+import { HISTORICAL, useBenchmark, useRangeView, useWorkspacePayload } from '@/hooks/useWorkspace';
 import { workspaceService } from '@/services/workspaceService';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import type { RebalancingFrequency } from '@/types/workspace';
+import { fromFirstRow, rebaseFrame } from '@/utils/frame';
 import { RequireUniverse } from '../shared/Guards';
 
 const FREQUENCIES: RebalancingFrequency[] = ['Yearly', 'Quarterly', 'Monthly'];
@@ -35,8 +36,18 @@ const MarketDriversPage = () => {
         : null,
     [workspace, eigenFrequency, component, rollingWindow]
   );
-  const view = useView('market-drivers', params, workspaceService.marketDrivers);
-  const data = view.data;
+  // The index is simulated on the whole history: a narrower date range is a slice of
+  // the loaded one, with the performance rebased and the P&L counted from its first date
+  const view = useRangeView('market-drivers', params, workspaceService.marketDrivers);
+  const data = useMemo(
+    () =>
+      view.data && {
+        ...view.data,
+        performance: rebaseFrame(view.data.performance),
+        drivers: fromFirstRow(view.data.drivers),
+      },
+    [view.data]
+  );
 
   return (
     <Panel>

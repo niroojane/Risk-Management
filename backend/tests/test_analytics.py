@@ -5,7 +5,13 @@ import pytest
 
 from app.common import frame_to_dict, series_to_dict, to_json_value
 from src import PnL_Computation as pnl
-from src.RiskMetrics import RiskAnalysis
+from src.RiskMetrics import (
+    RiskAnalysis,
+    first_pca_over_time,
+    get_correlation_contribution,
+    get_ex_ante_vol,
+    get_ex_ante_vol_decomposition,
+)
 from src import PortfolioAnalytics as analytics
 from src.Rebalancing import get_rebalancing_dates, rebalanced_portfolio
 
@@ -88,6 +94,44 @@ class TestRisk:
         portfolio = RiskAnalysis(returns)
         contrib = portfolio.var_contrib(weights)[0]
         assert contrib["Vol Contribution"].sum() == pytest.approx(portfolio.variance(weights))
+
+    def test_rolling_decomposition_matches_each_window(self, returns):
+        """The cumulative-sum engine gives var_contrib / variance of every window"""
+        returns = returns.iloc[:200].copy()
+        returns.iloc[:30, 2] = np.nan  # listed later: pairwise covariance like DataFrame.cov
+        returns.iloc[[70, 95], 1] = np.nan
+        weights = pd.DataFrame(0.0, index=returns.index, columns=SYMBOLS)
+        weights.iloc[:100] = [0.5, 0.3, 0.2]
+        weights.iloc[100:] = [0.0, 0.6, 0.4]  # an asset leaves the portfolio
+        window = 60
+        decomposition = get_ex_ante_vol_decomposition(weights, returns, window)
+        vol = get_ex_ante_vol(weights, returns, window).iloc[:, 0]
+
+        for end in (window - 1, 99, 100, 150, 199):
+            date = returns.index[end]
+            held = weights.loc[date][weights.loc[date] != 0]
+            portfolio = RiskAnalysis(returns.iloc[end - window + 1:end + 1][held.index])
+            expected = portfolio.var_contrib(held)[0]
+            assert vol[date] == pytest.approx(portfolio.variance(held))
+            for key, column in [("vol_contribution", "Vol Contribution"),
+                                ("correlation_contribution", "Correlation"),
+                                ("idiosyncratic_contribution", "Idiosyncratic Risk")]:
+                row = decomposition[key].loc[date]
+                np.testing.assert_allclose(row[held.index], expected[column])
+                assert row.drop(held.index).iloc[:-1].isna().all()  # not held: no contribution
+        assert decomposition["vol_contribution"]["Total Vol"].to_numpy() == pytest.approx(vol.to_numpy())
+        assert get_correlation_contribution(weights, returns, window).equals(
+            decomposition["correlation_contribution"])
+
+    def test_first_pca_over_time_matches_each_window(self, returns):
+        returns = returns.iloc[:150].copy()
+        returns.iloc[[10, 40], 0] = np.nan
+        window = 50
+        explained = first_pca_over_time(returns, window)[0]
+        assert list(explained.index) == list(returns.index[window - 1:])
+        for end in (window - 1, 60, 149):
+            eigenvalues = np.linalg.eigvalsh(returns.iloc[end - window + 1:end + 1].cov())
+            assert explained.iloc[end - window + 1] == pytest.approx(eigenvalues[-1] / eigenvalues.sum())
 
     def test_value_at_risk_methods(self, prices, returns, allocations):
         np.random.seed(0)

@@ -1,4 +1,6 @@
 """Market Risk tab: PCA, correlation, market drivers"""
+import pandas as pd
+
 from app.controllers.base import WorkspaceController
 from app.schemas.market_risk import CorrelationViewRequest, MarketDriversRequest, PCAViewRequest
 from app.schemas.workspace import ViewResponse
@@ -18,9 +20,14 @@ class MarketRiskController(WorkspaceController):
 
     async def get_correlation_view(self, request: CorrelationViewRequest) -> ViewResponse:
         """Rolling pair correlation, rolling mean returns, PC1 over time and correlation matrix"""
-        returns = await self._load_returns(request)
+        # from history_start: the rolling charts reach back one window before start_date
+        history_start = request.history_start
+        if history_start is None or history_start.date() > request.start_date.date():
+            history_start = request.start_date
+        returns = await self._load_returns(request.model_copy(update={'start_date': history_start}))
         data = await self._compute(ws_analytics.correlation_view, returns, request.asset1, request.asset2,
-                                   request.window)
+                                   request.window, pd.Timestamp(request.start_date.date()),
+                                   pd.Timestamp(request.end_date.date()))
         return self._response(data, [], f"Correlation of {request.asset1} / {request.asset2}")
 
     async def get_market_drivers(self, request: MarketDriversRequest) -> ViewResponse:

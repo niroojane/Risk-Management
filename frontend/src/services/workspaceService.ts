@@ -108,14 +108,12 @@ export const workspaceService = {
       frequency: RebalancingFrequency;
     }
   ) => post<RiskContributionView>('/risk/contribution', params),
-  riskTrajectory: (params: WorkspacePayload & { selected: string; window: number }) =>
+  riskTrajectory: (params: WorkspacePayload & { window: number }) =>
     post<RiskTrajectoryView>('/risk/trajectory', params),
-  trackingError: (
-    params: WorkspacePayload & { selected: string; benchmark: string; window: number }
-  ) => post<TrackingErrorView>('/risk/tracking-error', params),
+  trackingError: (params: WorkspacePayload & { benchmark: string; window: number }) =>
+    post<TrackingErrorView>('/risk/tracking-error', params),
   varHistory: (
     params: WorkspacePayload & {
-      selected: string;
       method: VaRMethod;
       window: number;
       var_centile: number;
@@ -136,8 +134,14 @@ export const workspaceService = {
   pca: (
     params: AnalyticsPayload & { num_components: number; component: string; num_closest: number }
   ) => post<PCAView>('/market-risk/pca-analysis', params),
-  correlation: (params: AnalyticsPayload & { asset1: string; asset2: string; window: number }) =>
-    post<CorrelationView>('/market-risk/correlation-analysis', params),
+  correlation: (
+    params: AnalyticsPayload & {
+      asset1: string;
+      asset2: string;
+      window: number;
+      history_start?: string;
+    }
+  ) => post<CorrelationView>('/market-risk/correlation-analysis', params),
   marketDrivers: (
     params: WorkspacePayload & {
       eigen_frequency: RebalancingFrequency;

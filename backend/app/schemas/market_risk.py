@@ -1,4 +1,7 @@
 """Market Risk tab: PCA, correlation, market drivers"""
+from datetime import datetime
+from typing import Optional
+
 from pydantic import Field, field_validator
 
 from app.common import RebalancingFrequency
@@ -16,6 +19,9 @@ class CorrelationViewRequest(AnalyticsRequest):
     asset1: str
     asset2: str
     window: int = Field(252, ge=2, le=2000)
+    history_start: Optional[datetime] = Field(
+        None, description="Start of the price history the rolling windows can reach back to (default: start_date)"
+    )
 
     @field_validator('asset1', 'asset2')
     @classmethod

@@ -32,6 +32,8 @@ const CorrelationPage = () => {
       first !== second && Number.isFinite(rollingWindow)
         ? {
             symbols,
+            // the rolling charts reach back one window before the start date
+            history_start: universe.start,
             start_date: range.start,
             end_date: range.end,
             asset1: first,
@@ -39,7 +41,7 @@ const CorrelationPage = () => {
             window: rollingWindow,
           }
         : null,
-    [symbols, range, first, second, rollingWindow]
+    [symbols, universe.start, range, first, second, rollingWindow]
   );
   const view = useView('correlation', params, workspaceService.correlation);
   const data = view.data;
