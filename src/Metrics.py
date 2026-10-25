@@ -342,6 +342,9 @@ def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Ye
     ]
     
     for i, title in enumerate(titles):
+        # returns, volatility and tracking error in %, the Sharpe ratio as a number
+        fmt = ".3f" if title == f"Sharpe Ratio by {freq}" else ".2%"
+
         if title!=f"Tracking Error by {freq}":
             df = metrics[i].T  # <-- no transpose
             fig = px.bar(
@@ -363,9 +366,9 @@ def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Ye
     
             fig.update_traces(
                 textfont=dict(family="Arial Narrow", size=15),
-                hovertemplate="Year: %{x}<br>%{y:.3f}<extra></extra>")
+                hovertemplate="Year: %{x}<br>%{y:" + fmt + "}<extra></extra>")
 
-            
+
         else:
             
             df = metrics[i]
@@ -385,8 +388,10 @@ def get_calendar_graph(performance_fund,fund='Fund',benchmark='Bitcoin',freq='Ye
             
             fig.update_traces(
                 textfont=dict(family="Arial Narrow", size=15),
-                hovertemplate="Year: %{x}<br>%{y:.3f}<extra></extra>")
-            
+                hovertemplate="Year: %{x}<br>%{y:" + fmt + "}<extra></extra>")
+
+        fig.update_yaxes(tickformat=fmt)
+
         dico_fig[title]=fig
         
     return dico_fig
