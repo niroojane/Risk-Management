@@ -21,6 +21,8 @@ __pycache__/
 .DS_Store
 Thumbs.db
 ~$*.xlsx
+# Saved scenarios of the HMM Regime App (rewritten on every backtest)
+/HMM_Scenarios.json
 
 # Module copy of the Crypto App notebook (the notebook is the version kept in the repo)
 /Crypto_App.py
