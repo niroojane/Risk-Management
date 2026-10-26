@@ -15,6 +15,8 @@ import type { UniverseTicker } from '@/types/profile';
 export interface DateRange {
   start: string;
   end: string;
+  /** End date the user set in the past: kept on the next visit, which otherwise moves it to today */
+  fixedEnd?: boolean;
 }
 
 export interface AllocationRow {
@@ -39,6 +41,24 @@ const today = () => new Date().toISOString().slice(0, 10);
 const DEFAULT_START = '2020-01-01';
 /** The notebook's analysis windows start two months after the backtest start */
 const DEFAULT_WINDOW = { start: '2020-03-01', end: today() };
+
+/**
+ * End dates moved to today on each visit, as the notebook's date pickers start at today: the
+ * loaded universe's ('Get Prices' runs to today, and the backend fetches prices per request)
+ * and the analysis windows', except an end date the user set in the past.
+ */
+const withEndToday = (state: WorkspaceState): WorkspaceState => {
+  const end = today();
+  const ranges = Object.fromEntries(
+    Object.entries(state.ranges).map(([key, range]) => [
+      key,
+      range.fixedEnd ? range : { ...range, end },
+    ])
+  ) as Record<RangeKey, DateRange>;
+  const universe =
+    state.universe && state.universe.end < end ? { ...state.universe, end } : state.universe;
+  return { ...state, ranges, universe };
+};
 
 interface WorkspaceState {
   // Investment Universe
@@ -140,7 +160,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       // New prices invalidate constraints / overlays / risk limits that may reference dropped tickers
       setUniverse: (universe) =>
         set({ universe, constraints: [], overlays: [], riskConstraints: [] }),
-      setRange: (key, range) => set((state) => ({ ranges: { ...state.ranges, [key]: range } })),
+      setRange: (key, range) =>
+        set((state) => ({
+          ranges: { ...state.ranges, [key]: { ...range, fixedEnd: range.end < today() } },
+        })),
       setStrategy: (patch) => set(patch),
       addConstraint: (constraint) =>
         set((state) => ({ constraints: [...state.constraints, constraint] })),
@@ -172,6 +195,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       version: 2,
       // v1 universes have no `selected` list: load prices again
       migrate: (persisted) => ({ ...(persisted as object), universe: null }) as WorkspaceState,
+      merge: (persisted, current) =>
+        withEndToday({ ...current, ...(persisted as Partial<WorkspaceState>) }),
     }
   )
 );
