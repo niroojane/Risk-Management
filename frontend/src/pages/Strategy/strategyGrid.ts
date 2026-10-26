@@ -149,11 +149,24 @@ export const optimizeGrid = async (input: OptimizeInput) => {
     );
   }
 
-  // The real portfolio's weights, when every held asset is in the universe
+  // The real portfolio's weights today, rescaled to 100% over the held assets the universe
+  // has prices for (cash and the assets without a price are left out)
   try {
     const { weights } = (await workspaceService.holdings()).data;
-    if (Object.keys(weights).every((t) => universe.symbols.includes(t))) {
-      rows.push({ name: 'Current Weights', weights: round4(weights) });
+    const held = Object.entries(weights).filter(([, w]) => w > 0);
+    const priced = held.filter(([t]) => universe.symbols.includes(t));
+    const total = priced.reduce((sum, [, w]) => sum + w, 0);
+    if (total > 0) {
+      rows.push({
+        name: 'Current Weights',
+        weights: round4(Object.fromEntries(priced.map(([t, w]) => [t, w / total]))),
+      });
+      const missing = held.filter(([t]) => !universe.symbols.includes(t)).map(([t]) => t);
+      if (missing.length) {
+        messages.push(
+          `ℹ️ Current Weights: no price for ${missing.join(', ')}, the other positions are rescaled to 100%.`
+        );
+      }
     }
   } catch {
     // account not reachable
