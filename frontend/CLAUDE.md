@@ -47,6 +47,10 @@ npm run lint         # ESLint + Prettier
    - All API calls in `src/services/` (`workspaceService.ts`, `universeService.ts`, `profileService.ts`)
    - Axios client in `src/services/api.ts`, base URL from `VITE_API_URL`
 
+5. **Light / dark mode**
+   - `useThemeStore` (`src/store/themeStore.ts`), persisted as `risk-management-theme`: the OS preference until the user picks a mode with the sidebar's `ThemeToggle`. It sets the `dark` class on `<html>` (Tailwind's `dark:` variant, the `.dark` tokens of `index.css`). An inline script in `index.html` applies the saved mode before the first paint.
+   - Charts take their colours from `useChartTheme()` (`src/hooks/useTheme.ts`): a chart option built in a `useMemo` lists it in its dependencies, so it follows a switch.
+
 ### Mapping Backend / Frontend
 
 Routes mirror the notebook tabs (`src/routes/routes.config.ts`). Groups render a tab bar (`TabLayout`).
@@ -76,7 +80,7 @@ Every table, the Market Cap and Prices explorers included, is a `DataTable` (`sr
 
 - `@/components/ui`: app building blocks (`Field`, `SelectField`, `DateField`, `RangeFields`, `Toolbar`, `Panel`, `RunButton`, `Notice`, `ViewStatus`, `Loading`, error boundaries). The basic shadcn controls are imported by path (`@/components/ui/button`, `input`, `slider`, `alert`).
 - `@/components/data`: `DataTable` and the charts.
-- `@/components/layout`: `Layout`, `Sidebar`, `TabLayout`, `ProfileProvider`.
+- `@/components/layout`: `Layout`, `Sidebar`, `ThemeToggle`, `TabLayout`, `ProfileProvider`.
 - `cn()` (class name merge) is in `@/utils/cn`.
 
 ### Environment Variables

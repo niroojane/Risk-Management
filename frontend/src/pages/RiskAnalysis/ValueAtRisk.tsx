@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
 import type { EChartsCoreOption } from 'echarts/core';
-import { EChart, PALETTE, chartTheme, formatValue, DataTable } from '@/components/data';
+import { EChart, PALETTE, formatValue, DataTable } from '@/components/data';
 import { Button } from '@/components/ui/button';
 import {
   Grid2,
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui';
 import { apiErrorMessage, useAllocationMap } from '@/hooks/useWorkspace';
 import { useSeriesPair } from '@/hooks/useSeriesPair';
+import { useChartTheme } from '@/hooks/useTheme';
 import { workspaceService } from '@/services/workspaceService';
 import { useWorkspaceStore } from '@/store/workspaceStore';
 import type { Frame, VaRResult } from '@/types/workspace';
@@ -115,12 +116,12 @@ const ValueAtRiskPage = () => {
       }),
   });
   const result = simulation.data;
+  const theme = useChartTheme();
 
   // Overlaid distributions of the simulated portfolio returns, one per method
   const histogram = useMemo<EChartsCoreOption | null>(() => {
     const methods = result?.[fund]?.methods;
     if (!methods) return null;
-    const theme = chartTheme();
     const series = SIMULATED.flatMap(([method, label]) => {
       const bins = methods[method]?.histogram;
       if (!bins) return [];
@@ -153,7 +154,7 @@ const ValueAtRiskPage = () => {
       },
       series,
     };
-  }, [result, fund]);
+  }, [result, fund, theme]);
 
   return (
     <div className="space-y-6">

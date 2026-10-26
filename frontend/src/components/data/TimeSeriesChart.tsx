@@ -3,7 +3,8 @@ import { ColorType, LineSeries, createChart } from 'lightweight-charts';
 import type { IChartApi, ISeriesApi, MouseEventParams, Time } from 'lightweight-charts';
 import { cn } from '@/utils/cn';
 import type { Frame } from '@/types/workspace';
-import { chartTheme, formatValue, seriesColor } from './theme';
+import { useChartTheme } from '@/hooks/useTheme';
+import { formatValue, seriesColor } from './theme';
 import type { ValueFormat } from './theme';
 
 export interface TimeSeriesChartProps {
@@ -27,7 +28,11 @@ export const TimeSeriesChart = ({
   height = 360,
 }: TimeSeriesChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
+  const theme = useChartTheme();
+  // Read by the chart-building effect; a light / dark switch recolours the chart in place
+  const themeRef = useRef(theme);
   const [shown, setShown] = useState<Set<string>>(
     () => new Set(visible ? frame.columns.filter((c) => visible.includes(c)) : frame.columns)
   );
@@ -54,15 +59,15 @@ export const TimeSeriesChart = ({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const theme = chartTheme();
+    const colors = themeRef.current;
     const chart: IChartApi = createChart(container, {
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: theme.text,
+        textColor: colors.text,
         fontSize: 11,
       },
-      grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
+      grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.08 } },
       // The default 0.5px minimum keeps fitContent from showing long daily histories in full
       timeScale: { borderVisible: false, minBarSpacing: 0.001 },
@@ -87,6 +92,7 @@ export const TimeSeriesChart = ({
       map.set(column, series);
     });
     seriesRef.current = map;
+    chartRef.current = chart;
     chart.timeScale().fitContent();
 
     // The box may only get its final width after the first layout: show the whole history again
@@ -116,9 +122,18 @@ export const TimeSeriesChart = ({
       observer.disconnect();
       chart.unsubscribeCrosshairMove(onMove);
       chart.remove();
+      chartRef.current = null;
       seriesRef.current = new Map();
     };
   }, [frame, format]);
+
+  useEffect(() => {
+    themeRef.current = theme;
+    chartRef.current?.applyOptions({
+      layout: { textColor: theme.text },
+      grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
+    });
+  }, [theme]);
 
   // Visibility changes are applied without rebuilding the chart
   useEffect(() => {

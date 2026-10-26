@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { EChartsCoreOption } from 'echarts/core';
-import { EChart, chartTheme, formatValue } from '@/components/data';
+import { EChart, formatValue } from '@/components/data';
+import { useChartTheme } from '@/hooks/useTheme';
 import type { Frame, PerformanceView } from '@/types/workspace';
 import { frameColumn } from '@/utils/frame';
 
@@ -15,8 +16,8 @@ const points = (frame: Frame) => {
 
 /** Efficient frontier coloured by Sharpe ratio, constrained frontier and the allocations */
 export const FrontierChart = ({ frontier }: { frontier: Frontier }) => {
+  const theme = useChartTheme();
   const option = useMemo<EChartsCoreOption>(() => {
-    const theme = chartTheme();
     const indicators = frontier.indicators;
     const volatility = indicators.data[indicators.index.indexOf('Volatility')] ?? [];
     const returns = indicators.data[indicators.index.indexOf('Returns')] ?? [];
@@ -79,7 +80,7 @@ export const FrontierChart = ({ frontier }: { frontier: Frontier }) => {
         },
       ],
     };
-  }, [frontier]);
+  }, [frontier, theme]);
 
   return <EChart option={option} title="Efficient Frontier" />;
 };

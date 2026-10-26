@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import type { EChartsCoreOption } from 'echarts/core';
 import type { Frame } from '@/types/workspace';
+import { useChartTheme } from '@/hooks/useTheme';
 import { EChart } from './EChart';
 import { TimeSeriesChart } from './TimeSeriesChart';
-import { PALETTE, chartTheme, formatValue } from './theme';
+import { PALETTE, formatValue } from './theme';
 import type { ValueFormat } from './theme';
 
 export interface FrameChartProps {
@@ -67,9 +68,9 @@ const BarFrameChart = ({
   // Compared by content: pages pass a new array on every render, and rebuilding the
   // option would undo the series the user toggled in the legend
   const visibleKey = visible?.join('\u0000');
+  const theme = useChartTheme();
   const option = useMemo<EChartsCoreOption>(() => {
     const shown = visibleKey?.split('\u0000');
-    const theme = chartTheme();
     const long = frame.index.length > 60;
     const stacked = barmode === 'relative' || barmode === 'stack';
     return {
@@ -107,7 +108,7 @@ const BarFrameChart = ({
         data: frame.data.map((row) => row[j]),
       })),
     };
-  }, [frame, visibleKey, format, barmode]);
+  }, [frame, visibleKey, format, barmode, theme]);
 
   return <EChart option={option} title={title} height={height} />;
 };
@@ -120,9 +121,9 @@ export interface HeatmapChartProps {
 
 /** Annotated heatmap (correlation matrices) */
 export const HeatmapChart = ({ frame, title, height = 450 }: HeatmapChartProps) => {
+  const theme = useChartTheme();
   const option = useMemo<EChartsCoreOption | null>(() => {
     if (!frame) return null;
-    const theme = chartTheme();
     const cells: [number, number, number | null][] = [];
     const numbers: number[] = [];
     frame.data.forEach((row, y) =>
@@ -170,7 +171,7 @@ export const HeatmapChart = ({ frame, title, height = 450 }: HeatmapChartProps) 
         },
       ],
     };
-  }, [frame]);
+  }, [frame, theme]);
 
   if (!option) return null;
   return <EChart option={option} title={title} height={height} />;

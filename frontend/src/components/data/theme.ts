@@ -31,12 +31,13 @@ export const formatValue = (value: number, format: ValueFormat): string =>
     ? `${(value * 100).toFixed(2)}%`
     : value.toLocaleString(undefined, { maximumFractionDigits: Math.abs(value) < 10 ? 4 : 2 });
 
-export const chartTheme = () => {
-  const dark = document.documentElement.classList.contains('dark');
-  return {
-    dark,
-    text: dark ? '#e5e5e5' : '#262626',
-    muted: dark ? '#a3a3a3' : '#737373',
-    grid: dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
-  };
+const CHART_THEMES = {
+  light: { dark: false, text: '#262626', muted: '#737373', grid: 'rgba(0,0,0,0.07)' },
+  dark: { dark: true, text: '#e5e5e5', muted: '#a3a3a3', grid: 'rgba(255,255,255,0.08)' },
 };
+
+export type ChartTheme = (typeof CHART_THEMES)['light'];
+
+/** The same object for a given mode, so it can be a memo dependency (read it with useChartTheme) */
+export const chartTheme = (dark: boolean): ChartTheme =>
+  dark ? CHART_THEMES.dark : CHART_THEMES.light;

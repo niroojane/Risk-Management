@@ -11,7 +11,7 @@ import {
   VisualMapComponent,
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { chartTheme } from './theme';
+import { useChartTheme } from '@/hooks/useTheme';
 
 // Only the chart types the app uses are bundled
 echarts.use([
@@ -38,11 +38,13 @@ export interface EChartProps {
 export const EChart = ({ option, title, height = 400 }: EChartProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
+  const theme = useChartTheme();
 
+  // ECharts takes its theme at init: a light / dark switch makes a new instance
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const chart = echarts.init(element, chartTheme().dark ? 'dark' : undefined);
+    const chart = echarts.init(element, theme.dark ? 'dark' : undefined);
     chartRef.current = chart;
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(element);
@@ -51,10 +53,9 @@ export const EChart = ({ option, title, height = 400 }: EChartProps) => {
       chart.dispose();
       chartRef.current = null;
     };
-  }, []);
+  }, [theme.dark]);
 
   useEffect(() => {
-    const theme = chartTheme();
     chartRef.current?.setOption(
       {
         backgroundColor: 'transparent',
@@ -63,7 +64,7 @@ export const EChart = ({ option, title, height = 400 }: EChartProps) => {
       },
       true
     );
-  }, [option]);
+  }, [option, theme]);
 
   return (
     <div className="space-y-2">
