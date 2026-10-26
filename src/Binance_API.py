@@ -141,8 +141,10 @@ class BinanceAPI:
 
         return get_market_cap(quote)
 
-    def get_price(self,ticker_list,date=datetime.datetime.today()):
+    def get_price(self,ticker_list,date=None):
 
+        # today at call time (a default in the signature would be fixed when the module loads)
+        date=date or datetime.datetime.today()
         timestamp_sec=int((date-datetime.timedelta(1)).timestamp()*1000)
 
         price=fetch_closes(self.binance_api,list(ticker_list),timestamp_sec)
@@ -220,8 +222,9 @@ class BinanceAPI:
 
         return inventory.sort_values(by='Weights',ascending=False)
 
-    def get_positions_history(self,enddate=datetime.datetime.today()):
+    def get_positions_history(self,enddate=None):
 
+        enddate=enddate or datetime.datetime.today()
         startdate=enddate-datetime.timedelta(30)
         timestamp_end = int(enddate.timestamp() * 1000)
 
