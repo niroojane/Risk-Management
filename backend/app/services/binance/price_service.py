@@ -13,6 +13,12 @@ from .dates import split_date_range
 logger = logging.getLogger(__name__)
 
 
+def _utc_ms(day: datetime) -> int:
+    """Milliseconds at 00:00 UTC of `day`'s date: Binance daily candles are UTC days, whatever
+    the server's time zone"""
+    return int(datetime(day.year, day.month, day.day, tzinfo=timezone.utc).timestamp() * 1000)
+
+
 class PriceService:
     """Handles price/kline data retrieval from Binance"""
 
@@ -26,7 +32,7 @@ class PriceService:
         end_date: datetime,
         use_cache: bool = True,
     ) -> pd.DataFrame:
-        """Fetch prices for a single date range chunk"""
+        """Daily closes of the UTC days from start_date up to end_date (excluded)"""
         cache_key = f"prices_chunk:{','.join(sorted(symbols))}:{start_date.date()}:{end_date.date()}"
 
         async def fetch():
@@ -34,8 +40,8 @@ class PriceService:
                 binance_api.fetch_closes,
                 self._client.spot,
                 symbols,
-                int(start_date.timestamp() * 1000),
-                int(end_date.timestamp() * 1000),
+                _utc_ms(start_date),
+                _utc_ms(end_date) - 1,
             )
 
         result = await self._client.fetch_with_cache(
@@ -93,8 +99,11 @@ class PriceService:
             f"({start_date.date()} to {end_date.date()})"
         )
 
-        # Split date range into 3-month chunks
-        date_chunks = split_date_range(start_date, end_date, chunk_months=3)
+        # Whole UTC days, the end date included: on today, its candle (still open) gives the
+        # latest price, as in the notebooks. Split into 3-month chunks.
+        first_day = datetime(start_date.year, start_date.month, start_date.day)
+        after_last_day = datetime(end_date.year, end_date.month, end_date.day) + timedelta(days=1)
+        date_chunks = split_date_range(first_day, after_last_day, chunk_months=3)
 
         logger.info(f"Split into {len(date_chunks)} chunks for parallel fetching")
 

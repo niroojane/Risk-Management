@@ -24,7 +24,7 @@ Route → Controller → Service (Binance / Yahoo / account) → pandas
 services/binance/            # async, cache and rate limiting around src/Binance_API.py
 ├── binance_client.py        # Async base client (rate limiting, cache) on the Spot client of src/Binance_API.py
 ├── market_data_service.py   # Market cap (src get_market_cap)
-├── price_service.py         # Daily closes in 3-month chunks fetched in parallel (src fetch_closes)
+├── price_service.py         # Daily closes of whole UTC days, end date included (today's open candle), in 3-month chunks fetched in parallel (src fetch_closes)
 ├── quantity_service.py      # Account snapshots (src snapshot_balances)
 ├── rate_limiter.py          # Request weight limiter
 └── dates.py                 # Date-range splitting
