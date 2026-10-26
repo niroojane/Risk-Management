@@ -28,6 +28,11 @@ QUOTE_TYPE_CLASS = {
 # Johannesburg in cents ('ZAc'), Tel Aviv in agorot ('ILA').
 MINOR_UNITS = {'GBp': ('GBP', 0.01), 'GBX': ('GBP', 0.01), 'ZAc': ('ZAR', 0.01), 'ILA': ('ILS', 0.01)}
 
+# Quote currencies Yahoo reports wrongly, checked against other listings of the same asset.
+# GOLD.PA (Amundi Physical Gold, Euronext Paris) is labelled USD but trades in EUR: its
+# returns follow the EUR gold ETCs (e.g. 4GLD.DE), not the USD ones.
+CURRENCY_OVERRIDES = {'GOLD.PA': 'EUR'}
+
 _details_cache = {}
 _currency_cache = {}
 
@@ -109,6 +114,7 @@ def _one_ticker_details(ticker):
             d['52W Low'] = d['52W Low'] or fi.get('yearLow')
         except Exception:
             pass
+    d['Currency'] = CURRENCY_OVERRIDES.get(ticker, d['Currency'])
     if d['Price'] and d['Avg Volume (3M)']:
         d['Avg Daily Value'] = d['Price'] * d['Avg Volume (3M)']    # liquidity, in Currency
     if d['Currency']:
@@ -211,11 +217,14 @@ def get_currencies(tickers_):
     """Quote currency of each ticker as yfinance reports it (e.g. 'USD', 'EUR', 'GBp').
 
     Uses fast_info (cheap), cached; None where yfinance can't tell.
+    CURRENCY_OVERRIDES win over what yfinance reports.
     """
     tickers_ = list(dict.fromkeys(tickers_))
     todo = [t for t in tickers_ if t not in _currency_cache]
 
     def one(t):
+        if t in CURRENCY_OVERRIDES:
+            return CURRENCY_OVERRIDES[t]
         try:
             return yf.Ticker(t).fast_info.get('currency')
         except Exception:
