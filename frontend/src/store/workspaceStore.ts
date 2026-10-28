@@ -192,9 +192,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: 'risk-management-workspace',
-      version: 2,
-      // v1 universes have no `selected` list: load prices again
-      migrate: (persisted) => ({ ...(persisted as object), universe: null }) as WorkspaceState,
+      version: 3,
+      // v1 universes have no `selected` list: load prices again. Before v3 the Yahoo universe
+      // was the US ETFs: start again from the profile's default (the UCITS ETFs of the regimes)
+      migrate: (persisted, version) => {
+        const state = { ...(persisted as WorkspaceState), universe: null };
+        return version < 3 ? { ...state, yahooTickers: null, unchecked: [] } : state;
+      },
       merge: (persisted, current) =>
         withEndToday({ ...current, ...(persisted as Partial<WorkspaceState>) }),
     }
