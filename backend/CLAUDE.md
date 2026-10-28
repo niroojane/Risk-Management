@@ -69,7 +69,7 @@ Never put credentials in `config.py`; its defaults stay empty.
 
 `MARKET` (`app/core/market.py`) selects the profile:
 - `crypto`: Binance `PriceService` + `AccountService`
-- `multi_asset`: `YahooPriceService` + `ExcelAccountService`, benchmark `^GSPC`. The base currency can be changed at runtime with `PUT /api/v1/profile/currency`.
+- `multi_asset`: `YahooPriceService` + `ExcelAccountService`, benchmark `CSPX.L` (S&P 500 UCITS ETF). The default universe is the UCITS one of `src/Yahoo_API.py`. The base currency can be changed at runtime with `PUT /api/v1/profile/currency`.
 
 ## Commands
 

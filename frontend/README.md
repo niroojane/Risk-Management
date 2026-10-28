@@ -36,7 +36,7 @@ The frontend reads the single `.env` file at the **project root**, shared with t
 VITE_API_URL=http://localhost:8000   # backend URL (the launchers set it: 8000 for Binance, 8001 for Yahoo)
 ```
 
-At startup the app loads the backend's market profile (`GET /api/v1/profile`) and adapts to it. In the crypto version the universe is the top N market caps, the benchmark is Bitcoin, and the Market Cap and Prices pages are shown. In the multi-asset version you get the Yahoo ticker search and details, a base currency setting and the `^GSPC` benchmark.
+At startup the app loads the backend's market profile (`GET /api/v1/profile`) and adapts to it. In the crypto version the universe is the top N market caps, the benchmark is Bitcoin, and the Market Cap and Prices pages are shown. In the multi-asset version you get the Yahoo ticker search and details, a base currency setting and the `CSPX.L` benchmark (S&P 500 UCITS ETF).
 
 ## Structure
 

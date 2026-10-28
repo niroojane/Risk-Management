@@ -10,6 +10,7 @@ from functools import lru_cache
 from typing import Dict, List, Tuple
 
 from src import MultiAsset
+from src.Yahoo_API import UCITS_UNIVERSE
 
 from .config import settings
 
@@ -63,7 +64,8 @@ MULTI_ASSET_PROFILE = MarketProfile(
     name=MULTI_ASSET,
     label='Multi Asset',
     price_source='Yahoo Finance',
-    benchmark_ticker='^GSPC',
+    # S&P 500 UCITS ETF (with dividends): part of the default universe, unlike the ^GSPC index
+    benchmark_ticker='CSPX.L',
     benchmark_label='Benchmark',
     cash_assets=FIAT_CURRENCIES + ('Cash',),
     excluded_symbols=(),
@@ -74,13 +76,7 @@ MULTI_ASSET_PROFILE = MarketProfile(
     current_portfolio_file='Current Portfolio2',
     include_holdings_in_universe=False,
     model_row=-1,
-    default_universe={
-        'Commodities': ['ISLN.L', 'GOLD.PA', 'BZ=F'],
-        'Bonds': ['IEF', 'IEI'],
-        'Credit': ['DHY', 'LQD'],
-        'Equity': ['^GSPC', 'IDU', 'XLK', 'SOXX', 'XLP', 'XLY', 'IYJ', 'MXI', 'IYE',
-                   'PICK', 'EXV5.DE', 'IUHC.L', 'IYG', 'XSW'],
-    },
+    default_universe={k: list(v) for k, v in UCITS_UNIVERSE.items()},
 )
 
 

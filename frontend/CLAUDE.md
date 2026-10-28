@@ -36,7 +36,7 @@ npm run lint         # ESLint + Prettier
 
 2. **Market profile**
    - `ProfileProvider` (`src/components/layout/ProfileProvider.tsx`) loads `GET /api/v1/profile` before rendering. `useProfile()` / `useIsMultiAsset()` (`src/hooks/useProfile.ts`) expose it.
-   - Never hardcode crypto assumptions. Use `useBenchmark()` (label `Bitcoin` / `Benchmark`, ticker `BTCUSDT` / `^GSPC`), `profile.cash_assets`, `profile.excluded_symbols` and `profile.include_holdings_in_universe`.
+   - Never hardcode crypto assumptions. Use `useBenchmark()` (label `Bitcoin` / `Benchmark`, ticker `BTCUSDT` / `CSPX.L`), `profile.cash_assets`, `profile.excluded_symbols` and `profile.include_holdings_in_universe`.
    - Routes can be restricted to a market with `markets` in `routes.config.ts` (`routesFor(market)`).
 
 3. **Feature-based structure**

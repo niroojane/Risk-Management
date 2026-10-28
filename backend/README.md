@@ -35,7 +35,7 @@ The market is chosen with the `MARKET` environment variable (set by the launcher
 | `MARKET` | Prices | Portfolio | Benchmark |
 |---|---|---|---|
 | `crypto` (default) | Binance | Binance account + `BinancePTF/` Excel files | Bitcoin (`BTCUSDT`) |
-| `multi_asset` | Yahoo Finance, converted to a base currency | `ETF/` Excel files on GitHub | `^GSPC` |
+| `multi_asset` | Yahoo Finance, converted to a base currency | `ETF/` Excel files on GitHub | `CSPX.L` (S&P 500 UCITS ETF) |
 
 ## ▶️ Run
 

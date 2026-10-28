@@ -33,6 +33,29 @@ MINOR_UNITS = {'GBp': ('GBP', 0.01), 'GBX': ('GBP', 0.01), 'ZAc': ('ZAR', 0.01),
 # returns follow the EUR gold ETCs (e.g. 4GLD.DE), not the USD ones.
 CURRENCY_OVERRIDES = {'GOLD.PA': 'EUR'}
 
+# Predefined universes (asset class -> tickers) of the Multi Asset App, the HMM Regime App
+# and the web app. UCITS: funds an EU investor can buy, USD lines on London (cleaner Yahoo
+# data than the EUR lines on Xetra). US ETFs: the US equivalents the regime research was
+# done on (more history), kept to reproduce it; most can't be bought from the EU (PRIIPs).
+UCITS_UNIVERSE = {
+    'Commodities': ['ISLN.L', 'GOLD.PA', 'BRNT.L', 'CMOD.L'],
+    'Bonds': ['CBU0.L', 'CBU7.L'],
+    'Credit': ['LQDE.L'],
+    'T-Bills': ['IB01.L'],
+    'Equity': ['CSPX.L', 'IUUS.L', 'IUIT.L', 'SMH.L', 'IUCS.L', 'IUCD.L', 'IUIS.L', 'WMAT.L', 'IUES.L',
+               'GDIG.L', 'EXV5.DE', 'IUHC.L', 'IUFS.L'],
+}
+US_ETF_UNIVERSE = {
+    'Commodities': ['ISLN.L', 'GOLD.PA', 'BZ=F', 'DBC'],
+    'Bonds': ['IEF', 'IEI'],
+    'Credit': ['LQD'],
+    'T-Bills': ['BIL'],
+    'Equity': ['^GSPC', 'IDU', 'XLK', 'SOXX', 'XLP', 'XLY', 'IYJ', 'MXI', 'IYE',
+               'PICK', 'EXV5.DE', 'IUHC.L', 'IYG', 'XSW'],
+}
+UNIVERSES = {'UCITS ETFs': UCITS_UNIVERSE, 'US ETFs (research)': US_ETF_UNIVERSE}
+DEFAULT_UNIVERSE = 'UCITS ETFs'
+
 _details_cache = {}
 _currency_cache = {}
 

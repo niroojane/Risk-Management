@@ -14,7 +14,7 @@ import type {
 
 export const HISTORICAL = 'Historical Portfolio';
 
-/** Benchmark series of the market ('Bitcoin' / BTCUSDT, 'Benchmark' / ^GSPC) */
+/** Benchmark series of the market ('Bitcoin' / BTCUSDT, 'Benchmark' / CSPX.L) */
 export const useBenchmark = () => {
   const { benchmark_label, benchmark_ticker } = useProfile();
   return { label: benchmark_label, ticker: benchmark_ticker };

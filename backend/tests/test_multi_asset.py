@@ -138,7 +138,7 @@ class TestProfile:
         assert response.status_code == 200, response.text
         profile = response.json()["data"]
         assert profile["name"] == "multi_asset"
-        assert profile["benchmark_ticker"] == "^GSPC"
+        assert profile["benchmark_ticker"] == "CSPX.L"
         assert "USD" in profile["cash_assets"]
         assert "Equity" in profile["asset_classes"]
         assert profile["currency"]["base_currency"] == "USD"
@@ -237,7 +237,7 @@ class TestExcelAccount:
 
     def test_pnl_analysis(self, client):
         response = client.post("/api/v1/portfolio/pnl-analysis", json={
-            "symbols": ["XLK", "GOLD.PA", "^GSPC"], "history_start": "2025-01-02T00:00:00",
+            "symbols": ["XLK", "GOLD.PA", "CSPX.L"], "history_start": "2025-01-02T00:00:00",
             "start_date": "2025-03-03T00:00:00", "end_date": "2025-09-30T00:00:00",
             "allocations": {"Equal": {"XLK": 0.5, "GOLD.PA": 0.5}},
         })
