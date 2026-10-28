@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { routesFor } from '@/routes';
 import { useProfile } from '@/hooks/useProfile';
+import { ResetWorkspace } from './ResetWorkspace';
 import { ThemeToggle } from './ThemeToggle';
 
 /** One entry per notebook tab, expanding to its sub-tabs */
@@ -24,7 +25,10 @@ export const Sidebar = () => {
           <p className="inline-block rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground">
             {profile.label} · {profile.price_source}
           </p>
-          <ThemeToggle />
+          <div className="flex items-center">
+            <ResetWorkspace />
+            <ThemeToggle />
+          </div>
         </div>
       </div>
 
