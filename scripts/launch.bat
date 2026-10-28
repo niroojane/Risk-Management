@@ -30,7 +30,7 @@ if not defined PYTHON_EXE (
 echo Creating the backend Python environment with %PYTHON_EXE%...
 "%PYTHON_EXE%" -m venv "%BACKEND%\.venv" || goto :error
 :venv_ready
-"%BACKEND%\.venv\Scripts\python.exe" -c "import fastapi, scipy, statsmodels, openpyxl, yfinance" >nul 2>nul
+"%BACKEND%\.venv\Scripts\python.exe" -c "import fastapi, scipy, statsmodels, openpyxl, yfinance, sklearn, hmmlearn" >nul 2>nul
 if errorlevel 1 (
     echo Installing the backend packages...
     "%BACKEND%\.venv\Scripts\python.exe" -m pip install -r "%BACKEND%\requirements.txt" || goto :error

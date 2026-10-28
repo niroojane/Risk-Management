@@ -58,7 +58,7 @@ Routes mirror the notebook tabs (`src/routes/routes.config.ts`). Groups render a
 | Frontend route | Notebook tab | Backend endpoints |
 |----------------|--------------|-------------------|
 | `/universe/overview` (+ `market-cap`, `prices` for crypto) | Investment Universe | `/investment-universe/*`, `/universe/*` (Yahoo), `/account/holdings` |
-| `/strategy/{builder,positioning,returns}` | Strategy › Strategy / Positioning / Strategy Return | `/strategy/{optimize,backtest}`, `/portfolio/{performance,calendar}`, `/account/*` |
+| `/strategy/{builder,positioning,returns}` | Strategy › Strategy / Positioning / Strategy Return | `/strategy/{optimize,backtest,regime-scenarios}`, `/portfolio/{performance,calendar}`, `/account/*` |
 | `/portfolio/pnl/{analysis,returns,beta}`, `/portfolio/{positioning,calendar}` | Current Portfolio › P&L / Positioning / Calendar Return | `/portfolio/*`, `/account/*` |
 | `/risk/volatility/{contribution,trajectory,tracking-error}`, `/risk/var/{simulation,history}` | Risk Analysis | `/risk/*`, `/metrics/var` |
 | `/market-risk/{pca,correlation,drivers}` | Market Risk | `/market-risk/{pca-analysis,correlation-analysis,drivers}` |

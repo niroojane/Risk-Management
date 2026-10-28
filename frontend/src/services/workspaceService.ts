@@ -17,9 +17,11 @@ import type {
   PnLAnalysisView,
   PositioningView,
   RebalancingFrequency,
+  RegimeScenario,
   ReturnAnalysisView,
   RiskContributionView,
   RiskTrajectoryView,
+  StrategyKey,
   StressPreview,
   TrackingErrorView,
   UploadResult,
@@ -54,7 +56,7 @@ export interface OptimizeParams extends AnalyticsPayload {
 }
 
 export interface BacktestParams extends AnalyticsPayload {
-  objective: Objective;
+  objective: StrategyKey;
   overlays: OverlayRow[];
   frequency: RebalancingFrequency;
   constraints: WeightConstraint[];
@@ -75,6 +77,8 @@ export interface VaRParams extends AnalyticsPayload {
 
 export const workspaceService = {
   // Strategy
+  regimeScenarios: async (): Promise<RegimeScenario[]> =>
+    (await get<{ scenarios: RegimeScenario[] }>('/strategy/regime-scenarios')).data.scenarios,
   optimize: async (params: OptimizeParams): Promise<OptimizeResult> => {
     const response = await apiClient.post('/api/v1/strategy/optimize', params, LONG_REQUEST);
     return response.data.data;

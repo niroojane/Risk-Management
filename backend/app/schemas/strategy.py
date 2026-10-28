@@ -1,12 +1,23 @@
 """Strategy tab: optimization and the rolling backtest"""
 import math
-from typing import Dict, List, Optional
+from typing import Annotated, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, Field, field_validator, model_validator
 
 from app.common import APIResponse, OptimizationObjective, RebalancingFrequency
 from app.schemas.analytics import AnalyticsRequest, RiskConstraints, WeightConstraint
 from app.schemas.workspace import upper_keys
+from src.Regime import REGIME_PREFIX, is_regime_key
+
+
+def _strategy_key(value: str) -> str:
+    if value in OptimizationObjective._value2member_map_ or (is_regime_key(value) and value != REGIME_PREFIX):
+        return value
+    raise ValueError(f"Unknown strategy '{value}': an optimization objective or '{REGIME_PREFIX}<scenario>'")
+
+
+# An optimization objective, or 'regime:<scenario>': a scenario of the HMM Regime App
+StrategyKey = Annotated[str, AfterValidator(_strategy_key)]
 
 
 DEFAULT_OBJECTIVES = [
@@ -101,13 +112,14 @@ class OptimizationResponse(APIResponse):
 
 
 class Overlay(BaseModel):
-    objective: OptimizationObjective = Field(..., description="Overlay strategy objective")
+    objective: StrategyKey = Field(..., description="Overlay strategy: objective or 'regime:<scenario>'")
     limit: float = Field(..., ge=0, le=1, description="Weight of the overlay in the fund")
 
 
 class BacktestRequest(AnalyticsRequest):
     """Rolling optimization (Strategy > 'Get Results')"""
-    objective: OptimizationObjective = Field(OptimizationObjective.MINIMUM_VARIANCE, description="Core strategy objective")
+    objective: StrategyKey = Field(OptimizationObjective.MINIMUM_VARIANCE.value,
+                                   description="Core strategy: objective or 'regime:<scenario>'")
     overlays: List[Overlay] = Field(default_factory=list)
     frequency: RebalancingFrequency = Field(RebalancingFrequency.MONTHLY)
     constraints: List[WeightConstraint] = Field(default_factory=list)

@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type {
   BacktestResult,
-  Objective,
   OverlayRow,
+  StrategyKey,
   RebalancingFrequency,
   RiskConstraintRow,
   WeightConstraint,
@@ -71,7 +71,7 @@ interface WorkspaceState {
   ranges: Record<RangeKey, DateRange>;
 
   // Strategy
-  objective: Objective;
+  objective: StrategyKey;
   frequency: RebalancingFrequency;
   benchmark: string | null;
   volWindow: number;

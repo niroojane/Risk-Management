@@ -28,6 +28,10 @@ export type Objective =
   | 'eigenportfolio'
   | 'tracking_error'
   | 'information_ratio';
+/** A scenario of the HMM Regime App used as a strategy (multi-asset profile) */
+export type RegimeStrategy = `regime:${string}`;
+/** Strategy of the rolling backtest: an optimization objective or a regime scenario */
+export type StrategyKey = Objective | RegimeStrategy;
 export type RiskType = 'beta' | 'volatility' | 'tracking_error' | 'information_ratio';
 export type VaRMethod =
   | 'multivariate'
@@ -49,8 +53,15 @@ export interface RiskConstraintRow {
 }
 
 export interface OverlayRow {
-  objective: Objective;
+  objective: StrategyKey;
   limit: number;
+}
+
+export interface RegimeScenario {
+  key: RegimeStrategy;
+  /** 'Regime · <scenario>' */
+  label: string;
+  description: string;
 }
 
 export interface AnalyticsPayload {

@@ -3,6 +3,7 @@ and the Excel portfolio (holdings, P&L with fees, P&L history, Update Files).
 
 Yahoo Finance and GitHub are faked; the parsing, FX, ledger and P&L logic is real.
 """
+import json
 import zlib
 
 import numpy as np
@@ -23,6 +24,7 @@ from app.main import app
 from app.services.account import ExcelAccountService
 from app.services.yahoo import YahooMarketData, YahooPriceService
 from src import PositionHandler as position_handler
+from src import Regime as regime
 from src import Yahoo_API as yahoo_api
 
 FX = {'EUR': 1.1, 'GBP': 1.3}
@@ -257,3 +259,66 @@ class TestExcelAccount:
         assert quantities.index.max() > pd.Timestamp("2025-09-30")
         assert quantities.iloc[-1]["XLK"] == pytest.approx(10.0)
         assert "Total" in storage.written["Positions2"].columns
+
+
+@pytest.fixture
+def scenario_file(tmp_path, monkeypatch):
+    """A fast scenario saved by the HMM Regime App: 2 regimes of ^GSPC (faked), one fit"""
+    settings = {**regime.comparable(regime.default_settings()), 'n_states': 2, 'refit': 'Never (single fit)',
+                'n_init': 1, 'strategies': {'0': 'Equal Weight', '1': 'Minimum Variance'},
+                'exposures': {'0': 1.0, '1': 1.0}, 'asset_constraints': [], 'risk_constraints': []}
+    path = tmp_path / 'HMM_Scenarios.json'
+    path.write_text(json.dumps({'Quick': {'settings': settings, 'result': None, 'saved': 'test'}}), encoding='utf-8')
+    monkeypatch.setattr(regime, 'SCENARIO_FILE', str(path))
+    return path
+
+
+class TestRegimeStrategies:
+    BACKTEST = {"symbols": ["XLK", "GOLD.PA", "ISLN.L"], "start_date": "2024-01-02T00:00:00",
+                "end_date": "2025-06-30T00:00:00", "objective": "risk_parity", "frequency": "Quarterly"}
+
+    def test_scenarios(self, client, scenario_file):
+        response = client.get("/api/v1/strategy/regime-scenarios")
+        assert response.status_code == 200, response.text
+        rows = response.json()["data"]["scenarios"]
+        assert [r["key"] for r in rows] == ["regime:Default (initial)", "regime:Quick"]
+        assert rows[1]["label"] == "Regime · Quick"
+        assert client.get("/api/v1/profile").json()["data"]["regime_strategies"] is True
+
+    def test_regime_overlay(self, client, scenario_file):
+        response = client.post("/api/v1/strategy/backtest", json={
+            **self.BACKTEST, "overlays": [{"objective": "regime:Quick", "limit": 0.3}]})
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        schedules = {k: pd.DataFrame.from_dict(v, orient="index") for k, v in payload["data"]["schedules"].items()}
+        fund, core, overlay = schedules["Fund"], schedules["Core"], schedules["Overlay"]
+        np.testing.assert_allclose(fund.sum(axis=1), 1.0, atol=1e-4)
+        # the Fund also rebalances on the regime strategy's dates (monthly + regime changes),
+        # each part holding its last weights in between
+        assert len(fund) > len(core)
+        held = lambda f: f.reindex(f.index.union(fund.index)).ffill().reindex(fund.index)
+        np.testing.assert_allclose(fund, 0.7 * held(core) + 0.3 * held(overlay), atol=1e-5)
+        assert any(w.startswith("Regime · Quick: current regime") for w in payload["warnings"])
+        assert {"Fund", "Core", "Overlay"} <= set(frame(payload["data"]["metrics"]).columns)
+
+    def test_regime_core(self, client, scenario_file):
+        response = client.post("/api/v1/strategy/backtest", json={**self.BACKTEST, "objective": "regime:Quick"})
+        assert response.status_code == 200, response.text
+        data = response.json()["data"]
+        assert set(data["schedules"]) == {"Fund", "Core"}
+        assert sum(data["model"].values()) == pytest.approx(1.0, abs=1e-4)
+
+    def test_unknown_strategies(self, client, scenario_file):
+        response = client.post("/api/v1/strategy/backtest", json={**self.BACKTEST, "objective": "momentum"})
+        assert response.status_code == 422
+        response = client.post("/api/v1/strategy/backtest", json={**self.BACKTEST, "objective": "regime:Nope"})
+        assert response.status_code == 400
+        assert "Unknown regime scenario" in response.text
+
+    def test_crypto_profile(self, client, scenario_file, monkeypatch):
+        monkeypatch.setattr(settings, 'MARKET', 'crypto')
+        market_module.get_profile.cache_clear()
+        assert client.get("/api/v1/strategy/regime-scenarios").json()["data"]["scenarios"] == []
+        response = client.post("/api/v1/strategy/backtest", json={**self.BACKTEST, "objective": "regime:Quick"})
+        assert response.status_code == 400
+        market_module.get_profile.cache_clear()

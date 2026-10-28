@@ -44,6 +44,8 @@ class MarketProfile:
     # the backtest's 'Model' is its last complete period (-2) or its last row (-1)
     model_row: int = -2
     default_universe: Dict[str, List[str]] = field(default_factory=dict)
+    # the HMM Regime App's scenarios are strategies too ('regime:<scenario>', src/Regime.py)
+    regime_strategies: bool = False
 
 
 CRYPTO_PROFILE = MarketProfile(
@@ -77,6 +79,7 @@ MULTI_ASSET_PROFILE = MarketProfile(
     include_holdings_in_universe=False,
     model_row=-1,
     default_universe={k: list(v) for k, v in UCITS_UNIVERSE.items()},
+    regime_strategies=True,
 )
 
 

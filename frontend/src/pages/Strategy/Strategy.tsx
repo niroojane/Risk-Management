@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { FrameChart, DataTable } from '@/components/data';
 import {
@@ -13,10 +13,11 @@ import {
   Toolbar,
   ViewStatus,
 } from '@/components/ui';
+import { useProfile } from '@/hooks/useProfile';
 import { apiErrorMessage, useBenchmark, useView, useWorkspacePayload } from '@/hooks/useWorkspace';
 import { workspaceService } from '@/services/workspaceService';
 import { useWorkspaceStore } from '@/store/workspaceStore';
-import type { ConstraintSign, Objective, RiskType } from '@/types/workspace';
+import type { ConstraintSign, RiskType, StrategyKey } from '@/types/workspace';
 import { frameFromRecords } from '@/utils/frame';
 import { AssetMetricsTables } from '../shared/AssetMetricsTables';
 import { RequireUniverse } from '../shared/Guards';
@@ -28,6 +29,7 @@ import {
   RISK_OPTIONS,
   SIGN_OPTIONS,
   STRATEGY_OPTIONS,
+  isRegimeStrategy,
   optimizeGrid,
   riskLabel,
   riskPayload,
@@ -42,11 +44,29 @@ const StrategyPage = () => {
   const symbols = universe.symbols;
   const allocationNames = store.allocations.map((a) => a.name);
 
+  // Scenarios of the HMM Regime App, offered as 'Regime · <scenario>' strategies
+  const { regime_strategies } = useProfile();
+  const regimes = useQuery({
+    queryKey: ['regime-scenarios'],
+    queryFn: workspaceService.regimeScenarios,
+    enabled: regime_strategies,
+  });
+  const strategyOptions = useMemo(
+    () => [
+      ...STRATEGY_OPTIONS,
+      ...(regimes.data ?? []).map((s) => ({ value: s.key as StrategyKey, label: s.label })),
+    ],
+    [regimes.data]
+  );
+  const usesRegime = [store.objective, ...store.overlays.map((o) => o.objective)].some(
+    isRegimeStrategy
+  );
+
   // Constraint / overlay / risk forms
   const [asset, setAsset] = useState<string>('All');
   const [sign, setSign] = useState<ConstraintSign>('<=');
   const [limit, setLimit] = useState(0.2);
-  const [overlay, setOverlay] = useState<Objective>('minimum_variance');
+  const [overlay, setOverlay] = useState<StrategyKey>('minimum_variance');
   const [overlayLimit, setOverlayLimit] = useState(0.1);
   const [risk, setRisk] = useState<RiskType>('volatility');
   const [riskSign, setRiskSign] = useState<ConstraintSign>('<=');
@@ -76,7 +96,7 @@ const StrategyPage = () => {
     mutationFn: async () => {
       const benchWeights = store.allocations.find((a) => a.name === store.benchmark)?.weights;
       const wanted = [store.objective, ...store.overlays.map((o) => o.objective)];
-      if (!benchWeights && wanted.some((o) => RELATIVE.includes(o))) {
+      if (!benchWeights && wanted.some((o) => RELATIVE.some((r) => r === o))) {
         throw new Error(
           "⚠️ Min Tracking Error / Max Information Ratio need a benchmark allocation: select it in 'Benchmark' first."
         );
@@ -137,7 +157,8 @@ const StrategyPage = () => {
           <SelectField
             label="Strategy"
             value={store.objective}
-            options={STRATEGY_OPTIONS}
+            options={strategyOptions}
+            selectClassName="w-56"
             onChange={(objective) => store.setStrategy({ objective })}
           />
           <SelectField
@@ -244,7 +265,8 @@ const StrategyPage = () => {
             <SelectField
               label="Strategy Overlay"
               value={overlay}
-              options={STRATEGY_OPTIONS}
+              options={strategyOptions}
+              selectClassName="w-56"
               onChange={setOverlay}
             />
             <NumberField
@@ -330,6 +352,14 @@ const StrategyPage = () => {
             {store.overlays.length > 0 && `, with ${store.overlays.length} overlay(s)`}.
           </span>
         </Toolbar>
+        {usesRegime && (
+          <Notice tone="info">
+            Regime strategies follow their HMM Regime App scenario: at each rebalancing (monthly and
+            on every regime change) the regime in force picks the strategy and constraints, on the
+            last year of returns. The Fund also rebalances on those dates. The first run fits the
+            regime model (a minute or two).
+          </Notice>
+        )}
         {backtest.error && <Notice tone="error">{apiErrorMessage(backtest.error)}</Notice>}
         {backtest.data?.warnings?.map((w) => (
           <Notice key={w}>{w}</Notice>

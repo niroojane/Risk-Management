@@ -39,6 +39,7 @@ src/                         # one folder up, made importable by app/__init__.py
 ├── Metrics.py               # Performance and risk tables (charts only load if plotly is installed)
 ├── PnL_Computation.py       # Book cost / realized P&L from a trade history
 ├── Backtest.py              # Rolling optimization: Fund / Core / Overlay
+├── Regime.py                # HMM regime engine; scenarios as 'regime:<scenario>' strategies (multi-asset)
 ├── Workspace.py             # Workspace of named series and the views of the app tabs
 ├── Account.py               # Crypto holdings, positioning and P&L tables
 ├── MultiAsset.py            # Multi-asset trades, ledger, holdings, P&L

@@ -72,7 +72,7 @@ All under `/api/v1`. Interactive documentation: http://localhost:8000/docs
 | Profile | `GET /profile`, `PUT /profile/currency` |
 | Investment Universe | `POST /investment-universe/{market-cap, prices, asset-metrics}` |
 | Yahoo universe (multi-asset) | `GET /universe/search`, `POST /universe/{details, check}` |
-| Strategy | `POST /strategy/{optimize, backtest}` |
+| Strategy | `POST /strategy/{optimize, backtest}`, `GET /strategy/regime-scenarios` |
 | Current Portfolio | `POST /portfolio/{performance, calendar, return-analysis, beta, pnl-analysis}` |
 | Risk Analysis | `POST /risk/{contribution, trajectory, tracking-error, var-history, stress-preview}`, `POST /metrics/var` |
 | Market Risk | `POST /market-risk/{pca-analysis, correlation-analysis, drivers}` |

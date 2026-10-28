@@ -38,6 +38,7 @@ def _profile_model() -> ProfileModel:
         data_folder=profile.data_folder,
         default_universe=profile.default_universe,
         asset_classes=classes if profile.name == MULTI_ASSET else [],
+        regime_strategies=profile.regime_strategies,
         currency=CurrencySettingsModel(base_currency=currency.base_currency,
                                        convert_to_base=currency.convert_to_base,
                                        positions_currency=currency.positions_currency),

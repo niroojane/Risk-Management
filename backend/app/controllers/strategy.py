@@ -6,11 +6,13 @@ import pandas as pd
 
 from app.common import frame_to_dict, to_payload
 from app.controllers.base import AnalyticsController
+from app.core.exceptions import DataValidationError
 from app.core.market import MULTI_ASSET, get_profile
 from app.schemas.analytics import WeightConstraint
 from app.schemas.strategy import BacktestRequest, OptimizationData, OptimizationRequest, OptimizationResponse
 from app.schemas.workspace import ViewResponse
 from src import PortfolioAnalytics as analytics
+from src import Regime
 from src.Backtest import run_backtest
 from src.Rebalancing import rebalanced_portfolio
 from src.Workspace import clean_prices
@@ -22,6 +24,17 @@ def _weight_rows(constraints: List[WeightConstraint]):
 
 class StrategyController(AnalyticsController):
     """Controller orchestrating portfolio optimization"""
+
+    @staticmethod
+    def regime_scenarios() -> List[dict]:
+        """Key, label and summary of each scenario of the HMM Regime App"""
+        rows = []
+        for name, s in Regime.regime_scenarios().items():
+            key = Regime.regime_key(name)
+            per_regime = ', '.join(f"R{k} {v}" for k, v in sorted(s['strategies'].items()))
+            rows.append({'key': key, 'label': Regime.regime_label(key),
+                         'description': f"{s['n_states']} regimes of {s['index']} ({s['universe']}): {per_regime}"})
+        return rows
 
     async def optimize(self, request: OptimizationRequest) -> OptimizationResponse:
         """Optimal allocation for each objective under the requested constraints"""
@@ -74,18 +87,27 @@ class StrategyController(AnalyticsController):
             if request.benchmark else None
         )
 
+        # Regime strategies: weights from their scenario's regime model, blended as the others
+        wanted = [request.objective] + [o.objective for o in request.overlays]
+        regime_messages, schedules = [], {}
+        if any(Regime.is_regime_key(key) for key in wanted):
+            if not profile.regime_strategies:
+                raise DataValidationError("Regime strategies are only available in the multi-asset profile")
+            schedules, regime_messages = await self._compute(Regime.regime_schedules, prices, wanted)
+
         result = await self._compute(
             run_backtest,
             prices,
-            request.objective.value,
+            request.objective,
             frequency=request.frequency.value,
-            overlays=[(o.objective.value, o.limit) for o in request.overlays],
+            overlays=[(o.objective, o.limit) for o in request.overlays],
             weight_constraints=_weight_rows(request.constraints),
             risk_constraints=request.risk_constraints.as_dict() if request.risk_constraints else None,
             bench_weights=bench_weights,
             benchmark=(profile.benchmark_label, profile.benchmark_ticker),
             model_row=profile.model_row,
             calendar_annualization=profile.name == MULTI_ASSET,
+            schedules=schedules,
         )
 
         schedules = {name: frame for name, frame in result['schedules'].items() if frame is not None}
@@ -99,7 +121,7 @@ class StrategyController(AnalyticsController):
         return ViewResponse(
             success=True,
             data=data,
-            warnings=result['warnings'],
-            message=f"Rolling {request.objective.value} over {len(next(iter(schedules.values())))} periods",
+            warnings=regime_messages + result['warnings'],
+            message=f"Rolling {request.objective} over {len(next(iter(schedules.values())))} periods",
             timestamp=datetime.now(timezone.utc),
         )

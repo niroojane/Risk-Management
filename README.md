@@ -34,6 +34,8 @@ Long-only, fully-invested portfolios:
 
 Constrained and unconstrained versions are computed side by side. Strategy overlays let you combine a core strategy with tactical sleeves.
 
+In the Multi Asset App and the web app, every scenario of the HMM Regime App is a strategy too (**Regime · &lt;scenario&gt;**): the regime in force picks the strategy and constraints at each rebalancing, and it can be the core or an overlay of any other strategy.
+
 ### 🔒 Constraint Engine
 
 * **Asset constraints**: one asset `≥ / ≤ / =` a weight, or every asset at once (`All ≤ 0.3` caps each weight at 30%).
@@ -179,6 +181,7 @@ The first launch creates `backend/.venv` and installs the Python and npm package
 │   ├── Metrics.py            # Performance / risk tables, calendar metrics, efficient frontier
 │   ├── Rebalancing.py        # Buy & hold, periodic and dynamic rebalancing, book cost
 │   ├── Backtest.py           # Rolling optimization with overlays ('Get Results')
+│   ├── Regime.py             # HMM regime engine and scenarios (HMM Regime App, regime strategies)
 │   ├── Workspace.py          # Weight series of every portfolio and the risk / performance views
 │   ├── Account.py            # Crypto holdings, positioning and P&L history
 │   ├── MultiAsset.py         # Multi-asset trades, ledger, holdings and P&L

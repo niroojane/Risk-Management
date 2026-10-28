@@ -26,6 +26,7 @@ class ProfileModel(BaseModel):
     data_folder: str
     default_universe: Dict[str, List[str]]
     asset_classes: List[str]
+    regime_strategies: bool = Field(False, description="The HMM Regime App's scenarios are strategies too")
     currency: CurrencySettingsModel
 
 

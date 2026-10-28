@@ -24,6 +24,8 @@ export interface Profile {
   /** {asset class: tickers} of a new Yahoo universe */
   default_universe: Record<string, string[]>;
   asset_classes: string[];
+  /** The HMM Regime App's scenarios are strategies too ('regime:<scenario>') */
+  regime_strategies: boolean;
   currency: CurrencySettings;
 }
 

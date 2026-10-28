@@ -3,7 +3,8 @@
 Port of the Crypto App notebook's 'Get Results' (`get_result`): the strategy is
 re-optimized on each rebalancing period, overlays are blended in with their
 weight limits, and the resulting Fund / Core / Overlay schedules are simulated
-on the full price history.
+on the full price history. A strategy can also come as a weight schedule
+computed elsewhere (`schedules`), e.g. a regime strategy of src/Regime.py.
 """
 import warnings
 from concurrent.futures import ThreadPoolExecutor
@@ -78,6 +79,7 @@ def run_backtest(
     benchmark: Tuple[str, str] = ('Bitcoin', 'BTCUSDT'),
     model_row: int = -2,
     calendar_annualization: bool = False,
+    schedules: Optional[Dict[str, pd.DataFrame]] = None,
 ) -> dict:
     """Rolling optimization of `objective` blended with `overlays` [(objective, weight)].
 
@@ -90,13 +92,19 @@ def run_backtest(
     Risk constraints: {'volatility' | 'beta' | 'tracking_error' |
     'information_ratio': (sign, limit)}; beta, tracking error and information
     ratio are measured against `bench_weights` and skipped without it.
+
+    schedules: weights computed outside this optimizer, by strategy name (index =
+    rebalancing dates, e.g. src.Regime.regime_schedules). A strategy found there
+    is used as it is, with its own rebalancing dates: the Fund rebalances on the
+    dates of every strategy it blends, each holding its last weights in between.
     """
     risk_constraints = risk_constraints or {}
+    schedules = schedules or {}
     returns = prices.pct_change(fill_method=None)
     columns = prices.columns
 
     wanted = {objective} | {name for name, _ in overlays}
-    if bench_weights is None and wanted & RELATIVE_OBJECTIVES:
+    if bench_weights is None and (wanted - set(schedules)) & RELATIVE_OBJECTIVES:
         raise ValueError("Min Tracking Error / Max Information Ratio need a benchmark allocation")
     if bench_weights is not None:
         bench_weights = bench_weights.reindex(columns).fillna(0.0)
@@ -145,7 +153,7 @@ def run_backtest(
         return subset.index[-1], np.round(weights, 6), strategy
 
     tasks = [(returns.loc[dates[i]:dates[i + 1]], strategy)
-             for strategy in [objective] + [name for name, _ in overlays]
+             for strategy in [objective] + [name for name, _ in overlays] if strategy not in schedules
              for i in range(len(dates) - 1)]
     results: Dict[str, dict] = {}
     with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
@@ -154,7 +162,7 @@ def run_backtest(
                 date, weights, strategy = out
                 results.setdefault(strategy, {})[date] = weights
 
-    if objective not in results:
+    if objective not in results and objective not in schedules:
         raise ValueError("The optimization failed on every period")
 
     periods = len(dates) - 1
@@ -165,30 +173,40 @@ def run_backtest(
     ]
 
     # An overlay that failed on every period is left out; its weight goes back to the core strategy
-    skipped = [name for name, _ in overlays if name not in results]
+    available = set(results) | set(schedules)
+    skipped = [name for name, _ in overlays if name not in available]
     for name in skipped:
         messages.append(f"Overlay '{name}' failed on every period, skipped.")
-    overlays = [(name, limit) for name, limit in overlays if name in results]
+    overlays = [(name, limit) for name, limit in overlays if name in available]
     core_weight = max(1 - sum(limit for _, limit in overlays), 0.0)
 
+    first_row = pd.DataFrame([np.full(len(columns), 1 / len(columns))], index=[dates[0]], columns=columns)
+
     def schedule(strategy):
-        return pd.DataFrame(results[strategy], index=columns).T.sort_index()
+        """Weights from the first anchor date: equal weight there for an optimized strategy
+        (no history before it), the weights in force then for a given schedule."""
+        if strategy in schedules:
+            given = schedules[strategy].reindex(columns=columns).fillna(0.0).sort_index().loc[:dates[-1]]
+            before = given.loc[:dates[0]]
+            start = before.iloc[[-1]].set_axis([dates[0]]) if len(before) else first_row
+            return pd.concat([start, given.loc[given.index > dates[0]]])
+        return pd.concat([first_row, pd.DataFrame(results[strategy], index=columns).T.sort_index()])
+
+    def aligned(frame, index):
+        """Weights in force at each date of `index`: the last ones set on or before it."""
+        return frame.reindex(frame.index.union(index)).ffill().reindex(index)
 
     core = schedule(objective)
-    overlay = pd.DataFrame(0.0, index=core.index, columns=columns)
-    for name, limit in overlays:
-        overlay = overlay.add(schedule(name) * limit, fill_value=0)
-    final = core * core_weight + overlay
-
-    first_row = pd.DataFrame([np.full(len(columns), 1 / len(columns))], index=[dates[0]], columns=columns)
+    parts = [(schedule(name), limit) for name, limit in overlays]
+    overlay_dates = pd.DatetimeIndex(sorted({d for frame, _ in parts for d in frame.index}))
+    fund_dates = core.index.union(overlay_dates)
+    final = aligned(core, fund_dates) * core_weight + sum(aligned(frame, fund_dates) * limit for frame, limit in parts)
     denominator = (1 - core_weight) if core_weight < 1 else 1
-    final = pd.concat([first_row, final])
-    core = pd.concat([first_row, core])
-    overlay = pd.concat([first_row, overlay / denominator])
+    overlay = sum(aligned(frame, overlay_dates) * limit for frame, limit in parts) / denominator if parts else None
 
-    schedules = {'Fund': final, 'Core': core, 'Overlay': overlay if overlays else None}
+    weights = {'Fund': final, 'Core': core, 'Overlay': overlay}
     quantities = {name: rebalanced_dynamic_quantities(prices, matrix)
-                  for name, matrix in schedules.items() if matrix is not None}
+                  for name, matrix in weights.items() if matrix is not None}
     values = pd.DataFrame({name: (units * prices).sum(axis=1) for name, units in quantities.items()})
     benchmark_name, benchmark_ticker = benchmark
     if benchmark_ticker in prices.columns:
@@ -196,9 +214,11 @@ def run_backtest(
 
     metrics = (calendar_backtest_metrics(values, benchmark_name) if calendar_annualization
                else backtest_metrics(values, returns, benchmark_name))
+    # the Model reads the Fund on the anchor dates, whatever the dates of the given schedules
+    anchored = aligned(final, pd.DatetimeIndex(dates))
     return {
-        'schedules': schedules,
-        'model': final.iloc[model_row] if len(final) >= abs(model_row) else final.iloc[-1],
+        'schedules': weights,
+        'model': anchored.iloc[model_row] if len(anchored) >= abs(model_row) else anchored.iloc[-1],
         'metrics': metrics,
         'warnings': messages,
         'quantities': quantities,   # units held per schedule (Fund / Core / Overlay)

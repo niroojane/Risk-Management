@@ -16,14 +16,15 @@ Risk-Management is a portfolio management and risk analysis system in Python: po
 
 Shared by the notebooks, Streamlit and the web app backend. Submodules load on first use (`src/__init__.py`), and the chart libraries in `Metrics.py` are optional, so the backend doesn't need them.
 
-- **Backtest.py**: Rolling optimization (core strategy + overlays) behind 'Get Results'
+- **Backtest.py**: Rolling optimization (core strategy + overlays) behind 'Get Results'; a strategy can also be a weight schedule computed elsewhere (`schedules`)
+- **Regime.py**: Engine of the HMM Regime App (features, HMM walk-forward fits, regime-mapped backtest) and its scenarios (`HMM_Scenarios.json`). Each scenario is also a strategy `regime:<scenario>` of the Multi Asset App and the web app (`regime_schedules` -> `run_backtest(schedules=...)`)
 - **Workspace.py**: Weight series of every portfolio (Fund, Rebalanced / Buy and Hold X, Historical Portfolio) and the tab views
 - **Account.py**: Crypto holdings, positioning, P&L history, history merge
 - **MultiAsset.py**: Multi-asset trades, average-cost ledger with fees and FX, holdings and P&L tables
 - **PortfolioAnalytics.py**: Whole allocation grids for the web app: constraints from the UI, optimization, VaR, per-asset metrics
 
 - **Binance_API.py**: Binance API interactions (market data, prices, positions, trades); its module functions are shared with the backend services
-- **Yahoo_API.py**: Yahoo Finance search, prices, ticker details, FX conversion to a base currency
+- **Yahoo_API.py**: Yahoo Finance search, prices, ticker details, FX conversion to a base currency; the predefined universes (`UCITS_UNIVERSE`, the default, and `US_ETF_UNIVERSE`)
 - **RiskMetrics.py**: Core quantitative finance engine:
   - `Portfolio` class: portfolio construction and optimization
   - `RiskAnalysis` class (extends Portfolio): VaR simulations, PCA, variance decomposition, copula models

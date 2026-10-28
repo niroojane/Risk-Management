@@ -7,6 +7,7 @@ import type {
   RebalancingFrequency,
   RiskConstraintRow,
   RiskType,
+  StrategyKey,
   WeightConstraint,
   Weights,
 } from '@/types/workspace';
@@ -20,8 +21,12 @@ export const STRATEGY_OPTIONS: { value: Objective; label: string }[] = [
   { value: 'tracking_error', label: 'Minimum Tracking Error' },
   { value: 'information_ratio', label: 'Maximum Information Ratio' },
 ];
-export const strategyLabel = (objective: Objective) =>
-  STRATEGY_OPTIONS.find((o) => o.value === objective)?.label ?? objective;
+const REGIME_PREFIX = 'regime:';
+export const isRegimeStrategy = (key: StrategyKey) => key.startsWith(REGIME_PREFIX);
+export const strategyLabel = (key: StrategyKey) =>
+  isRegimeStrategy(key)
+    ? `Regime · ${key.slice(REGIME_PREFIX.length)}`
+    : (STRATEGY_OPTIONS.find((o) => o.value === key)?.label ?? key);
 
 export const RELATIVE: Objective[] = ['tracking_error', 'information_ratio'];
 

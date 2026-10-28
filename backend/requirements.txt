@@ -17,6 +17,8 @@ statsmodels==0.14.5
 joblib==1.5.2
 openpyxl==3.1.5  # Positions / Quantities / Trade History Excel files
 yfinance==1.5.1  # Multi-asset profile (start-yahoo.bat): prices, FX, ticker search and details
+scikit-learn==1.7.2
+hmmlearn==0.3.3  # Regime strategies of the multi-asset profile (src/Regime.py)
 
 # Configuration
 python-dotenv==1.0.0
