@@ -8,9 +8,9 @@ export default defineConfig({
   // One .env for the whole web app, in the project folder (only VITE_* variables are exposed)
   envDir: path.resolve(__dirname, '..'),
   server: {
-    // Lets a tunnel (cloudflared) serve the app: the API goes through this server when VITE_API_URL is empty
+    // share-*.bat: a cloudflared tunnel serves the app, and the API goes through this server (VITE_API_URL=/)
     allowedHosts: ['.trycloudflare.com'],
-    proxy: { '/api': { target: process.env.BACKEND_URL || 'http://localhost:8001', changeOrigin: true } },
+    proxy: { '/api': { target: process.env.BACKEND_URL || 'http://localhost:8000', changeOrigin: true } },
   },
   resolve: {
     alias: {

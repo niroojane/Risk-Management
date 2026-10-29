@@ -164,6 +164,8 @@ Requires Python 3.11+ and [Node.js](https://nodejs.org) LTS. Double-click one of
 
 The first launch creates `backend/.venv` and installs the Python and npm packages. Both versions can run side by side, and each keeps its own workspace in the browser. API documentation: `http://localhost:8000/docs` (or `8001`). See [SETUP.md](SETUP.md) for details.
 
+**Share a temporary link:** double-click `share-yahoo.bat` (or `share-binance.bat`). It starts the app if needed, then prints a public `https://….trycloudflare.com` link (a [Cloudflare quick tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/), installed with winget on first use). The link works while your PC and its windows stay open, and changes each time. Anyone with it uses the app with your `.env` credentials, so only send it to people you trust.
+
 ---
 
 ## 📏 Conventions
@@ -205,9 +207,11 @@ The first launch creates `backend/.venv` and installs the Python and npm package
 │
 ├── backend/                  # Web app API (FastAPI) -- see backend/README.md
 ├── frontend/                 # Web app UI (React + TypeScript) -- see frontend/README.md
-├── scripts/launch.bat        # Shared web app launcher
+├── scripts/                  # Shared launchers (launch.bat, share.bat)
 ├── start-binance.bat         # Web app, crypto version
 ├── start-yahoo.bat           # Web app, multi-asset version
+├── share-binance.bat         # Temporary public link to the crypto version
+├── share-yahoo.bat           # Temporary public link to the multi-asset version
 ├── .env.example              # Web app settings template (copy to .env, not versioned)
 ├── SETUP.md                  # Detailed setup and troubleshooting
 ├── .streamlit/

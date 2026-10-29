@@ -79,6 +79,7 @@ streamlit run Streamlit_App.py
 - `start-binance.bat`: crypto profile (`MARKET=crypto`), backend :8000, app http://localhost:5173
 - `start-yahoo.bat`: multi-asset profile (`MARKET=multi_asset`), backend :8001, app http://localhost:5174
 - Both call `scripts/launch.bat`, which creates `backend/.venv` and installs the packages on the first run. They can run side by side, and each origin keeps its own workspace in the browser.
+- `share-yahoo.bat` / `share-binance.bat` (`scripts/share.bat`): temporary public link. Starts the app if needed, a second frontend (:5175 / :5176) with `VITE_API_URL=/` whose Vite proxy forwards `/api` to the backend, and a cloudflared quick tunnel to it (`allowedHosts` in `frontend/vite.config.ts`).
 - Backend tests: `cd backend && pytest`. Frontend checks: `cd frontend && npm run lint && npm run build`.
 
 ### Testing Individual Modules

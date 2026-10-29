@@ -94,6 +94,19 @@ Double-click one of the launchers at the project root:
 
 The first launch installs the Python packages (`backend/requirements.txt`) and the npm packages, then opens two windows (backend and frontend) and the app in your browser. Close those two windows to stop the app. Both versions can run at the same time.
 
+### Share a temporary link
+
+| Launcher | Version | Shared frontend |
+|---|---|---|
+| `share-binance.bat` | Crypto | http://localhost:5176 |
+| `share-yahoo.bat` | Multi-asset | http://localhost:5175 |
+
+The launcher starts the app with `start-*.bat` if its backend isn't running, then opens a second frontend that forwards `/api` to the backend (`VITE_API_URL=/`, proxy in `frontend/vite.config.ts`), and a [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/do-more-with-tunnels/trycloudflare/) quick tunnel to it (installed with winget on first use). The `https://….trycloudflare.com` link is printed in the launcher's window.
+
+- The link works while the launcher, backend and shared frontend windows stay open and the PC is awake. It changes on every launch and has no uptime guarantee.
+- No account or login: anyone with the link uses the app with your `.env` credentials (Binance account, GitHub pushes). Only share it with people you trust, and close the window when done.
+- Each visitor keeps their own workspace in their browser.
+
 ### Manual launch (any OS)
 
 ```bash
