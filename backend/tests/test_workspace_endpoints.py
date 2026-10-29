@@ -134,6 +134,25 @@ class TestStrategy:
         assert risk.loc["TEV (daily)", "Rebalanced Equal Weighted"] == pytest.approx(0.0)
         assert data["frontier"]["constrained"] is not None
 
+    def test_frontier_risk_limits(self, client, strategies):
+        """The constrained frontier respects the risk limits, not only the weight constraints"""
+        params = {**WINDOW, "strategies": strategies["schedules"], "benchmark": "Equal Weighted",
+                  "frontier_points": 20}
+        free = frame(client.post("/api/v1/portfolio/performance", json=params).json()["data"]["frontier"]["frontier"])
+        limit = round(float(free["Volatility"].min() + free["Volatility"].max()) / 2, 4)
+        response = client.post("/api/v1/portfolio/performance", json={
+            **params, "risk_constraints": {"volatility": {"sign": "<=", "limit": limit},
+                                           "tracking_error": {"sign": "<=", "limit": 0.5}},
+            "benchmark_frequency": "Monthly"})
+        assert response.status_code == 200, response.text
+        constrained = frame(response.json()["data"]["frontier"]["constrained"])
+        assert len(constrained) and constrained["Volatility"].max() <= limit + 1e-3
+        # without a benchmark allocation only the volatility limit is kept, with a warning
+        response = client.post("/api/v1/portfolio/performance", json={
+            **params, "benchmark": None, "risk_constraints": {"beta": {"sign": "<=", "limit": 1.0}}})
+        assert response.status_code == 200, response.text
+        assert any("left out" in w for w in response.json()["warnings"])
+
 
 class TestPortfolioViews:
     def test_calendar(self, client, strategies):

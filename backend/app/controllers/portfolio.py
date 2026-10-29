@@ -7,7 +7,8 @@ from app.controllers.base import WorkspaceController
 from app.core.exceptions import DataValidationError
 from app.schemas.portfolio import BetaViewRequest, CalendarViewRequest, PerformanceViewRequest
 from app.schemas.workspace import PairViewRequest, ViewResponse, WorkspaceRequest
-from src.PortfolioAnalytics import allocation_frame, build_constraints
+from src.PortfolioAnalytics import allocation_frame, build_constraints, to_returns
+from src.Rebalancing import rebalanced_portfolio
 from src import Account as account_analytics
 from src import Workspace as ws_analytics
 
@@ -21,9 +22,24 @@ class PortfolioController(WorkspaceController):
         start, end = self._window(request)
         allocations = allocation_frame(request.allocations, ws.prices.columns)
 
+        # The constrained frontier respects the risk limits too, measured as in the optimization
+        risk = request.risk_constraints.as_dict() if request.risk_constraints else {}
+        bench_weights = allocations.loc[request.benchmark] if request.benchmark in allocations.index else None
+        if bench_weights is None and set(risk) - {'volatility'}:
+            warnings.append("Efficient frontier: beta / tracking error / information ratio limits left out "
+                            "(no benchmark allocation selected).")
+            risk = {k: v for k, v in risk.items() if k == 'volatility'}
+
         def run():
+            window = ws.prices.loc[start:end]
+            bench_returns = None
+            if 'beta' in risk and request.benchmark_frequency is not None:
+                bench_returns = rebalanced_portfolio(
+                    window, bench_weights, frequency=request.benchmark_frequency.value
+                ).sum(axis=1).pct_change()
             constraints = build_constraints(
-                ws.prices.loc[start:end], [(c.asset, c.sign.solver_sign, c.limit) for c in request.constraints]
+                to_returns(window), [(c.asset, c.sign.solver_sign, c.limit) for c in request.constraints],
+                risk, bench_weights, bench_returns,
             )
             return ws_analytics.performance_view(
                 ws, start, end, allocations, request.benchmark, request.vol_window, constraints,

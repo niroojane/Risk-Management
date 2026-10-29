@@ -122,6 +122,12 @@ const StrategyPage = () => {
   });
 
   const workspace = useWorkspacePayload('perf', store.frequency, false);
+  // Risk limits apply with a benchmark allocation, as in 'Optimize Portfolio'
+  const hasBenchmark = store.allocations.some((a) => a.name === store.benchmark);
+  const frontierRisk = useMemo(
+    () => (hasBenchmark ? riskPayload(store.riskConstraints) : null),
+    [hasBenchmark, store.riskConstraints]
+  );
   const performanceParams = useMemo(
     () =>
       workspace && {
@@ -129,9 +135,21 @@ const StrategyPage = () => {
         benchmark: store.benchmark,
         vol_window: store.volWindow,
         constraints: store.constraints,
+        risk_constraints: frontierRisk,
+        benchmark_frequency: store.frequency,
       },
-    [workspace, store.benchmark, store.volWindow, store.constraints]
+    [workspace, store.benchmark, store.volWindow, store.constraints, frontierRisk, store.frequency]
   );
+  const frontierNote = [
+    store.constraints.length > 0 &&
+      `weights: ${store.constraints.map((c) => `${c.asset} ${signLabel(c.sign)} ${c.limit}`).join(', ')}`,
+    frontierRisk &&
+      `risk limits: ${store.riskConstraints
+        .map((c) => `${riskLabel(c.risk)} ${signLabel(c.sign)} ${c.limit}`)
+        .join(', ')}`,
+  ]
+    .filter(Boolean)
+    .join('; ');
   const performance = useView(
     'strategy-performance',
     performanceParams,
@@ -410,10 +428,19 @@ const StrategyPage = () => {
               format={(_, row) => (row === 'Date of Max Drawdown' ? 'number' : 'percent')}
             />
             {view.frontier && (
-              <DataTable
-                frame={view.frontier.indicators}
-                format={(_, row) => (row === 'Sharpe Ratio' ? 'number' : 'percent')}
-              />
+              <>
+                <DataTable
+                  frame={view.frontier.indicators}
+                  format={(_, row) => (row === 'Sharpe Ratio' ? 'number' : 'percent')}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Constrained frontier: {frontierNote || 'no constraint'}
+                  {store.riskConstraints.length > 0 &&
+                    !frontierRisk &&
+                    ' (risk limits left out: select a Benchmark allocation)'}
+                  .
+                </p>
+              </>
             )}
             <Grid2>
               <FrameChart frame={view.levels} title="Performance" visible={HEADLINE} />

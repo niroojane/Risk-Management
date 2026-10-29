@@ -91,6 +91,8 @@ export const workspaceService = {
       benchmark?: string | null;
       vol_window: number;
       constraints: WeightConstraint[];
+      risk_constraints?: Record<string, { sign: ConstraintSign; limit: number }> | null;
+      benchmark_frequency?: RebalancingFrequency | null;
     }
   ) => post<PerformanceView>('/portfolio/performance', params),
   calendar: (
