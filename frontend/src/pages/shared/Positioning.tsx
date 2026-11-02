@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Notice, Panel, RunButton, Toolbar, ViewStatus } from '@/components/ui';
 import { DataTable } from '@/components/data';
 import type { CellFormat } from '@/components/data/DataTable';
@@ -6,17 +5,12 @@ import { useView } from '@/hooks/useWorkspace';
 import { useIsMultiAsset } from '@/hooks/useProfile';
 import { workspaceService } from '@/services/workspaceService';
 import { useWorkspaceStore } from '@/store/workspaceStore';
-import type { Weights } from '@/types/workspace';
 
-/** Latest weights of the Fund: its last scheduled allocation */
-const useModelWeights = (): Weights | null => {
+/** The Fund's units since its last rebalancing: the model drifts with prices, as in the notebooks */
+const useModelUnits = () => {
   const backtest = useWorkspaceStore((s) => s.backtest);
-  return useMemo(() => {
-    const fund = backtest?.schedules.Fund;
-    if (!fund) return null;
-    const dates = Object.keys(fund).sort();
-    return fund[dates[dates.length - 1]];
-  }, [backtest]);
+  if (!backtest?.model_units) return null;
+  return { model_units: backtest.model_units, model_prices: backtest.model_prices };
 };
 
 const percentColumns = ['Weights Model', 'Current Weights', 'Weights'];
@@ -32,10 +26,10 @@ const cellFormat = (column: string): CellFormat =>
 
 /** Strategy > Positioning and Current Portfolio > Positioning: holdings vs model, and P&L */
 const Positioning = () => {
-  const model = useModelWeights();
+  const model = useModelUnits();
   const multiAsset = useIsMultiAsset();
   // The buttons always read the live account, not the backend cache
-  const positions = useView('positioning', model ? { model } : null, ({ model }) =>
+  const positions = useView('positioning', model, (model) =>
     workspaceService.positioning(model, true)
   );
   const holdings = useView('holdings', {}, () => workspaceService.holdings(true));

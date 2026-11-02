@@ -85,6 +85,10 @@ class AccountService(PortfolioAccount):
             'weights': {t: float(weights[t]) for t in tickers if t not in STABLECOINS},
         }
 
+    async def model_prices(self, prices: pd.Series, use_cache: bool = True) -> pd.Series:
+        """Live prices, else the backtest's last ones"""
+        return (await self.get_last_prices(list(prices.index), use_cache)).fillna(prices)
+
     async def positioning(self, model_weights: pd.Series, use_cache: bool = True) -> Dict[str, Any]:
         holdings, _ = await self.get_holdings(use_cache)
         table = await asyncio.to_thread(account_analytics.positioning_table, holdings, model_weights)

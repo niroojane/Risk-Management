@@ -105,7 +105,6 @@ class StrategyController(AnalyticsController):
             risk_constraints=request.risk_constraints.as_dict() if request.risk_constraints else None,
             bench_weights=bench_weights,
             benchmark=(profile.benchmark_label, profile.benchmark_ticker),
-            model_row=profile.model_row,
             calendar_annualization=profile.name == MULTI_ASSET,
             schedules=schedules,
         )
@@ -115,6 +114,9 @@ class StrategyController(AnalyticsController):
             'schedules': {name: frame_to_dict(frame.round(6)) for name, frame in schedules.items()},
             'tables': to_payload(schedules),
             'model': {symbol: round(float(w), 6) for symbol, w in result['model'].items()},
+            # Positioning: units held since the last rebalancing, valued at these prices or live ones
+            'model_units': {symbol: float(q) for symbol, q in result['quantities']['Fund'].iloc[-1].items()},
+            'model_prices': {symbol: float(p) for symbol, p in prices.ffill().iloc[-1].dropna().items()},
             'metrics': to_payload(result['metrics']),
             'symbols': list(prices.columns),
         }

@@ -347,6 +347,20 @@ class TestAccount:
         assert total["Model"] == pytest.approx(total["Current Portfolio in USDT"])
         assert table.loc["SOLUSDT", "Spread"] < 0
 
+    def test_positioning_values_model_units_at_live_prices(self, client, monkeypatch):
+        async def last_prices(tickers, use_cache=True):
+            return pd.Series({"BTCUSDT": 300.0, "ETHUSDT": np.nan}).reindex(tickers)
+
+        account = app.dependency_overrides[get_required_account_service]()
+        monkeypatch.setattr(account, "get_last_prices", last_prices)
+        response = client.post("/api/v1/account/positioning", json={
+            "model_units": {"BTCUSDT": 1.0, "ETHUSDT": 1.0},
+            "model_prices": {"BTCUSDT": 1.0, "ETHUSDT": 100.0},   # ETH has no live price here
+        })
+        assert response.status_code == 200, response.text
+        table = frame(response.json()["data"]["positioning"])
+        assert table.loc["BTCUSDT", "Weights Model"] == pytest.approx(0.75)
+
     @pytest.mark.parametrize("method, url, body", [
         ("get", "/api/v1/account/holdings", None),
         ("post", "/api/v1/account/positioning", {"model_weights": {"BTCUSDT": 1.0}}),

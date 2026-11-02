@@ -224,6 +224,14 @@ class TestExcelAccount:
         assert {"Current Portfolio", "Current Weights"} <= set(table.columns)
         assert table.loc["IEF", "Spread"] < 0
 
+    def test_positioning_values_model_units_at_backtest_prices(self, client):
+        response = client.post("/api/v1/account/positioning", json={
+            "model_units": {"XLK": 3.0, "IEF": 1.0}, "model_prices": {"XLK": 100.0, "IEF": 100.0},
+        })
+        assert response.status_code == 200, response.text
+        table = frame(response.json()["data"]["positioning"])
+        assert table.loc["XLK", "Weights Model"] == pytest.approx(0.75)
+
     def test_pnl_with_fees(self, client):
         response = client.get("/api/v1/account/pnl")
         assert response.status_code == 200, response.text
@@ -307,6 +315,10 @@ class TestRegimeStrategies:
         data = response.json()["data"]
         assert set(data["schedules"]) == {"Fund", "Core"}
         assert sum(data["model"].values()) == pytest.approx(1.0, abs=1e-4)
+        # the Model is the last complete period, not the row of the last date
+        fund = pd.DataFrame.from_dict(data["schedules"]["Fund"], orient="index").sort_index()
+        assert data["model"] == pytest.approx(fund.iloc[-2].to_dict(), abs=1e-6)
+        assert set(data["model_units"]) == set(fund.columns)
 
     def test_unknown_strategies(self, client, scenario_file):
         response = client.post("/api/v1/strategy/backtest", json={**self.BACKTEST, "objective": "momentum"})

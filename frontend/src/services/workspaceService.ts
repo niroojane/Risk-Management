@@ -159,12 +159,8 @@ export const workspaceService = {
   // Account (`fresh` skips the backend cache: live balances / prices, like the notebook)
   holdings: (fresh = false) =>
     get<HoldingsView>('/account/holdings', fresh ? { use_cache: false } : undefined),
-  positioning: (modelWeights: Weights, fresh = false) =>
-    post<PositioningView>(
-      '/account/positioning',
-      { model_weights: modelWeights },
-      fresh ? { use_cache: false } : undefined
-    ),
+  positioning: (model: { model_units: Weights; model_prices: Weights }, fresh = false) =>
+    post<PositioningView>('/account/positioning', model, fresh ? { use_cache: false } : undefined),
   accountPnl: (fresh = false) =>
     get<AccountPnLView>('/account/pnl', fresh ? { use_cache: false } : undefined),
   upload: () => post<UploadResult>('/account/upload', {}),

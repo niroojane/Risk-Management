@@ -41,8 +41,6 @@ class MarketProfile:
     current_portfolio_file: str = ''
     # the account's assets are added to the universe on 'Get Prices'
     include_holdings_in_universe: bool = True
-    # the backtest's 'Model' is its last complete period (-2) or its last row (-1)
-    model_row: int = -2
     default_universe: Dict[str, List[str]] = field(default_factory=dict)
     # the HMM Regime App's scenarios are strategies too ('regime:<scenario>', src/Regime.py)
     regime_strategies: bool = False
@@ -77,7 +75,6 @@ MULTI_ASSET_PROFILE = MarketProfile(
     trades_file='Trade History2',
     current_portfolio_file='Current Portfolio2',
     include_holdings_in_universe=False,
-    model_row=-1,
     default_universe={k: list(v) for k, v in UCITS_UNIVERSE.items()},
     regime_strategies=True,
 )
