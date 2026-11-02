@@ -85,9 +85,9 @@ def run_backtest(
 
     Returns the Fund (final), Core and Overlay weight schedules (Overlay is None
     without overlays), the Model allocation (`model_row`: -2 = last complete
-    period as the Crypto App, -1 = last row as the Multi Asset App), the units
-    and simulated values of each schedule, the metrics table and the optimizer
-    warnings. `benchmark` = (series name, ticker).
+    period, -1 = last row), the units and simulated values of each schedule,
+    the metrics table and the optimizer warnings. `benchmark` = (series name,
+    ticker).
 
     Risk constraints: {'volatility' | 'beta' | 'tracking_error' |
     'information_ratio': (sign, limit)}; beta, tracking error and information

@@ -9,8 +9,11 @@ from app.schemas.workspace import upper_keys
 class PositioningRequest(BaseModel):
     """Current holdings vs. the model allocation"""
     model_weights: Dict[str, float] = Field(default_factory=dict, description="Model weights by symbol")
+    model_units: Dict[str, float] = Field(default_factory=dict,
+                                          description="Units held by the model, used instead of model_weights")
+    model_prices: Dict[str, float] = Field(default_factory=dict, description="Prices valuing model_units")
 
-    @field_validator('model_weights')
+    @field_validator('model_weights', 'model_units', 'model_prices')
     @classmethod
     def normalize(cls, v):
         return upper_keys(v)

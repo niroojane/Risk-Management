@@ -24,6 +24,10 @@ class PortfolioAccount(ABC):
     async def positioning(self, model_weights: pd.Series, use_cache: bool = True) -> Dict[str, Any]:
         """{'positioning': current holdings vs the model, 'holdings': table}"""
 
+    async def model_prices(self, prices: pd.Series, use_cache: bool = True) -> pd.Series:
+        """Prices valuing the model's units: the backtest's last ones by default"""
+        return prices
+
     @abstractmethod
     async def pnl(self, use_cache: bool = True) -> Dict[str, Any]:
         """{'pnl': P&L per asset, 'trades': trade history, 'warnings': [...]}"""

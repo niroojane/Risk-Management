@@ -28,7 +28,12 @@ class AccountController:
 
     async def positioning(self, request: PositioningRequest, use_cache: bool = True) -> ViewResponse:
         """Current holdings vs. the model allocation"""
-        data = await self._service.positioning(pd.Series(request.model_weights, dtype=float), use_cache)
+        weights = pd.Series(request.model_weights, dtype=float)
+        if request.model_units:
+            units = pd.Series(request.model_units, dtype=float)
+            prices = await self._service.model_prices(pd.Series(request.model_prices, dtype=float), use_cache)
+            weights = (units * prices.reindex(units.index)).dropna()   # drifted since the last rebalancing
+        data = await self._service.positioning(weights, use_cache)
         return self._response(data, "Positioning vs model")
 
     async def pnl(self, use_cache: bool = True) -> ViewResponse:

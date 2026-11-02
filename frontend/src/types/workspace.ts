@@ -85,6 +85,9 @@ export interface BacktestResult {
   schedules: Record<string, Schedule>;
   tables: Record<string, Frame>;
   model: Weights;
+  /** Fund units held since the last rebalancing, and the last prices valuing them */
+  model_units: Weights;
+  model_prices: Weights;
   metrics: Frame;
   symbols: string[];
 }
