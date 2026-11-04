@@ -62,14 +62,43 @@ const RELATIVE_NAMES: [Objective, string][] = [
   ['information_ratio', 'Max Information Ratio'],
 ];
 
+/** Names of the rows 'Optimize Portfolio' writes; any other row was added by the user (or the backtest) */
+const GENERATED_NAMES = new Set([
+  ...GRID_NAMES.flatMap(([, name, constrainedName]) => [name, constrainedName]),
+  ...RELATIVE_NAMES.flatMap(([, name]) => [name, `${name} Constrained`]),
+  'Equal Weighted',
+  'Current Weights',
+]);
+
+/** A new grid followed by the current rows it does not write, so an added allocation
+ *  (e.g. the benchmark of the relative objectives) survives 'Optimize Portfolio' */
+export const withUserRows = (grid: AllocationRow[], current: AllocationRow[]) => [
+  ...grid,
+  ...current.filter((row) => !GENERATED_NAMES.has(row.name)),
+];
+
+/** First 'Allocation N' name no row uses yet */
+export const newAllocationName = (rows: AllocationRow[]) => {
+  const names = new Set(rows.map((r) => r.name));
+  let n = rows.length;
+  while (names.has(`Allocation ${n}`)) n += 1;
+  return `Allocation ${n}`;
+};
+
 const round4 = (weights: Weights): Weights =>
   Object.fromEntries(Object.entries(weights).map(([s, w]) => [s, Math.round(w * 1e4) / 1e4]));
 
-/** Risk constraints in the API format (one per risk type) */
-export const riskPayload = (rows: RiskConstraintRow[]) =>
-  rows.length
-    ? Object.fromEntries(rows.map((r) => [r.risk, { sign: r.sign, limit: r.limit }]))
+/** Risk limits measured against the benchmark allocation (the volatility limit is not) */
+export const needsBenchmark = (row: RiskConstraintRow) => row.risk !== 'volatility';
+
+/** Risk constraints in the API format (one per risk type); without a benchmark allocation
+ *  only the volatility limit is kept */
+export const riskPayload = (rows: RiskConstraintRow[], hasBenchmark: boolean) => {
+  const kept = hasBenchmark ? rows : rows.filter((r) => !needsBenchmark(r));
+  return kept.length
+    ? Object.fromEntries(kept.map((r) => [r.risk, { sign: r.sign, limit: r.limit }]))
     : null;
+};
 
 export interface OptimizeInput {
   universe: LoadedUniverse;
@@ -90,9 +119,11 @@ export const optimizeGrid = async (input: OptimizeInput) => {
   const messages: string[] = [];
 
   // Risk constraints are measured against the benchmark allocation
-  const risk = benchWeights ? riskPayload(riskConstraints) : null;
-  if (riskConstraints.length && !benchWeights) {
-    messages.push('⚠️ Skipping risk constraints: no benchmark allocation selected yet.');
+  const risk = riskPayload(riskConstraints, !!benchWeights);
+  if (!benchWeights && riskConstraints.some(needsBenchmark)) {
+    messages.push(
+      '⚠️ Skipping the beta / tracking error / information ratio limits: no benchmark allocation selected yet.'
+    );
   }
   const constrained = constraints.length > 0 || !!risk;
   const absolute = GRID_NAMES.map(([objective]) => objective);
