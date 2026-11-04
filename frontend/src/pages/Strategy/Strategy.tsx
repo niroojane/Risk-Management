@@ -30,11 +30,14 @@ import {
   SIGN_OPTIONS,
   STRATEGY_OPTIONS,
   isRegimeStrategy,
+  needsBenchmark,
+  newAllocationName,
   optimizeGrid,
   riskLabel,
   riskPayload,
   signLabel,
   strategyLabel,
+  withUserRows,
 } from './strategyGrid';
 
 const StrategyPage = () => {
@@ -84,7 +87,9 @@ const StrategyPage = () => {
         benchmark: store.benchmark,
         frequency: store.frequency,
       }),
-    onSuccess: ({ rows }) => {
+    onSuccess: ({ rows: grid }) => {
+      // the rows as they are now: one may have been added while the optimization ran
+      const rows = withUserRows(grid, useWorkspaceStore.getState().allocations);
       store.setAllocations(rows, true);
       if (store.benchmark && !rows.some((r) => r.name === store.benchmark)) {
         store.setStrategy({ benchmark: null });
@@ -109,7 +114,7 @@ const StrategyPage = () => {
         overlays: store.overlays,
         frequency: store.frequency,
         constraints: store.constraints,
-        risk_constraints: benchWeights ? riskPayload(store.riskConstraints) : null,
+        risk_constraints: riskPayload(store.riskConstraints, !!benchWeights),
         benchmark: benchWeights ?? null,
       });
     },
@@ -125,7 +130,7 @@ const StrategyPage = () => {
   // Risk limits apply with a benchmark allocation, as in 'Optimize Portfolio'
   const hasBenchmark = store.allocations.some((a) => a.name === store.benchmark);
   const frontierRisk = useMemo(
-    () => (hasBenchmark ? riskPayload(store.riskConstraints) : null),
+    () => riskPayload(store.riskConstraints, hasBenchmark),
     [hasBenchmark, store.riskConstraints]
   );
   const performanceParams = useMemo(
@@ -145,6 +150,7 @@ const StrategyPage = () => {
       `weights: ${store.constraints.map((c) => `${c.asset} ${signLabel(c.sign)} ${c.limit}`).join(', ')}`,
     frontierRisk &&
       `risk limits: ${store.riskConstraints
+        .filter((c) => c.risk in frontierRisk)
         .map((c) => `${riskLabel(c.risk)} ${signLabel(c.sign)} ${c.limit}`)
         .join(', ')}`,
   ]
@@ -263,7 +269,7 @@ const StrategyPage = () => {
               store.setAllocations([
                 ...store.allocations,
                 {
-                  name: `Allocation ${store.allocations.length}`,
+                  name: newAllocationName(store.allocations),
                   weights: Object.fromEntries(symbols.map((s) => [s, 0])),
                 },
               ])
@@ -435,9 +441,9 @@ const StrategyPage = () => {
                 />
                 <p className="text-xs text-muted-foreground">
                   Constrained frontier: {frontierNote || 'no constraint'}
-                  {store.riskConstraints.length > 0 &&
-                    !frontierRisk &&
-                    ' (risk limits left out: select a Benchmark allocation)'}
+                  {!hasBenchmark &&
+                    store.riskConstraints.some(needsBenchmark) &&
+                    ' (beta / tracking error / information ratio limits left out: select a Benchmark allocation)'}
                   .
                 </p>
               </>
