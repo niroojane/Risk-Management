@@ -37,7 +37,7 @@ const CryptoScope = () => {
   const topN = useMemo(
     () =>
       (marketCap.data ?? [])
-        .filter((item) => !item.long_name.includes('(bStocks)'))
+        .filter((item) => !item.long_name.includes('(bStocks'))   // Binance closes it with a full-width '）'
         .slice(0, nCrypto),
     [marketCap.data, nCrypto]
   );

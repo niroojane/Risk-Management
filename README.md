@@ -4,6 +4,10 @@ Interactive portfolio management apps built with **ipywidgets** (Jupyter), **Str
 
 The analytics live in one shared library (`src/`) used by the notebooks, Streamlit and the web app's backend.
 
+![Walkthrough of the web app on the crypto profile](docs/crypto-web-app.gif)
+
+*The web app on the crypto profile (Binance): investment universe, optimization and rolling backtest, P&L of the live portfolio, risk contribution, Value at Risk and market risk.*
+
 ---
 
 ## 🧭 The Apps
@@ -214,6 +218,7 @@ The first launch creates `backend/.venv` and installs the Python and npm package
 ├── share-yahoo.bat           # Temporary public link to the multi-asset version
 ├── .env.example              # Web app settings template (copy to .env, not versioned)
 ├── SETUP.md                  # Detailed setup and troubleshooting
+├── docs/                     # README media (crypto-web-app.gif)
 ├── .streamlit/
 └── README.md
 ```

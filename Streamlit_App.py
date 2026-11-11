@@ -320,7 +320,7 @@ with main_tabs[0]:
 
     tickers_market_cap = (
     Binance.get_market_cap()
-    .loc[lambda df: ~df['Long name'].str.contains(r'\(bStocks\)', na=False)]
+    .loc[lambda df: ~df['Long name'].str.contains('(bStocks', regex=False, na=False)]
     )
     market_cap_table=tickers_market_cap.iloc[:selected_number].set_index('Ticker')
 
